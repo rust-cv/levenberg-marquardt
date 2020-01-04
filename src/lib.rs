@@ -2,7 +2,15 @@
 
 #![no_std]
 
-use nalgebra::{storage::Storage, Dim, Matrix, Scalar, Vector};
+use nalgebra::{
+    allocator::Allocator,
+    constraint::{DimEq, ShapeConstraint},
+    dimension::{DimMin, DimMinimum},
+    storage::{ContiguousStorageMut, Storage},
+    DefaultAllocator, Dim, Matrix, RealField, Vector,
+};
+
+use num_traits::FromPrimitive;
 
 /// Note that the differentials and state vector are represented with column vectors.
 /// This is atypical from the normal way it is done in mathematics. This is done because
@@ -36,7 +44,7 @@ use nalgebra::{storage::Storage, Dim, Matrix, Scalar, Vector};
 /// You might do that if you always have a fixed amount of time per optimization, such as when
 /// processing live video frames.
 ///
-/// `init` is the initial guess. Make sure to set `init` close to the actual solution.
+/// `init` is the initial parameter guess. Make sure to set `init` close to the actual solution.
 /// It is recommended to use a sample consensus algorithm to get a close initial approximation.
 ///
 /// `jacobian_and_residuals` is a function that takes in the current guess and produces the Jacobian
@@ -45,13 +53,103 @@ use nalgebra::{storage::Storage, Dim, Matrix, Scalar, Vector};
 /// data is not required by `optimize`. Only the Jacobian and the residuals are required to perform
 /// Levenberg-Marquardt optimization. You will need to caputure your inputs and outputs in the closure
 /// to compute these, but they are not arguments since they are constants to Levenberg-Marquardt.
-pub fn optimize<N: Scalar, R: Dim, C: Dim, VS: Storage<N, R, C>, MS: Storage<N, R>>(
+///
+/// `N` is the type parameter of the data type that is stored in the matrix (like `f32`).
+///
+/// `P` is the number of parameter variables being optimized.
+///
+/// `S` is the number of samples used in optimization.
+///
+/// `PS` is the nalgebra storage used for the parameter vector.
+///
+/// `RS` is the nalgebra storage used for the residual vector.
+///
+/// `JS` is the nalgebra storage used for the jacobian matrix.
+pub fn optimize<N, P, S, PS, RS, JS>(
     max_iterations: usize,
     initial_lambda: N,
     lambda_scale: N,
     threshold: N,
-    init: Vector<N, R, VS>,
-    jacobian_and_residuals: impl Fn(Vector<N, R, VS>) -> (Matrix<N, R, C, MS>, Matrix<N, R, C, MS>),
-) -> Vector<N, R, VS> {
-    unimplemented!()
+    init: Vector<N, P, PS>,
+    residuals: impl Fn(&Vector<N, P, PS>) -> Vector<N, S, RS>,
+    jacobian: impl Fn(&Vector<N, P, PS>) -> Matrix<N, P, S, JS>,
+) -> Vector<N, P, PS>
+where
+    N: RealField + FromPrimitive,
+    P: DimMin<P>,
+    S: Dim,
+    PS: ContiguousStorageMut<N, P> + Clone,
+    RS: Storage<N, S>,
+    JS: Storage<N, P, S>,
+    DefaultAllocator: Allocator<N, S, P>,
+    DefaultAllocator: Allocator<N, P, P>,
+    DefaultAllocator: Allocator<N, P, Buffer = PS>,
+    ShapeConstraint: DimEq<DimMinimum<P, P>, P>,
+{
+    let mut lambda = initial_lambda;
+    let mut guess = init;
+    let mut res = residuals(&guess);
+    let mut sum_of_squares = res.norm_squared();
+    let total = N::from_usize(res.len())
+        .expect("there were more items in the vector than could be represented by the type");
+
+    for _ in 0..max_iterations {
+        // Next step lambda.
+        let smaller_lambda = lambda / lambda_scale;
+
+        // Compute the Jacobian.
+        let jacobian = jacobian(&guess);
+
+        // Solve J * residuals, which are the gradients.
+        let gradients = &jacobian * &res;
+
+        // Get a tuple of the lambda, guess, residual, and sum-of-squares.
+        // Returns an option because it may not be possible to solve the inverse.
+        let lam_ges_res_sum = |lam| {
+            // Compute JJᵀ + λ*diag(JJᵀ).
+            let jj = &jacobian * jacobian.transpose();
+            let new_diag = jj.map_diagonal(|n| n * (lam + N::one()));
+            let mut jjl = jj;
+            jjl.set_diagonal(&new_diag);
+
+            // Invert JᵀJ + λ*diag(JᵀJ) and solve for delta.
+            jjl.try_inverse()
+                .map(|inv_jjl| inv_jjl * &gradients)
+                .map(|delta| {
+                    let ges = &guess + delta;
+                    let res = residuals(&ges);
+                    let sum = res.norm_squared();
+                    (lam, ges, res, sum)
+                })
+        };
+        let new_vars = match (lam_ges_res_sum(smaller_lambda), lam_ges_res_sum(lambda)) {
+            (Some(s_vars), Some(o_vars)) => Some(if s_vars.3 < o_vars.3 { s_vars } else { o_vars }),
+            (Some(vars), None) | (None, Some(vars)) => Some(vars),
+            (None, None) => None,
+        };
+
+        if let Some((n_lam, n_ges, n_res, n_sum)) = new_vars {
+            // We didn't see a decrease in the new state.
+            if n_sum > sum_of_squares {
+                // Increase lambda twice and go to the next iteration.
+                // Increase twice so that the new two tested lambdas are different than current.
+                lambda *= lambda_scale * lambda_scale;
+            } else {
+                // There was a decrease, so update everything.
+                lambda = n_lam;
+                guess = n_ges;
+                res = n_res;
+                sum_of_squares = n_sum;
+            }
+        } else {
+            lambda *= lambda_scale * lambda_scale
+        }
+
+        // We can terminate early if the sum of squares
+        if sum_of_squares < threshold * total {
+            break;
+        }
+    }
+
+    guess
 }
