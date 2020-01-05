@@ -3,6 +3,13 @@ name = "levenberg-marquardt"
 version = "0.1.0"
 authors = ["Geordon Worley <vadixidav@gmail.com>"]
 edition = "2018"
+description = "Levenberg-Marquardt algorithm built on top of nalgebra"
+keywords = ["estimation", "estimator", "levenberg", "marquardt"]
+categories = ["algorithms", "computer-vision", "science::robotics", "no-std", "mathematics"]
+repository = "https://github.com/rust-cv/levenberg-marquardt"
+documentation = "https://docs.rs/levenberg-marquardt/"
+license = "MIT"
+readme = "README.md"
 
 [dependencies]
 nalgebra = { version = "0.19.0", default-features = false }
