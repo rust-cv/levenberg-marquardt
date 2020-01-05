@@ -7,7 +7,7 @@ use nalgebra::{
     constraint::{DimEq, ShapeConstraint},
     dimension::{DimMin, DimMinimum},
     storage::{ContiguousStorageMut, Storage},
-    DefaultAllocator, Dim, Matrix, RealField, Vector,
+    DefaultAllocator, Dim, DimName, Matrix, MatrixMN, RealField, Vector,
 };
 
 use num_traits::FromPrimitive;
@@ -60,28 +60,34 @@ use num_traits::FromPrimitive;
 ///
 /// `S` is the number of samples used in optimization.
 ///
+/// `J` is the number of rows per sample returned.
+///
 /// `PS` is the nalgebra storage used for the parameter vector.
 ///
 /// `RS` is the nalgebra storage used for the residual vector.
 ///
-/// `JS` is the nalgebra storage used for the jacobian matrix.
-pub fn optimize<N, P, S, PS, RS, JS>(
+/// `JS` is the nalgebra storage used for the Jacobian matrix.
+///
+/// `IJ` is the iterator over the Jacobian matrices of each sample.
+pub fn optimize<N, P, S, J, PS, RS, JS, IJ>(
     max_iterations: usize,
     initial_lambda: N,
     lambda_scale: N,
     threshold: N,
     init: Vector<N, P, PS>,
-    residuals: impl Fn(&Vector<N, P, PS>) -> Vector<N, S, RS>,
-    jacobian: impl Fn(&Vector<N, P, PS>) -> Matrix<N, P, S, JS>,
+    residuals: impl Fn(&Vector<N, P, PS>) -> Matrix<N, J, S, RS>,
+    jacobians: impl Fn(&Vector<N, P, PS>) -> IJ,
 ) -> Vector<N, P, PS>
 where
     N: RealField + FromPrimitive,
-    P: DimMin<P>,
+    P: DimMin<P> + DimName,
     S: Dim,
+    J: DimName,
     PS: ContiguousStorageMut<N, P> + Clone,
-    RS: Storage<N, S>,
-    JS: Storage<N, P, S>,
-    DefaultAllocator: Allocator<N, S, P>,
+    RS: Storage<N, J, S>,
+    JS: Storage<N, P, J>,
+    IJ: Iterator<Item = Matrix<N, P, J, JS>>,
+    DefaultAllocator: Allocator<N, J, P>,
     DefaultAllocator: Allocator<N, P, P>,
     DefaultAllocator: Allocator<N, P, Buffer = PS>,
     ShapeConstraint: DimEq<DimMinimum<P, P>, P>,
@@ -97,23 +103,28 @@ where
         // Next step lambda.
         let smaller_lambda = lambda / lambda_scale;
 
-        // Compute the Jacobian.
-        let jacobian = jacobian(&guess);
-
-        // Solve J * residuals, which are the gradients.
-        let gradients = &jacobian * &res;
+        // Iterate through all the Jacobians to extract the approximate Hessian and the gradients.
+        let (hessian, gradients) = jacobians(&guess).zip(res.column_iter()).fold(
+            (nalgebra::zero(), nalgebra::zero()),
+            |(hessian, gradients): (MatrixMN<N, P, P>, Vector<N, P, PS>), (jacobian, res)| {
+                (
+                    hessian + &jacobian * jacobian.transpose(),
+                    gradients + &jacobian * &res,
+                )
+            },
+        );
 
         // Get a tuple of the lambda, guess, residual, and sum-of-squares.
         // Returns an option because it may not be possible to solve the inverse.
         let lam_ges_res_sum = |lam| {
             // Compute JJᵀ + λ*diag(JJᵀ).
-            let jj = &jacobian * jacobian.transpose();
-            let new_diag = jj.map_diagonal(|n| n * (lam + N::one()));
-            let mut jjl = jj;
-            jjl.set_diagonal(&new_diag);
+            let mut hessian_lambda_diag = hessian.clone();
+            let new_diag = hessian_lambda_diag.map_diagonal(|n| n * (lam + N::one()));
+            hessian_lambda_diag.set_diagonal(&new_diag);
 
             // Invert JᵀJ + λ*diag(JᵀJ) and solve for delta.
-            jjl.try_inverse()
+            hessian_lambda_diag
+                .try_inverse()
                 .map(|inv_jjl| inv_jjl * &gradients)
                 .map(|delta| {
                     let ges = &guess + delta;
