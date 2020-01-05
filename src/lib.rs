@@ -25,12 +25,16 @@ use num_traits::FromPrimitive;
 ///
 /// `max_iterations` limits the number of times the initial guess will be updated.
 ///
+/// `consecutive_divergence_limit` limits the number of times that lambda can diverge
+/// consecutively from Gauss-Newton due to a failed improvement. Once the
+/// solution is as good as possible, it will begin regressing to gradient descent. This
+/// limit prevents it from wasting the remaining cycles of the algorithm.
+///
 /// `initial_lambda` defines the initial lambda value. As lambda grows higher,
 /// Levenberg-Marquardt approaches gradient descent, which is better at converging to a distant
-/// minima. As lambda grows lower, Levenberg-Marquardt approaches the minima of the first-order
-/// taylor approximation, which allows faster convergence closer to the minima.
-/// A lambda of `0.0` would imply that it is purely based on the first-order taylor approximation.
-/// Please do not set lambda to exactly `0.0` or the `lambda_scale` will be unable to
+/// minima. As lambda grows lower, Levenberg-Marquardt approaches Gauss-Newton, which allows faster
+/// convergence closer to the minima. A lambda of `0.0` would imply that it is purely based on
+/// Gauss-Newton approximation. Please do not set lambda to exactly `0.0` or the `lambda_scale` will be unable to
 /// increase lambda since it does so through multiplication.
 ///
 /// `lambda_converge` must be set to a value below `1.0`. On each iteration of Levenberg-Marquardt,
@@ -52,12 +56,25 @@ use num_traits::FromPrimitive;
 /// `init` is the initial parameter guess. Make sure to set `init` close to the actual solution.
 /// It is recommended to use a sample consensus algorithm to get a close initial approximation.
 ///
-/// `jacobian_and_residuals` is a function that takes in the current guess and produces the Jacobian
-/// matrix of the function that is being optimized in respect to the guess and the residuals, which
-/// are the difference between the expected output and the output given the current guess. The underlying
-/// data is not required by `optimize`. Only the Jacobian and the residuals are required to perform
-/// Levenberg-Marquardt optimization. You will need to caputure your inputs and outputs in the closure
-/// to compute these, but they are not arguments since they are constants to Levenberg-Marquardt.
+/// `normalize` allows the parameter guess to be normalized on each iteration. It can be pushed into
+/// a slightly incorrect state on each iteration and this can be used to correct it. This might be something
+/// like an angle which exceeds 2 * pi. It might technically be correct, but you want to wrap it back around.
+/// This is also useful when a normal vector or unit quaternion is involved since those need to be kept
+/// normalized throughout the optimization procedure.
+///
+/// `residuals` must return the difference between the expected value and the output of the
+/// function being optimized. This is returned as a matrix where the number of residuals (rows)
+/// that are present in each column must correspond to the number of columns in each
+/// Jacobian returned by `jacobians`.
+///
+/// `jacobians` is a function that takes in the current guess and produces all the Jacobian
+/// matrices of the negative residuals in respect to the parameter. Each row should correspond to
+/// a dimension of the parameter vector and each column should correspond to a row in the residual matrix.
+/// You can pass in the Jacobian of as many residuals as you would like on each iteration,
+/// so long as the residuals returned by `residuals` has the same number of residuals per column.
+/// Only the Jacobian and the residuals are required to perform Levenberg-Marquardt optimization.
+/// You may need to caputure your observances in the closure to compute the Jacobian, but
+/// they are not arguments since they are constants to Levenberg-Marquardt.
 ///
 /// `N` is the type parameter of the data type that is stored in the matrix (`f32`).
 ///
@@ -76,11 +93,13 @@ use num_traits::FromPrimitive;
 /// `IJ` is the iterator over the Jacobian matrices of each sample.
 pub fn optimize<N, P, S, J, PS, RS, JS, IJ>(
     max_iterations: usize,
+    consecutive_divergence_limit: usize,
     initial_lambda: N,
     lambda_convege: N,
     lambda_diverge: N,
     threshold: N,
     init: Vector<N, P, PS>,
+    normalize: impl Fn(Vector<N, P, PS>) -> Vector<N, P, PS>,
     residuals: impl Fn(&Vector<N, P, PS>) -> Matrix<N, J, S, RS>,
     jacobians: impl Fn(&Vector<N, P, PS>) -> IJ,
 ) -> Vector<N, P, PS>
@@ -102,6 +121,7 @@ where
     let mut guess = init;
     let mut res = residuals(&guess);
     let mut sum_of_squares = res.norm_squared();
+    let mut consecutive_divergences = 0;
     let total = N::from_usize(res.len())
         .expect("there were more items in the vector than could be represented by the type");
 
@@ -129,15 +149,18 @@ where
             hessian_lambda_diag.set_diagonal(&new_diag);
 
             // Invert JᵀJ + λ*diag(JᵀJ) and solve for delta.
-            hessian_lambda_diag
+            let delta = hessian_lambda_diag
                 .try_inverse()
-                .map(|inv_jjl| inv_jjl * &gradients)
-                .map(|delta| {
-                    let ges = &guess + delta;
-                    let res = residuals(&ges);
-                    let sum = res.norm_squared();
-                    (lam, ges, res, sum)
-                })
+                .map(|inv_jjl| inv_jjl * &gradients);
+            // Compute the new guess, residuals, and sum-of-squares.
+            let vars = delta.map(|delta| {
+                let ges = normalize(&guess + delta);
+                let res = residuals(&ges);
+                let sum = res.norm_squared();
+                (lam, ges, res, sum)
+            });
+            // If the sum-of-squares is infinite or NaN it shouldn't be allowed through.
+            vars.filter(|vars| vars.3.is_finite())
         };
 
         // Select the vars that minimize the sum-of-squares the most.
@@ -153,17 +176,25 @@ where
                 // Increase lambda twice and go to the next iteration.
                 // Increase twice so that the new two tested lambdas are different than current.
                 lambda *= lambda_diverge;
+                consecutive_divergences += 1;
             } else {
                 // There was a decrease, so update everything.
                 lambda = n_lam;
                 guess = n_ges;
                 res = n_res;
                 sum_of_squares = n_sum;
+                consecutive_divergences = 0;
             }
         } else {
             // We were unable to take the inverse, so increase lambda in hopes that it may
             // cause the matrix to become invertible.
             lambda *= lambda_diverge;
+            consecutive_divergences += 1;
+        }
+
+        // Terminate early if we hit the consecutive divergence limit.
+        if consecutive_divergences == consecutive_divergence_limit {
+            break;
         }
 
         // We can terminate early if the sum of squares is below the threshold.

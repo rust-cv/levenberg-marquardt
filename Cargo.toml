@@ -8,3 +8,14 @@ edition = "2018"
 nalgebra = { version = "0.19.0", default-features = false }
 alga = "0.9.2"
 num-traits = "0.2.10"
+
+[dev-dependencies]
+arrsac = "0.2.0"
+rand = { version = "0.7.2", default-features = false }
+nalgebra = "0.19.0"
+pcg_rand = "0.11.1"
+sample-consensus = "0.2.0"
+
+[profile.test]
+# This is necessary so we can test as many estimations as possible.
+opt-level = 3
