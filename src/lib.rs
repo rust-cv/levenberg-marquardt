@@ -33,10 +33,15 @@ use num_traits::FromPrimitive;
 /// Please do not set lambda to exactly `0.0` or the `lambda_scale` will be unable to
 /// increase lambda since it does so through multiplication.
 ///
-/// `lambda_scale` should be set to a value above `1.0`. On each iteration of Levenberg-Marquardt,
-/// the lambda is used as-is and divided by `lambda_scale`. If the original lambda or the
-/// new lambda is better, that lambda becomes the new lambda. If neither are better that the
-/// previous sum-of-squares, then lambda is multiplied by `lambda_scale`.
+/// `lambda_converge` must be set to a value below `1.0`. On each iteration of Levenberg-Marquardt,
+/// the lambda is used as-is and multiplied by `lambda_converge`. If the original lambda or the
+/// new lambda is better, that lambda becomes the new lambda. If neither are better than the
+/// previous sum-of-squares, then lambda is multiplied by `lambda_diverge`.
+///
+/// `lambda_diverge` must be set to a value above `1.0` and highly recommended to set it **above**
+/// `lambda_converge^-1` (it will re-test an already-used lambda otherwise). On each iteration,
+/// if the sum-of-squares regresses, then lambda is multiplied by `lambda_diverge` to move closer
+/// to gradient descent in hopes that it will cause it to converge.
 ///
 /// `threshold` is the point at which the average-of-squares is low enough that the algorithm can
 /// terminate. This exists so that the algorithm can short-circuit and exit early if the
@@ -54,17 +59,17 @@ use num_traits::FromPrimitive;
 /// Levenberg-Marquardt optimization. You will need to caputure your inputs and outputs in the closure
 /// to compute these, but they are not arguments since they are constants to Levenberg-Marquardt.
 ///
-/// `N` is the type parameter of the data type that is stored in the matrix (like `f32`).
+/// `N` is the type parameter of the data type that is stored in the matrix (`f32`).
 ///
 /// `P` is the number of parameter variables being optimized.
 ///
 /// `S` is the number of samples used in optimization.
 ///
-/// `J` is the number of rows per sample returned.
+/// `J` is the number of rows per sample returned and the number of columns in the Jacobian.
 ///
 /// `PS` is the nalgebra storage used for the parameter vector.
 ///
-/// `RS` is the nalgebra storage used for the residual vector.
+/// `RS` is the nalgebra storage used for the residual matrix.
 ///
 /// `JS` is the nalgebra storage used for the Jacobian matrix.
 ///
@@ -72,7 +77,8 @@ use num_traits::FromPrimitive;
 pub fn optimize<N, P, S, J, PS, RS, JS, IJ>(
     max_iterations: usize,
     initial_lambda: N,
-    lambda_scale: N,
+    lambda_convege: N,
+    lambda_diverge: N,
     threshold: N,
     init: Vector<N, P, PS>,
     residuals: impl Fn(&Vector<N, P, PS>) -> Matrix<N, J, S, RS>,
@@ -101,7 +107,7 @@ where
 
     for _ in 0..max_iterations {
         // Next step lambda.
-        let smaller_lambda = lambda / lambda_scale;
+        let smaller_lambda = lambda * lambda_convege;
 
         // Iterate through all the Jacobians to extract the approximate Hessian and the gradients.
         let (hessian, gradients) = jacobians(&guess).zip(res.column_iter()).fold(
@@ -133,6 +139,8 @@ where
                     (lam, ges, res, sum)
                 })
         };
+
+        // Select the vars that minimize the sum-of-squares the most.
         let new_vars = match (lam_ges_res_sum(smaller_lambda), lam_ges_res_sum(lambda)) {
             (Some(s_vars), Some(o_vars)) => Some(if s_vars.3 < o_vars.3 { s_vars } else { o_vars }),
             (Some(vars), None) | (None, Some(vars)) => Some(vars),
@@ -144,7 +152,7 @@ where
             if n_sum > sum_of_squares {
                 // Increase lambda twice and go to the next iteration.
                 // Increase twice so that the new two tested lambdas are different than current.
-                lambda *= lambda_scale * lambda_scale;
+                lambda *= lambda_diverge;
             } else {
                 // There was a decrease, so update everything.
                 lambda = n_lam;
@@ -153,10 +161,12 @@ where
                 sum_of_squares = n_sum;
             }
         } else {
-            lambda *= lambda_scale * lambda_scale
+            // We were unable to take the inverse, so increase lambda in hopes that it may
+            // cause the matrix to become invertible.
+            lambda *= lambda_diverge;
         }
 
-        // We can terminate early if the sum of squares
+        // We can terminate early if the sum of squares is below the threshold.
         if sum_of_squares < threshold * total {
             break;
         }
