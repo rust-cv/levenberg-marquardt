@@ -13,8 +13,8 @@ readme = "README.md"
 
 [dependencies]
 nalgebra = { version = "0.19.0", default-features = false }
-alga = "0.9.2"
-num-traits = "0.2.10"
+alga = { version = "0.9.2", default-features = false }
+num-traits = { version = "0.2.10", default-features = false }
 
 [dev-dependencies]
 arrsac = "0.2.0"
