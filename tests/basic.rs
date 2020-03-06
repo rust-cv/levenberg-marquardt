@@ -22,9 +22,9 @@ impl Line {
     /// This takes in a point and computes the Jacobian of the vector from
     /// the point projected onto the line to the point itself. The
     /// Jacobian is computed in respect to the model itself.
-    /// 
+    ///
     /// J= dx,y/dnx,ny,c
-    /// 
+    ///
     /// The Jacobian is the transpose of a normal Jacobian because nalgebra is
     /// column-major. This means that the columns are the vector x and y,
     /// while the rows are the model parameters.
