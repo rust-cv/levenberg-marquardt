@@ -5,8 +5,6 @@ use rand::distributions::Uniform;
 use rand::{distributions::Distribution, Rng};
 use sample_consensus::{Consensus, Estimator, Model};
 
-const MAX_ITERATIONS: usize = 50;
-const CONSECUTIVE_DIVERGENCE_LIMIT: usize = 5;
 const RESIDUAL_SCALE: f32 = 0.1;
 const LINES_TO_ESTIMATE: usize = 1000;
 
@@ -17,8 +15,8 @@ struct Line {
 }
 
 impl Line {
-    fn xy_residuals(&self, point: &Vector2<f32>) -> Vector2<f32> {
-        -self.norm * self.c - self.norm.dot(point) * self.norm
+    fn xy_residuals(&self, point: Vector2<f32>) -> Vector2<f32> {
+        -self.norm * self.c - self.norm.dot(&point) * self.norm
     }
 
     /// This takes in a point and computes the Jacobian of the vector from
@@ -31,7 +29,7 @@ impl Line {
     /// column-major. This means that the columns are the vector x and y,
     /// while the rows are the model parameters.
     #[rustfmt::skip]
-    fn jacobian(&self, point: &Vector2<f32>) -> Matrix3x2<f32> {
+    fn jacobian(&self, point: Vector2<f32>) -> Matrix3x2<f32> {
         let (sx, sy) = (point.x, point.y);
         let (nx, ny) = (self.norm.x, self.norm.y);
         let c = self.c;
@@ -42,7 +40,7 @@ impl Line {
         )
     }
 
-    fn to_vec(self) -> Vector3<f32> {
+    fn into_vec(self) -> Vector3<f32> {
         self.norm.push(self.c)
     }
 
@@ -123,22 +121,17 @@ fn lines() {
 
         // Now perform Levenberg-Marquardt.
         let model = Line::from_vec(levenberg_marquardt::optimize(
-            MAX_ITERATIONS,
-            CONSECUTIVE_DIVERGENCE_LIMIT,
-            50.0,
-            0.8,
-            2.0,
-            0.0,
-            model.to_vec(),
+            levenberg_marquardt::Config::default(),
+            model.into_vec(),
             |v| v.xy().normalize().push(v.z),
             |v| {
                 let model = Line::from_vec(*v);
 
                 let residual_data = points
                     .iter()
-                    .flat_map(|point| {
+                    .flat_map(|&point| {
                         use std::iter::once;
-                        let vec = model.xy_residuals(&point);
+                        let vec = model.xy_residuals(point);
                         once(vec.x).chain(once(vec.y))
                     })
                     .collect();
@@ -150,7 +143,7 @@ fn lines() {
             |v| {
                 let model = Line::from_vec(*v);
 
-                points.iter().map(move |point| model.jacobian(point))
+                points.iter().map(move |&point| model.jacobian(point))
             },
         ));
 

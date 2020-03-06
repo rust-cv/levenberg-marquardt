@@ -12,6 +12,36 @@ use nalgebra::{
 
 use num_traits::FromPrimitive;
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Config<N> {
+    pub max_iterations: usize,
+    pub consecutive_divergence_limit: usize,
+    pub initial_lambda: N,
+    pub lambda_convege: N,
+    pub lambda_diverge: N,
+    pub threshold: N,
+}
+
+impl<N> Default for Config<N>
+where
+    N: FromPrimitive,
+{
+    fn default() -> Self {
+        Self {
+            max_iterations: 1000,
+            consecutive_divergence_limit: 5,
+            initial_lambda: N::from_f32(50.0)
+                .expect("leverberg-marquardt vector and matrix type cant store 50.0"),
+            lambda_convege: N::from_f32(0.8)
+                .expect("leverberg-marquardt vector and matrix type cant store 0.8"),
+            lambda_diverge: N::from_f32(2.0)
+                .expect("leverberg-marquardt vector and matrix type cant store 2.0"),
+            threshold: N::from_f32(0.0)
+                .expect("leverberg-marquardt vector and matrix type cant store 0.0"),
+        }
+    }
+}
+
 /// Note that the differentials and state vector are represented with column vectors.
 /// This is atypical from the normal way it is done in mathematics. This is done because
 /// nalgebra is column-major. A nalgebra `Vector` is a column vector.
@@ -92,12 +122,7 @@ use num_traits::FromPrimitive;
 ///
 /// `IJ` is the iterator over the Jacobian matrices of each sample.
 pub fn optimize<N, P, S, J, PS, RS, JS, IJ>(
-    max_iterations: usize,
-    consecutive_divergence_limit: usize,
-    initial_lambda: N,
-    lambda_convege: N,
-    lambda_diverge: N,
-    threshold: N,
+    config: Config<N>,
     init: Vector<N, P, PS>,
     normalize: impl Fn(Vector<N, P, PS>) -> Vector<N, P, PS>,
     residuals: impl Fn(&Vector<N, P, PS>) -> Matrix<N, J, S, RS>,
@@ -117,7 +142,7 @@ where
     DefaultAllocator: Allocator<N, P, Buffer = PS>,
     ShapeConstraint: DimEq<DimMinimum<P, P>, P>,
 {
-    let mut lambda = initial_lambda;
+    let mut lambda = config.initial_lambda;
     let mut guess = init;
     let mut res = residuals(&guess);
     let mut sum_of_squares = res.norm_squared();
@@ -125,9 +150,9 @@ where
     let total = N::from_usize(res.len())
         .expect("there were more items in the vector than could be represented by the type");
 
-    for _ in 0..max_iterations {
+    for _ in 0..config.max_iterations {
         // Next step lambda.
-        let smaller_lambda = lambda * lambda_convege;
+        let smaller_lambda = lambda * config.lambda_convege;
 
         // Iterate through all the Jacobians to extract the approximate Hessian and the gradients.
         let (hessian, gradients) = jacobians(&guess).zip(res.column_iter()).fold(
@@ -135,7 +160,7 @@ where
             |(hessian, gradients): (MatrixMN<N, P, P>, Vector<N, P, PS>), (jacobian, res)| {
                 (
                     hessian + &jacobian * jacobian.transpose(),
-                    gradients + &jacobian * &res,
+                    gradients + &jacobian * res,
                 )
             },
         );
@@ -175,7 +200,7 @@ where
             if n_sum > sum_of_squares {
                 // Increase lambda twice and go to the next iteration.
                 // Increase twice so that the new two tested lambdas are different than current.
-                lambda *= lambda_diverge;
+                lambda *= config.lambda_diverge;
                 consecutive_divergences += 1;
             } else {
                 // There was a decrease, so update everything.
@@ -188,17 +213,17 @@ where
         } else {
             // We were unable to take the inverse, so increase lambda in hopes that it may
             // cause the matrix to become invertible.
-            lambda *= lambda_diverge;
+            lambda *= config.lambda_diverge;
             consecutive_divergences += 1;
         }
 
         // Terminate early if we hit the consecutive divergence limit.
-        if consecutive_divergences == consecutive_divergence_limit {
+        if consecutive_divergences == config.consecutive_divergence_limit {
             break;
         }
 
         // We can terminate early if the sum of squares is below the threshold.
-        if sum_of_squares < threshold * total {
+        if sum_of_squares < config.threshold * total {
             break;
         }
     }
