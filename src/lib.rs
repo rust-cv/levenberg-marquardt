@@ -176,7 +176,7 @@ where
             // Invert JᵀJ + λ*diag(JᵀJ) and solve for delta.
             let delta = hessian_lambda_diag
                 .try_inverse()
-                .map(|inv_jjl| inv_jjl * &gradients);
+                .map(|inv_jjl| -inv_jjl * &gradients);
             // Compute the new guess, residuals, and sum-of-squares.
             let vars = delta.map(|delta| {
                 let ges = normalize(&guess + delta);
