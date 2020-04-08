@@ -25,3 +25,8 @@ sample-consensus = "0.2.0"
 [profile.test]
 # This is necessary so we can test as many estimations as possible.
 opt-level = 3
+
+[package.metadata.docs.rs]
+# To build locally use
+#   RUSTDOCFLAGS="--html-in-header katex-header.html" cargo doc --no-deps
+rustdoc-args = [ "--html-in-header", "katex-header.html" ]
