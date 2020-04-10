@@ -162,7 +162,7 @@ where
             |(hessian, gradients): (MatrixMN<N, P, P>, Vector<N, P, PS>), (jacobian, res)| {
                 (
                     hessian + &jacobian * jacobian.transpose(),
-                    gradients + &jacobian * res,
+                    gradients - &jacobian * res,
                 )
             },
         );

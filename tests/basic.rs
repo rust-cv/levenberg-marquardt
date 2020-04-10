@@ -16,7 +16,7 @@ struct Line {
 
 impl Line {
     fn xy_residuals(&self, point: Vector2<f32>) -> Vector2<f32> {
-        -self.norm * self.c - self.norm.dot(&point) * self.norm
+        (self.c - self.norm.dot(&point)) * self.norm
     }
 
     /// This takes in a point and computes the Jacobian of the vector from
@@ -34,9 +34,9 @@ impl Line {
         let (nx, ny) = (self.norm.x, self.norm.y);
         let c = self.c;
         Matrix3x2::new(
-            c + 2.0 * sx * nx + sy * ny,    sx * ny,
-            sy * nx,                        c + sx * nx + 2.0 * sy * ny,
-            nx,                             ny,
+            c - 2.0 * sx * nx - sy * ny, -sx * ny,
+           -sy * nx,                      c - sx * nx - 2.0 * sy * ny,
+            nx,                           ny,
         )
     }
 
@@ -82,8 +82,8 @@ fn lines() {
     let mut rng = Pcg64::new_unseeded();
     // The max candidate hypotheses had to be increased dramatically to ensure all 1000 cases find a
     // good-fitting line.
-    let mut arrsac = Arrsac::new(Config::new(3.0), Pcg64::new_unseeded());
-
+    let mut arrsac = Arrsac::new(Config::new(5.0), Pcg64::new_unseeded());
+    let mut would_have_failed = false;
     for _ in 0..LINES_TO_ESTIMATE {
         // Generate <a, b> and normalize.
         let norm = Vector2::new(rng.gen_range(-10.0, 10.0), rng.gen_range(-10.0, 10.0)).normalize();
@@ -112,8 +112,8 @@ fn lines() {
         let model = arrsac
             .model(&LineEstimator, points.iter().copied())
             .expect("unable to estimate a model");
-
         let real_model = Line { norm, c };
+        would_have_failed = would_have_failed || model.norm_cosine_distance(&real_model) >= 0.01;
 
         // Now perform Levenberg-Marquardt.
         let model = levenberg_marquardt::optimize(
@@ -142,4 +142,6 @@ fn lines() {
         // Check the slope using the cosine distance.
         assert!(new_cosine_distance < 0.01, "slope out of expected range");
     }
+    // test that there were initial guesses that wouldn't have been enough
+    assert!(would_have_failed);
 }
