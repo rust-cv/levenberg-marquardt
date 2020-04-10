@@ -3,7 +3,6 @@
 //! The QR factorization is used to implement an efficient solver for the
 //! linear least-squares problem which is repeatedly required to be
 //! solved in the LM algorithm.
-use core::cell::RefCell;
 use nalgebra::{
     allocator::Allocator,
     convert,
@@ -26,6 +25,14 @@ impl Error {
 }
 
 /// Pivoted QR decomposition.
+///
+/// Let `$\mathbf{A}\in\R^{m\times n}$` with `$m\geq n$`.
+/// Then this algorithm computes a permutation matrix `$\mathbf{P}$`,
+/// a matrix `$\mathbf{Q}\in\R^{m\times n}$` with orthonormal columns
+/// and an upper triangular matrix `$\mathbf{R}\in\R^{n\times n}$` such that
+/// ```math
+/// \mathbf{P}^\top \mathbf{A} \mathbf{P} = \mathbf{Q}\mathbf{R}.
+/// ```
 pub struct PivotedQR<F, M, N, S>
 where
     F: RealField + FromPrimitive,
@@ -88,7 +95,7 @@ where {
             let w_j = {
                 let mut axis = left;
                 let mut aj_norm = axis.norm();
-                if aj_norm == F::zero() {
+                if aj_norm.is_zero() {
                     r_diag[j] = F::zero();
                     continue;
                 }
@@ -110,7 +117,7 @@ where {
                 // update partial column norms
                 // see "Lapack Working Note 176"
                 k += j + 1;
-                if r_diag[k] == F::zero() {
+                if r_diag[k].is_zero() {
                     continue;
                 }
                 let temp = col[0] / r_diag[k];
@@ -121,7 +128,7 @@ where {
                     F::zero()
                 };
                 let z005: F = convert(0.05f64);
-                if temp.abs() == F::zero() || z005 * (temp * temp) <= F::default_epsilon() {
+                if temp.abs().is_zero() || z005 * (temp * temp) <= F::default_epsilon() {
                     r_diag[k] = col.slice_range(1.., ..).norm();
                     work[k] = r_diag[k];
                 }
@@ -153,7 +160,7 @@ where {
         let n = self.qr.ncols();
         for j in 0..n {
             let axis = self.qr.slice_range(j.., j);
-            if axis[0] != F::zero() {
+            if !axis[0].is_zero() {
                 let temp = b.rows_range(j..).dot(&axis) / axis[0];
                 b.rows_range_mut(j..).axpy(-temp, &axis, F::one());
             }
@@ -161,7 +168,7 @@ where {
         }
         let mut upper_r = self.qr;
         // reflect upper triangular part. This enables for
-        // a nicer memory acces pattern in `copy_r_down`.
+        // a nicer memory access pattern in `copy_r_down`.
         for i in 0..n {
             for j in (i + 1..(n - i)).rev() {
                 let tmp = upper_r[(j - 1, n - 1 - i)];
@@ -174,7 +181,7 @@ where {
             upper_r,
             r_diag: self.r_diag,
             permutation: self.permutation,
-            work: RefCell::new(self.work),
+            work: self.work,
         }
     }
 }
@@ -222,7 +229,50 @@ where
     /// Permution matrix. Entry `$i$` specifies which column of the identity
     /// matrix to use.
     permutation: VectorN<usize, N>,
-    work: RefCell<VectorN<F, N>>,
+    work: VectorN<F, N>,
+}
+
+pub struct CholeskyFactor<'a, F, M, N, S>
+where
+    F: RealField,
+    M: Dim,
+    N: DimName,
+    S: ContiguousStorageMut<F, M, N>,
+    DefaultAllocator: Allocator<F, N> + Allocator<usize, N>,
+{
+    l: MatrixSlice<'a, F, N, N, S::RStride, S::CStride>,
+    work: &'a mut VectorN<F, N>,
+    pub permutation: &'a VectorN<usize, N>,
+    qt_b: &'a VectorN<F, N>,
+}
+
+impl<'a, F, M, N, S> CholeskyFactor<'a, F, M, N, S>
+where
+    F: RealField,
+    M: Dim,
+    N: DimName,
+    S: ContiguousStorageMut<F, M, N>,
+    DefaultAllocator: Allocator<F, N> + Allocator<usize, N>,
+{
+    /// Solve the equation `$\mathbf{L}\vec{x} = \mathbf{P}^\top \vec{b}$`.
+    pub fn solve(&mut self, mut rhs: VectorN<F, N>) -> VectorN<F, N> {
+        for i in 0..self.work.nrows() {
+            self.work[i] = rhs[self.permutation[i]];
+        }
+        self.l.solve_lower_triangular_mut(self.work);
+        core::mem::swap(self.work, &mut rhs);
+        rhs
+    }
+
+    /// Computes `$\mathbf{L}\mathbf{Q}^\top\vec{b}$`.
+    pub fn mul_qt_b(&mut self, mut out: VectorN<F, N>) -> VectorN<F, N> {
+        out.fill(F::zero());
+        for (i, col) in self.l.column_iter().enumerate() {
+            out.rows_range_mut(i..)
+                .axpy(self.qt_b[i], &col.rows_range(i..), F::one());
+        }
+        out
+    }
 }
 
 impl<F, M, N, S> LinearLeastSquaresDiagonalProblem<F, M, N, S>
@@ -248,56 +298,61 @@ where
     /// ```math
     ///   \mathbf{P}^\top(\mathbf{A}^\top\mathbf{A} + \mathbf{D}\mathbf{D})\mathbf{P} = \mathbf{L}\mathbf{L}^\top.
     /// ```
-    pub fn solve_with_diagonal<DS>(
+    pub fn solve_with_diagonal(
         &mut self,
-        diag: &Vector<F, N, DS>,
-    ) -> (VectorN<F, N>, MatrixSlice<F, N, N, S::RStride, S::CStride>)
-    where
-        DS: Storage<F, N>,
-    {
-        let mut rhs = self.eliminate_diag(diag, self.qt_b.clone());
-        self.solve_after_elimination(&mut rhs)
+        diag: &VectorN<F, N>,
+        mut out: VectorN<F, N>,
+    ) -> (VectorN<F, N>, CholeskyFactor<F, M, N, S>) {
+        out.copy_from(&self.qt_b);
+        let mut rhs = self.eliminate_diag(diag, out);
+        core::mem::swap(&mut self.work, &mut rhs);
+        self.solve_after_elimination(rhs)
     }
 
     /// Solve the least-squares problem with a zero diagonal.
-    pub fn solve_with_zero_diagonal(
-        &mut self,
-    ) -> (VectorN<F, N>, MatrixSlice<F, N, N, S::RStride, S::CStride>) {
+    pub fn solve_with_zero_diagonal(&mut self) -> (VectorN<F, N>, CholeskyFactor<F, M, N, S>) {
         self.copy_r_down();
-        let mut rhs = self.work.borrow_mut();
-        rhs.copy_from(&self.qt_b);
-        self.solve_after_elimination(&mut rhs)
-    }
-
-    pub fn rank(&self) -> usize {
-        let n = self.r_diag.nrows();
-        (0..n).find(|j| self.r_diag[*j] == F::zero()).unwrap_or(n)
+        self.work.copy_from(&self.qt_b);
+        self.solve_after_elimination(VectorN::<F, N>::zeros())
     }
 
     pub fn has_full_rank(&self) -> bool {
-        self.r_diag.iter().all(|x| *x != F::zero())
+        !self.r_diag.iter().any(F::is_zero)
+    }
+
+    fn rank(&self) -> usize {
+        let n = self.r_diag.nrows();
+        (0..n)
+            .find(|j| self.upper_r[(*j, *j)].is_zero())
+            .unwrap_or(n)
     }
 
     fn solve_after_elimination(
-        &self,
-        rhs: &mut VectorN<F, N>,
-    ) -> (VectorN<F, N>, MatrixSlice<F, N, N, S::RStride, S::CStride>) {
+        &mut self,
+        mut x: VectorN<F, N>,
+    ) -> (VectorN<F, N>, CholeskyFactor<F, M, N, S>) {
+        let rank = self.rank();
+        let rhs = &mut self.work;
         let n = self.upper_r.data.shape().1;
         let l = self.upper_r.generic_slice((0, 0), (n, n));
 
         // check for singular matrix
-        let rank = self.rank();
         rhs.rows_range_mut(rank..).fill(F::zero());
 
         // solve
         l.slice_range(..rank, ..rank)
             .tr_solve_lower_triangular_mut(&mut rhs.rows_range_mut(..rank));
 
-        let mut x = VectorN::<F, N>::zeros();
         for j in 0..n.value() {
             x[self.permutation[j]] = rhs[j];
         }
-        (x, l)
+        let cholesky_factor = CholeskyFactor {
+            l: l,
+            work: &mut self.work,
+            permutation: &self.permutation,
+            qt_b: &self.qt_b,
+        };
+        (x, cholesky_factor)
     }
 
     fn eliminate_diag<DS>(
@@ -309,14 +364,14 @@ where
         DS: Storage<F, N>,
     {
         self.copy_r_down();
-        let l_diag = self.work.get_mut();
+        let l_diag = &mut self.work;
         // only lower triangular part is used which was filled with R^T by
         // `copy_r_down`. This part is then iteratively overwritten with L.
         let r_and_l = &mut self.upper_r;
         let n = diag.nrows();
         // eliminate the diagonal entries from D using Givens rotations
         for j in 0..n {
-            if diag[self.permutation[j]] == F::zero() {
+            if diag[self.permutation[j]].is_zero() {
                 continue;
             }
             l_diag[j] = diag[self.permutation[j]];
@@ -324,18 +379,18 @@ where
 
             let mut qtbpj = F::zero();
             for k in j..n {
-                if l_diag[k] == F::zero() {
+                if l_diag[k].is_zero() {
                     continue;
                 }
                 // determine the Givens rotation
                 let (sin, cos) = if r_and_l[(k, k)].abs() < l_diag[k].abs() {
                     let cot = r_and_l[(k, k)] / l_diag[k];
-                    let sin = F::one() / (F::one() + cot * cot).sqrt();
+                    let sin = (F::one() + cot * cot).sqrt().recip();
                     let cos = sin * cot;
                     (sin, cos)
                 } else {
                     let tan = l_diag[k] / r_and_l[(k, k)];
-                    let cos = F::one() / (F::one() + tan * tan).sqrt();
+                    let cos = (F::one() + tan * tan).sqrt().recip();
                     let sin = cos * tan;
                     (sin, cos)
                 };
@@ -480,12 +535,31 @@ fn test_elimate_diag_and_l() {
 }
 
 #[test]
-fn test_lls_x() {
+fn test_lls_x_1() {
     use nalgebra::Vector3;
     let mut lls = default_lls(1);
-    let (x_out, _) = lls.solve_with_diagonal(&Vector3::new(1.0, 0.5, 0.0));
+    let (x_out, _) = lls.solve_with_diagonal(&Vector3::new(1.0, 0.5, 0.0), Vector3::zeros());
     let x_ref = Vector3::new(0.459330143540669, 0.918660287081341, -0.287081339712919);
     assert!((x_out - x_ref).norm() < 1e-10);
+}
+
+#[test]
+fn test_lls_x_2() {
+    // R is singular but L is not
+    use nalgebra::*;
+    let a = Matrix4x3::from_column_slice(&[
+        14., -12., 20., -11., 19., 38., -4., -11., -14., 12., -20., 11.,
+    ]);
+    let qr = PivotedQR::new(a).ok().unwrap();
+    let mut lls = qr.into_least_squares_diagonal_problem(Vector4::new(-5., 3., -2., 7.));
+
+    let rdiag_exp = Vector3::new(-44.068129073061407, 29.147349299100057, 0.);
+    assert!((lls.r_diag - rdiag_exp).norm() < 1e-10);
+
+    let diag = Vector3::new(2.772724292099739, 0.536656314599949, 0.089442719099992);
+    let (x_out, _) = lls.solve_with_diagonal(&diag, Vector3::zeros());
+    let x_exp = Vector3::new(-0.000277544878320, -0.046225239392197, 0.266720628065249);
+    assert!((x_out - x_exp).norm() < 1e-10);
 }
 
 #[test]
@@ -496,4 +570,25 @@ fn test_standard_lls_case() {
     let (x_out, _l) = lls.solve_with_zero_diagonal();
     let x_ref = Vector3::new(87., -38., 10.);
     assert!((x_out - x_ref).norm() < 1e-10);
+}
+
+#[test]
+fn test_cholesky() {
+    use nalgebra::{storage::Owned, Matrix3, Vector3, U3};
+    let l = Matrix3::new(2., 100., -1., 1., 1.5, 0.5, 1., 0.5, 0.1);
+    let slice = l.slice_range(.., ..);
+    let mut chol = CholeskyFactor::<f64, U3, _, Owned<f64, U3, U3>> {
+        l: slice,
+        work: &mut Vector3::zeros(),
+        permutation: &Vector3::<usize>::new(1, 0, 2),
+        qt_b: &Vector3::new(1.0, 2.0, 0.5),
+    };
+
+    let out_mul = chol.mul_qt_b(Vector3::zeros());
+    let exp_mul = Vector3::new(2., 4., 2.05);
+    assert!((out_mul - exp_mul).norm() < 1e-10);
+
+    let out_solve = chol.solve(Vector3::new(1.0, 2.0, 0.5));
+    let exp_solve = Vector3::new(1., 0., -5.);
+    assert!((out_solve - exp_solve).norm() < 1e-10);
 }
