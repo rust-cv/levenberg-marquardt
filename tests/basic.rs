@@ -8,7 +8,7 @@ use sample_consensus::{Consensus, Estimator, Model};
 const RESIDUAL_SCALE: f32 = 0.1;
 const LINES_TO_ESTIMATE: usize = 1000;
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 struct Line {
     norm: Vector2<f32>,
     c: f32,
@@ -40,15 +40,11 @@ impl Line {
         )
     }
 
-    fn into_vec(self) -> Vector3<f32> {
-        self.norm.push(self.c)
-    }
-
-    fn from_vec(v: Vector3<f32>) -> Self {
-        Self {
-            norm: v.xy(),
-            c: v.z,
-        }
+    fn apply_delta(mut self, delta: Vector3<f32>) -> Self {
+        self.norm += delta.xy();
+        self.norm.normalize_mut();
+        self.c += delta.z;
+        self
     }
 
     fn norm_cosine_distance(&self, other: &Self) -> f32 {
@@ -120,13 +116,11 @@ fn lines() {
         would_have_failed = would_have_failed || model.norm_cosine_distance(&real_model) >= 0.01;
 
         // Now perform Levenberg-Marquardt.
-        let model = Line::from_vec(levenberg_marquardt::optimize(
+        let model = levenberg_marquardt::optimize(
             levenberg_marquardt::Config::default(),
-            model.into_vec(),
-            |v| v.xy().normalize().push(v.z),
-            |v| {
-                let model = Line::from_vec(*v);
-
+            model,
+            |model, delta| model.apply_delta(delta),
+            |model| {
                 let residual_data = points
                     .iter()
                     .flat_map(|&point| {
@@ -140,12 +134,8 @@ fn lines() {
                         residual_data,
                     )
             },
-            |v| {
-                let model = Line::from_vec(*v);
-
-                points.iter().map(move |&point| model.jacobian(point))
-            },
-        ));
+            |&model| points.iter().map(move |&point| model.jacobian(point)),
+        );
 
         let new_cosine_distance = model.norm_cosine_distance(&real_model);
 

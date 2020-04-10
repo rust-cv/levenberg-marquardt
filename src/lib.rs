@@ -106,6 +106,8 @@ where
 /// You may need to caputure your observances in the closure to compute the Jacobian, but
 /// they are not arguments since they are constants to Levenberg-Marquardt.
 ///
+/// `M` is the model that is being optimized.
+///
 /// `N` is the type parameter of the data type that is stored in the matrix (`f32`).
 ///
 /// `P` is the number of parameter variables being optimized.
@@ -121,13 +123,13 @@ where
 /// `JS` is the nalgebra storage used for the Jacobian matrix.
 ///
 /// `IJ` is the iterator over the Jacobian matrices of each sample.
-pub fn optimize<N, P, S, J, PS, RS, JS, IJ>(
+pub fn optimize<M, N, P, S, J, PS, RS, JS, IJ>(
     config: Config<N>,
-    init: Vector<N, P, PS>,
-    normalize: impl Fn(Vector<N, P, PS>) -> Vector<N, P, PS>,
-    residuals: impl Fn(&Vector<N, P, PS>) -> Matrix<N, J, S, RS>,
-    jacobians: impl Fn(&Vector<N, P, PS>) -> IJ,
-) -> Vector<N, P, PS>
+    init: M,
+    apply_delta: impl Fn(&M, Vector<N, P, PS>) -> M,
+    residuals: impl Fn(&M) -> Matrix<N, J, S, RS>,
+    jacobians: impl Fn(&M) -> IJ,
+) -> M
 where
     N: RealField + FromPrimitive,
     P: DimMin<P> + DimName,
@@ -179,7 +181,7 @@ where
                 .map(|inv_jjl| -inv_jjl * &gradients);
             // Compute the new guess, residuals, and sum-of-squares.
             let vars = delta.map(|delta| {
-                let ges = normalize(&guess + delta);
+                let ges = apply_delta(&guess, delta);
                 let res = residuals(&ges);
                 let sum = res.norm_squared();
                 (lam, ges, res, sum)
