@@ -1,8 +1,8 @@
-use num_traits::FromPrimitive;
 use nalgebra::{
     storage::{ContiguousStorageMut, Storage},
     Dim, Matrix, RealField, Vector,
 };
+use num_traits::FromPrimitive;
 
 /// A least-squares minimization problem.
 ///

@@ -1,10 +1,9 @@
-use num_traits::FromPrimitive;
 use nalgebra::{
     allocator::Allocator,
     constraint::{DimEq, ShapeConstraint},
-    RealField, Dim, DimMin, DimName, DimMinimum,
-    DefaultAllocator,
+    DefaultAllocator, Dim, DimMin, DimMinimum, DimName, RealField,
 };
+use num_traits::FromPrimitive;
 
 use crate::LeastSquaresProblem;
 

@@ -93,10 +93,10 @@
 //! ```
 #![no_std]
 
-mod problem;
 mod lm;
+mod problem;
 mod qr;
 mod trust_region;
 
-pub use problem::LeastSquaresProblem;
 pub use lm::LevenbergMarquardt;
+pub use problem::LeastSquaresProblem;
