@@ -12,14 +12,13 @@ license = "MIT"
 readme = "README.md"
 
 [dependencies]
-nalgebra = { version = "0.20.0", default-features = false }
-alga = { version = "0.9.3", default-features = false }
+nalgebra = { version = "0.21.0", default-features = false }
 num-traits = { version = "0.2.11", default-features = false }
 
 [dev-dependencies]
 arrsac = "0.3.0"
 rand = { version = "0.7.3", default-features = false }
-nalgebra = "0.20.0"
+nalgebra = "0.21.0"
 pcg_rand = "0.11.1"
 sample-consensus = "0.2.0"
 
