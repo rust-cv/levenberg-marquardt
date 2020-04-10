@@ -162,7 +162,7 @@ where
             |(hessian, gradients): (MatrixMN<N, P, P>, Vector<N, P, PS>), (jacobian, res)| {
                 (
                     hessian + &jacobian * jacobian.transpose(),
-                    gradients + &jacobian * res,
+                    gradients - &jacobian * res,
                 )
             },
         );
@@ -178,7 +178,7 @@ where
             // Invert JᵀJ + λ*diag(JᵀJ) and solve for delta.
             let delta = hessian_lambda_diag
                 .try_inverse()
-                .map(|inv_jjl| -inv_jjl * &gradients);
+                .map(|inv_jjl| inv_jjl * &gradients);
             // Compute the new guess, residuals, and sum-of-squares.
             let vars = delta.map(|delta| {
                 let ges = apply_delta(&guess, delta);
