@@ -4,7 +4,7 @@ use nalgebra::{
     allocator::Allocator, convert, storage::ContiguousStorageMut, DefaultAllocator, Dim, DimName,
     RealField, VectorN,
 };
-use num_traits::real::Real;
+use num_traits::Float;
 
 /// Approximately solve the LM trust-region subproblem.
 ///
@@ -44,7 +44,7 @@ pub fn determine_lambda_and_parameter_update<F, M, N, S>(
     initial_lambda: F,
 ) -> (VectorN<F, N>, F)
 where
-    F: RealField + Real,
+    F: RealField + Float,
     M: Dim,
     N: DimName,
     S: ContiguousStorageMut<F, M, N>,
@@ -69,7 +69,7 @@ where
     // by using an approximate Newton iteration.
 
     let mut lambda_lower = if has_full_rank {
-        p.cmpy(Real::recip(diag_p_norm), diag, &diag_p, F::zero());
+        p.cmpy(Float::recip(diag_p_norm), diag, &diag_p, F::zero());
         p = l.solve(p);
         let norm = p.norm();
         fp / delta / norm / norm
@@ -87,22 +87,22 @@ where
         gnorm = p.norm();
         let upper = gnorm / delta;
         if upper.is_zero() {
-            F::min_positive_value() / Real::min(delta, convert(REL_ERR))
+            F::min_positive_value() / Float::min(delta, convert(REL_ERR))
         } else {
             upper
         }
     };
 
-    let mut lambda = Real::min(Real::max(initial_lambda, lambda_lower), lambda_upper);
+    let mut lambda = Float::min(Float::max(initial_lambda, lambda_lower), lambda_upper);
     if lambda.is_zero() {
         lambda = gnorm / delta;
     }
 
     for iteration in 0.. {
         if lambda.is_zero() {
-            lambda = Real::max(F::min_positive_value(), lambda * convert(0.001));
+            lambda = Float::max(F::min_positive_value(), lambda * convert(0.001));
         }
-        let l_sqrt = Real::sqrt(lambda);
+        let l_sqrt = Float::sqrt(lambda);
         diag_p.axpy(l_sqrt, diag, F::zero());
         let (p_new, mut l) = lls.solve_with_diagonal(&diag_p, p);
         p = p_new;
@@ -113,25 +113,25 @@ where
         let diag_p_norm = diag_p.norm();
         let fp_old = fp;
         fp = diag_p_norm - delta;
-        if Real::abs(fp) <= delta * convert(REL_ERR)
+        if Float::abs(fp) <= delta * convert(REL_ERR)
             || (lambda_lower.is_zero() && fp <= fp_old && fp_old.is_negative())
         {
             break;
         }
 
         let newton_correction = {
-            p.cmpy(Real::recip(diag_p_norm), diag, &diag_p, F::zero());
+            p.cmpy(Float::recip(diag_p_norm), diag, &diag_p, F::zero());
             p = l.solve(p);
             let norm = p.norm();
             fp / delta / norm / norm
         };
 
         if fp.is_positive() {
-            lambda_lower = Real::max(lambda_lower, lambda);
+            lambda_lower = Float::max(lambda_lower, lambda);
         } else {
-            lambda_upper = Real::min(lambda_upper, lambda);
+            lambda_upper = Float::min(lambda_upper, lambda);
         }
-        lambda = Real::max(lambda_lower, lambda + newton_correction);
+        lambda = Float::max(lambda_lower, lambda + newton_correction);
     }
 
     (p, lambda)
