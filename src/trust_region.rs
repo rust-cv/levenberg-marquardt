@@ -1,12 +1,12 @@
 //! Solver for the trust-region sub-problem in the LM algorithm.
 use crate::qr::LinearLeastSquaresDiagonalProblem;
 use nalgebra::{
-    allocator::Allocator, convert, storage::ContiguousStorageMut, DefaultAllocator, Dim, DimName,
-    RealField, VectorN,
+    allocator::Allocator, convert, storage::ContiguousStorageMut, DefaultAllocator, Dim, RealField,
+    VectorN,
 };
 use num_traits::Float;
 
-pub struct LMParameter<F: RealField, N: DimName>
+pub struct LMParameter<F: RealField, N: Dim>
 where
     DefaultAllocator: Allocator<F, N>,
 {
@@ -55,7 +55,7 @@ pub fn determine_lambda_and_parameter_update<F, M, N, S>(
 where
     F: RealField + Float,
     M: Dim,
-    N: DimName,
+    N: Dim,
     S: ContiguousStorageMut<F, M, N>,
     DefaultAllocator: Allocator<F, N> + Allocator<usize, N>,
 {

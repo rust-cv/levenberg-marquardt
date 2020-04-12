@@ -4,7 +4,9 @@ use crate::LeastSquaresProblem;
 use nalgebra::{
     allocator::Allocator,
     constraint::{DimEq, ShapeConstraint},
-    convert, DefaultAllocator, Dim, DimMin, DimMinimum, DimName, RealField, Vector, VectorN,
+    convert,
+    storage::Storage,
+    DefaultAllocator, Dim, DimMin, DimMinimum, RealField, Vector, VectorN, U1,
 };
 use num_traits::Float;
 
@@ -193,8 +195,8 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
         target: O,
     ) -> (O, MinimizationReport<F>)
     where
-        N: DimMin<M> + DimName,
-        M: DimMin<N> + DimName,
+        N: DimMin<M>,
+        M: DimMin<N>,
         O: LeastSquaresProblem<F, N, M>,
         DefaultAllocator: Allocator<F, N>
             + Allocator<F, N, N>
@@ -228,7 +230,8 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
         let mut residuals_norm = report.report.objective_function * convert(2.0);
 
         // Initialize diagonal
-        let mut diag = VectorN::<F, N>::from_element(F::one());
+        let n = x.data.shape().0;
+        let mut diag = VectorN::<F, N>::from_element_generic(n, U1, F::one());
         // Check n > 0
         if diag.nrows() == 0 {
             return report.failure(Failure::NoParameters);
@@ -245,7 +248,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
             return report.success();
         }
 
-        let mut tmp = VectorN::<F, N>::zeros();
+        let mut tmp = VectorN::<F, N>::zeros_generic(n, U1);
 
         let mut delta = F::zero();
         let mut lambda = F::zero();

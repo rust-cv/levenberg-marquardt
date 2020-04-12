@@ -8,8 +8,7 @@ use nalgebra::{
     constraint::{DimEq, ShapeConstraint},
     convert,
     storage::{ContiguousStorageMut, Storage},
-    DefaultAllocator, Dim, DimMin, DimMinimum, DimName, Matrix, MatrixSlice, RealField, Vector,
-    VectorN,
+    DefaultAllocator, Dim, DimMin, DimMinimum, Matrix, MatrixSlice, RealField, Vector, VectorN, U1,
 };
 use num_traits::FromPrimitive;
 
@@ -30,8 +29,8 @@ pub enum Error {
 pub struct PivotedQR<F, M, N, S>
 where
     F: RealField,
-    M: DimName + DimMin<N>,
-    N: DimName,
+    M: Dim + DimMin<N>,
+    N: Dim,
     S: ContiguousStorageMut<F, M, N>,
     DefaultAllocator: Allocator<F, N> + Allocator<usize, N>,
 {
@@ -51,8 +50,8 @@ where
 impl<F, M, N, S> PivotedQR<F, M, N, S>
 where
     F: RealField + FromPrimitive,
-    M: DimName + DimMin<N>,
-    N: DimName,
+    M: Dim + DimMin<N>,
+    N: Dim,
     S: ContiguousStorageMut<F, M, N>,
     DefaultAllocator: Allocator<F, N> + Allocator<F, N> + Allocator<usize, N>,
 {
@@ -64,15 +63,16 @@ where
     /// Only returns `Err` when `$m < n$`.
     pub fn new(mut a: Matrix<F, M, N, S>) -> Result<Self, Error> {
         // The implementation is based more or less on LAPACK's "xGEQPF"
-        let n = a.ncols();
-        if a.nrows() < n {
+        let n = a.data.shape().1;
+        if a.nrows() < n.value() {
             return Err(Error::ShapeConstraintFailed);
         }
-        let column_norms = VectorN::<F, N>::from_iterator(a.column_iter().map(|c| c.norm()));
+        let column_norms =
+            VectorN::<F, N>::from_iterator_generic(n, U1, a.column_iter().map(|c| c.norm()));
         let mut r_diag = column_norms.clone();
         let mut work = column_norms.clone();
-        let mut permutation = VectorN::<usize, N>::from_iterator(0..);
-        for j in 0..n {
+        let mut permutation = VectorN::<usize, N>::from_iterator_generic(n, U1, 0..);
+        for j in 0..n.value() {
             // pivot
             {
                 let kmax = r_diag.slice_range(j.., ..).imax() + j;
@@ -150,9 +150,9 @@ where
         ShapeConstraint: DimEq<DimMinimum<M, N>, N>,
     {
         // compute first n-entries of Q^T * b
-        let mut qt_b = VectorN::<F, N>::from_column_slice(b.as_slice());
-        let n = self.qr.ncols();
-        for j in 0..n {
+        let n = self.qr.data.shape().1;
+        let mut qt_b = VectorN::<F, N>::from_column_slice_generic(n, U1, b.as_slice());
+        for j in 0..n.value() {
             let axis = self.qr.slice_range(j.., j);
             if !axis[0].is_zero() {
                 let temp = b.rows_range(j..).dot(&axis) / axis[0];
@@ -202,7 +202,7 @@ pub struct LinearLeastSquaresDiagonalProblem<F, M, N, S>
 where
     F: RealField,
     M: Dim,
-    N: DimName,
+    N: Dim,
     S: ContiguousStorageMut<F, M, N>,
     DefaultAllocator: Allocator<F, N> + Allocator<usize, N>,
 {
@@ -223,7 +223,7 @@ pub struct CholeskyFactor<'a, F, M, N, S>
 where
     F: RealField,
     M: Dim,
-    N: DimName,
+    N: Dim,
     S: ContiguousStorageMut<F, M, N>,
     DefaultAllocator: Allocator<F, N> + Allocator<usize, N>,
 {
@@ -239,7 +239,7 @@ impl<'a, F, M, N, S> CholeskyFactor<'a, F, M, N, S>
 where
     F: RealField,
     M: Dim,
-    N: DimName,
+    N: Dim,
     S: ContiguousStorageMut<F, M, N>,
     DefaultAllocator: Allocator<F, N> + Allocator<usize, N>,
 {
@@ -291,7 +291,7 @@ impl<F, M, N, S> LinearLeastSquaresDiagonalProblem<F, M, N, S>
 where
     F: RealField,
     M: Dim,
-    N: DimName,
+    N: Dim,
     S: ContiguousStorageMut<F, M, N>,
     DefaultAllocator: Allocator<F, N> + Allocator<usize, N>,
 {
@@ -363,8 +363,11 @@ where
         let l = self.upper_r.generic_slice((0, 0), (n, n));
         self.work.copy_from(&self.qt_b);
         l.solve_upper_triangular_mut(&mut self.work);
-        let x =
-            VectorN::<F, N>::from_iterator((0..n.value()).map(|j| self.work[self.permutation[j]]));
+        let x = VectorN::<F, N>::from_iterator_generic(
+            n,
+            U1,
+            (0..n.value()).map(|j| self.work[self.permutation[j]]),
+        );
         let chol = CholeskyFactor {
             permutation: &self.permutation,
             l,
@@ -611,7 +614,7 @@ fn test_lls_x_1() {
     let mut lls = default_lls(1);
     let (x_out, _) = lls.solve_with_diagonal(&Vector3::new(1.0, 0.5, 0.0), Vector3::zeros());
     let x_ref = Vector3::new(0.459330143540669, 0.918660287081341, -0.287081339712919);
-    assert!((dbg!(x_out) - x_ref).norm() < 1e-10);
+    assert!((x_out - x_ref).norm() < 1e-10);
 }
 
 #[test]
