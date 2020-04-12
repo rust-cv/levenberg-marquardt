@@ -220,7 +220,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
 
         // Evaluate with at start point
         let mut x = initial_x;
-        report.target.set_params(&mut x);
+        report.target.set_params(&x);
         let mut residuals = if let Some(residuals) = report.counted_residuals() {
             residuals
         } else {
@@ -329,13 +329,14 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
                 tmp.copy_from(&x);
                 tmp.axpy(-F::one(), &param.step, F::one());
                 // Evaluate
-                report.target.set_params(&mut tmp);
+                report.target.set_params(&tmp);
                 residuals = if let Some(residuals) = report.counted_residuals() {
                     residuals
                 } else {
                     return report.failure(Failure::User);
                 };
-                let new_residuals_norm = Float::sqrt(report.report.objective_function * convert(2.));
+                let new_residuals_norm =
+                    Float::sqrt(report.report.objective_function * convert(2.));
 
                 // Compute predicted and actual reduction
                 let actual_reduction = if new_residuals_norm * convert(P1) < residuals_norm {
@@ -384,7 +385,8 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
                     residuals_norm = new_residuals_norm;
                 } else {
                     // Reset objective function value
-                    report.report.objective_function = Float::powi(residuals_norm, 2) * convert(0.5);
+                    report.report.objective_function =
+                        Float::powi(residuals_norm, 2) * convert(0.5);
                 }
 
                 // convergence tests

@@ -93,12 +93,9 @@
 //!
 //! # Derivative checking
 //!
-//! **TODO** [`differentiate_numerically`](fn.differentiate_numerically.html).
-//!
-//! # Vector-valued residuals `$\vec{r}_i$`
-//!
-//! For some problems it is natural to group the residuals into
-//! vector-valued residuals `$\vec{r}_i$`. **TODO**
+//! You should try using [`differentiate_numerically`](fn.differentiate_numerically.html)
+//! in a unit test to verify that your Jacobian implementation matches the residuals. See
+//! the details and example there.
 #![no_std]
 
 mod lm;

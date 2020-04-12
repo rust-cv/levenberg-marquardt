@@ -21,6 +21,7 @@ rand = { version = "0.7.3", default-features = false }
 nalgebra = "0.21.0"
 pcg_rand = "0.11.1"
 sample-consensus = "0.2.0"
+approx = "0.3.2"
 
 [profile.test]
 # This is necessary so we can test as many estimations as possible.
