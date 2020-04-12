@@ -62,7 +62,7 @@
 //!     type ResidualStorage = Owned<f32, U2>;
 //!     type JacobianStorage = Owned<f32, U2, U2>;
 //!     
-//!     fn set_params(&mut self, p: &mut VectorN<f32, U2>) {
+//!     fn set_params(&mut self, p: &VectorN<f32, U2>) {
 //!         self.p.copy_from(p);
 //!         // do common calculations for residuals and the Jacobian here
 //!     }

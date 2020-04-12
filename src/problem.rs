@@ -19,9 +19,7 @@ where
     type ParameterStorage: ContiguousStorageMut<F, N> + Clone;
 
     /// Set the stored parameters `$\vec{x}$`.
-    ///
-    /// The passed input can be normalized.
-    fn set_params(&mut self, x: &mut Vector<F, N, Self::ParameterStorage>);
+    fn set_params(&mut self, x: &Vector<F, N, Self::ParameterStorage>);
 
     /// Compute the residual vector.
     fn residuals(&self) -> Option<Vector<F, M, Self::ResidualStorage>>;

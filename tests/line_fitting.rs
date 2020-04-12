@@ -95,7 +95,7 @@ impl<'a> LeastSquaresProblem<f32, U2, Dynamic> for LineFittingOptimizationProble
     type JacobianStorage = Owned<f32, Dynamic, U2>;
     type ResidualStorage = VecStorage<f32, Dynamic, U1>;
 
-    fn set_params(&mut self, p: &mut Vector2<f32>) {
+    fn set_params(&mut self, p: &Vector2<f32>) {
         self.model = Line::from_vec(*p);
     }
 
