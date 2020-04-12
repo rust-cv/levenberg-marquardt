@@ -1,69 +1,67 @@
 use arrsac::{Arrsac, Config};
 use levenberg_marquardt::{LeastSquaresProblem, LevenbergMarquardt};
 use nalgebra::{
-    dimension::{U1, U2, U3},
+    dimension::{U1, U2},
     storage::Owned,
-    Dynamic, Matrix, Matrix3x2, VecStorage, Vector2, Vector3,
+    Dim, Dynamic, Matrix, Matrix2, MatrixMN, VecStorage, Vector2,
 };
 use pcg_rand::Pcg64;
 use rand::distributions::Uniform;
 use rand::{distributions::Distribution, Rng};
 use sample_consensus::{Consensus, Estimator, Model};
 
-const RESIDUAL_SCALE: f32 = 0.1;
 const LINES_TO_ESTIMATE: usize = 1000;
 
 #[derive(Debug, Clone)]
 struct Line {
-    normal: Vector2<f32>,
+    normal_angle: f32,
     c: f32,
 }
 
 impl Line {
     fn xy_residuals(&self, point: Vector2<f32>) -> Vector2<f32> {
-        (self.c - self.normal.dot(&point)) * self.normal
+        let normal = self.normal();
+        (self.c - normal.dot(&point)) * normal
     }
 
     /// This takes in a point and computes the Jacobian of the vector from
     /// the point projected onto the line to the point itself. The
     /// Jacobian is computed in respect to the model itself.
-    ///
-    /// J= dx,y/dnx,ny,c
-    ///
-    /// The Jacobian is the transpose of a normal Jacobian because nalgebra is
-    /// column-major. This means that the columns are the vector x and y,
-    /// while the rows are the model parameters.
     #[rustfmt::skip]
-    fn jacobian(&self, point: Vector2<f32>) -> Matrix3x2<f32> {
-        let (sx, sy) = (point.x, point.y);
-        let (nx, ny) = (self.normal.x, self.normal.y);
+    fn jacobian(&self, point: Vector2<f32>) -> Matrix2<f32> {
+        let n = self.normal();
+        let nd = Vector2::new(-self.normal_angle.sin(), self.normal_angle.cos());
         let c = self.c;
-        Matrix3x2::new(
-            c - 2.0 * sx * nx - sy * ny,   -sx * ny,
-            - sy * nx,                      c - sx * nx - 2.0 * sy * ny,
-            nx,                             ny,
+        let dist_d_angle = (c - n.dot(&point)) * nd - n * point.dot(&nd);
+        Matrix2::new(
+            dist_d_angle[0],  n[0],
+            dist_d_angle[1],  n[1],
         )
     }
 
-    fn into_vec(self) -> Vector3<f32> {
-        self.normal.push(self.c)
+    fn into_vec(self) -> Vector2<f32> {
+        Vector2::new(self.normal_angle, self.c)
     }
 
-    fn from_vec(v: Vector3<f32>) -> Self {
+    fn from_vec(v: Vector2<f32>) -> Self {
         Self {
-            normal: v.xy(),
-            c: v.z,
+            normal_angle: v[0],
+            c: v[1],
         }
     }
 
     fn norm_cosine_distance(&self, other: &Self) -> f32 {
-        1.0 - self.normal.dot(&other.normal).abs()
+        1.0 - self.normal().dot(&other.normal()).abs()
+    }
+
+    fn normal(&self) -> Vector2<f32> {
+        Vector2::new(self.normal_angle.cos(), self.normal_angle.sin())
     }
 }
 
 impl Model<Vector2<f32>> for Line {
     fn residual(&self, point: &Vector2<f32>) -> f32 {
-        (self.normal.dot(point) - self.c).abs()
+        (self.normal().dot(point) - self.c).abs()
     }
 }
 
@@ -82,28 +80,26 @@ impl Estimator<Vector2<f32>> for LineEstimator {
         let b = data.next().unwrap();
         let normal = Vector2::new(a.y - b.y, b.x - a.x).normalize();
         let c = -normal.dot(&b);
-        std::iter::once(Line { normal, c })
+        let normal_angle = f32::atan2(normal[1], normal[0]);
+        std::iter::once(Line { normal_angle, c })
     }
 }
 
-#[derive(Clone)]
 struct LineFittingOptimizationProblem<'a> {
     points: &'a [Vector2<f32>],
     model: Line,
 }
 
-impl<'a> LeastSquaresProblem<f32, U3, Dynamic, U2> for LineFittingOptimizationProblem<'a> {
-    type ParameterStorage = Owned<f32, U3, U1>;
-    type JacobianStorage = Owned<f32, U3, U2>;
-    type ResidualStorage = VecStorage<f32, U2, Dynamic>;
+impl<'a> LeastSquaresProblem<f32, U2, Dynamic> for LineFittingOptimizationProblem<'a> {
+    type ParameterStorage = Owned<f32, U2, U1>;
+    type JacobianStorage = Owned<f32, Dynamic, U2>;
+    type ResidualStorage = VecStorage<f32, Dynamic, U1>;
 
-    fn apply_parameter_step(&mut self, delta: &Vector3<f32>) {
-        let new_params = self.model.clone().into_vec() + delta;
-        let new_params = new_params.xy().normalize().push(new_params.z);
-        self.model = Line::from_vec(new_params);
+    fn set_params(&mut self, p: &mut Vector2<f32>) {
+        self.model = Line::from_vec(*p);
     }
 
-    fn residuals(&self) -> Matrix<f32, U2, Dynamic, Self::ResidualStorage> {
+    fn residuals(&self) -> Option<Matrix<f32, Dynamic, U1, Self::ResidualStorage>> {
         let residual_data = self
             .points
             .iter()
@@ -113,11 +109,19 @@ impl<'a> LeastSquaresProblem<f32, U3, Dynamic, U2> for LineFittingOptimizationPr
                 once(vec.x).chain(once(vec.y))
             })
             .collect();
-        RESIDUAL_SCALE * Matrix::<f32, U2, Dynamic, Self::ResidualStorage>::from_vec(residual_data)
+        Some(Matrix::<f32, Dynamic, U1, Self::ResidualStorage>::from_vec(
+            residual_data,
+        ))
     }
 
-    fn transposed_jacobian(&self, i: usize) -> Matrix3x2<f32> {
-        self.model.jacobian(self.points[i])
+    fn jacobian(&self) -> Option<MatrixMN<f32, Dynamic, U2>> {
+        let mut jacobian = MatrixMN::zeros_generic(Dynamic::from_usize(self.points.len() * 2), U2);
+        for (i, point) in self.points.iter().enumerate() {
+            jacobian
+                .slice_range_mut(2 * i..2 * (i + 1), ..)
+                .copy_from(&self.model.jacobian(*point));
+        }
+        Some(jacobian)
     }
 }
 
@@ -126,17 +130,19 @@ fn lines() {
     let mut rng = Pcg64::new_unseeded();
     // The max candidate hypotheses had to be increased dramatically to ensure all 1000 cases find a
     // good-fitting line.
-    let mut arrsac = Arrsac::new(Config::new(3.0), Pcg64::new_unseeded());
-
+    let mut arrsac = Arrsac::new(Config::new(5.0), Pcg64::new_unseeded());
+    let mut would_have_failed = false;
     for _ in 0..LINES_TO_ESTIMATE {
         // Generate <a, b> and normalize.
-        let normal = Vector2::new(rng.gen_range(-10.0, 10.0), rng.gen_range(-10.0, 10.0)).normalize();
+        let normal =
+            Vector2::new(rng.gen_range(-10.0, 10.0), rng.gen_range(-10.0, 10.0)).normalize();
+        let normal_angle = f32::atan2(normal[1], normal[0]);
         // Get parallel ray.
         let ray = Vector2::new(normal.y, -normal.x);
         // Generate random c.
         let c = rng.gen_range(-10.0, 10.0);
 
-        // Generate random number of points between 50 and 1000.
+        // Generate random number of points.
         let num = rng.gen_range(100, 1000);
         // The points should be no more than 5.0 away from the line and be evenly distributed away from the line.
         let residuals = Uniform::new(-5.0, 5.0);
@@ -157,17 +163,20 @@ fn lines() {
             .model(&LineEstimator, points.iter().copied())
             .expect("unable to estimate a model");
         // Now perform Levenberg-Marquardt.
-        let model = LevenbergMarquardt::default()
-            .minimize(LineFittingOptimizationProblem {
-                // initial value
-                model,
-                points: &points,
-            })
-            .model;
-        let real_model = Line { normal, c };
-        let new_cosine_distance = model.norm_cosine_distance(&real_model);
+        let problem = LineFittingOptimizationProblem {
+            model: model.clone(),
+            points: &points,
+        };
+        let (problem, report) =
+            LevenbergMarquardt::new().minimize(model.clone().into_vec(), problem);
+        assert!(report.failure.is_none());
+        let real_model = Line { normal_angle, c };
+        would_have_failed = would_have_failed || model.norm_cosine_distance(&real_model) >= 0.01;
+        let new_cosine_distance = problem.model.norm_cosine_distance(&real_model);
 
         // Check the slope using the cosine distance.
         assert!(new_cosine_distance < 0.01, "slope out of expected range");
     }
+    // test that there were initial guesses that wouldn't have been enough
+    assert!(would_have_failed);
 }
