@@ -175,7 +175,7 @@ fn lines() {
         let new_cosine_distance = problem.model.norm_cosine_distance(&real_model);
 
         // Check the slope using the cosine distance.
-        assert!(new_cosine_distance < 0.01, "slope out of expected range");
+        assert!(new_cosine_distance < 0.001, "slope out of expected range");
     }
     // test that there were initial guesses that wouldn't have been enough
     assert!(would_have_failed);
