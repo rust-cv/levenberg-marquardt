@@ -18,14 +18,6 @@ pub enum Error {
     ShapeConstraintFailed,
 }
 
-impl Error {
-    pub fn msg(&self) -> &'static str {
-        match self {
-            Error::ShapeConstraintFailed => "m >= n is not fulfilled",
-        }
-    }
-}
-
 /// Pivoted QR decomposition.
 ///
 /// Let `$\mathbf{A}\in\R^{m\times n}$` with `$m\geq n$`.
@@ -323,6 +315,22 @@ where
         max_norm
     }
 
+    /// Compute `$\|\mathbf{A}\vec{x}\|^2 = \vec{x}^\top\mathbf{A}^\top\mathbf{A}\vec{x}$`.
+    pub fn a_x_norm_squared(&mut self, x: &VectorN<F, N>) -> F {
+        self.work.fill(F::zero());
+        for (i, (col, idx)) in self
+            .upper_r
+            .column_iter()
+            .zip(self.permutation.iter())
+            .enumerate()
+        {
+            self.work
+                .rows_range_mut(..i + 1)
+                .axpy(x[*idx], &col.rows_range(..i + 1), F::one());
+        }
+        self.work.norm_squared()
+    }
+
     /// Solve the linear least squares problem
     /// for a diagonal matrix `$\mathbf{D}$` (`diag`).
     ///
@@ -377,7 +385,7 @@ where
         self.l_diag
             .iter()
             .position(F::is_zero)
-            .unwrap_or(self.l_diag.nrows())
+            .unwrap_or_else(|| self.l_diag.nrows())
     }
 
     fn solve_after_elimination(
@@ -692,4 +700,14 @@ fn test_column_max_norm() {
     let b = Vector4::new(1., 2., 3., 4.);
     let norm = qr.into_least_squares_diagonal_problem(b).max_a_t_b_scaled();
     assert!((norm - 0.88499332).abs() < 1e-7);
+}
+
+#[test]
+fn test_a_x_norm_squared() {
+    use nalgebra::*;
+    let a = Matrix4x3::new(3., 6., 2., 7., 4., 3., 2., 0., 4., 5., 1., 6.);
+    let qr = PivotedQR::new(a).ok().unwrap();
+    let mut lls = qr.into_least_squares_diagonal_problem(Vector4::zeros());
+    let result = lls.a_x_norm_squared(&Vector3::new(1., 8., 3.));
+    assert!((result - 6710.) < 1e-10);
 }

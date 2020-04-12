@@ -18,7 +18,7 @@
 //! You must provide an implementation of
 //!
 //! - the residual vector `$\vec{x} \mapsto (r_1(\vec{x}), \ldots, r_m(\vec{x}))^\top\in\R^m$`
-//! - and, recommended, its Jacobian `$\mathbf{J} \in \R^{m\times n}$`, defined as
+//! - and its Jacobian `$\mathbf{J} \in \R^{m\times n}$`, defined as
 //!   ```math
 //!   \mathbf{J} \coloneqq
 //!   \begin{pmatrix}
@@ -51,7 +51,6 @@
 //! # use nalgebra::*;
 //! # use nalgebra::storage::Owned;
 //! # use levenberg_marquardt::{LeastSquaresProblem, LevenbergMarquardt};
-//! #[derive(Clone)]
 //! struct ExampleProblem {
 //!     // holds current value of the n parameters
 //!     p: Vector2<f32>,
@@ -63,40 +62,52 @@
 //!     type ResidualStorage = Owned<f32, U2>;
 //!     type JacobianStorage = Owned<f32, U2, U2>;
 //!     
-//!     fn apply_parameter_step(&mut self, delta: &VectorN<f32, U2>) {
-//!         self.p += delta;
+//!     fn set_params(&mut self, p: &mut VectorN<f32, U2>) {
+//!         self.p.copy_from(p);
 //!         // do common calculations for residuals and the Jacobian here
 //!     }
 //!     
-//!     fn residuals(&self) -> Vector2<f32> {
-//!         Vector2::new(
+//!     fn residuals(&self) -> Option<Vector2<f32>> {
+//!         Some(Vector2::new(
 //!             self.p.x * self.p.x + self.p.y - 11.0,
 //!             self.p.x + self.p.y * self.p.y - 7.0,
-//!         )
+//!         ))
 //!     }
 //!     
-//!     fn jacobian(&self) -> Matrix2<f32> {
-//!         Matrix2::new(
+//!     fn jacobian(&self) -> Option<Matrix2<f32>> {
+//!         Some(Matrix2::new(
 //!             2.0 * self.p.x, 1.0,
 //!             1.0, 2.0 * self.p.y,
-//!         )
+//!         ))
 //!     }
 //! }
 //!
 //! let problem = ExampleProblem {
-//!     // this will be the initial guess
-//!     p: Vector2::new(3.1, 1.9),
+//!     p: Vector2::zeros(),
 //! };
-//! let result = LevenbergMarquardt::default().minimize(problem);
-//! let value = result.objective_function();
-//! assert!(value.abs() < 1e-4);
+//! let (_result, report) = LevenbergMarquardt::new()
+//!     .minimize(Vector2::new(1., 1.), problem);
+//! assert!(report.failure.is_none());
+//! assert!(report.objective_function.abs() < 1e-7);
 //! ```
+//!
+//! # Derivative checking
+//!
+//! **TODO** [`differentiate_numerically`](fn.differentiate_numerically.html).
+//!
+//! # Vector-valued residuals `$\vec{r}_i$`
+//!
+//! For some problems it is natural to group the residuals into
+//! vector-valued residuals `$\vec{r}_i$`. **TODO**
 #![no_std]
 
 mod lm;
 mod problem;
 mod qr;
 mod trust_region;
+mod utils;
 
-pub use lm::LevenbergMarquardt;
+pub use lm::{Failure, LevenbergMarquardt, MinimizationReport};
 pub use problem::LeastSquaresProblem;
+
+pub use utils::differentiate_numerically;

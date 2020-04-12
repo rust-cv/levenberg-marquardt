@@ -1,11 +1,85 @@
+use crate::qr::PivotedQR;
+use crate::trust_region::determine_lambda_and_parameter_update;
+use crate::LeastSquaresProblem;
 use nalgebra::{
     allocator::Allocator,
     constraint::{DimEq, ShapeConstraint},
-    DefaultAllocator, Dim, DimMin, DimMinimum, DimName, RealField,
+    convert, DefaultAllocator, Dim, DimMin, DimMinimum, DimName, RealField, Vector, VectorN,
 };
-use num_traits::FromPrimitive;
+use num_traits::Float;
 
-use crate::LeastSquaresProblem;
+#[derive(Debug)]
+/// Reasons for failure of the minimization.
+pub enum Failure {
+    /// The residual or Jacobian computation was not successful.
+    User,
+    /// Encountered `NaN` or `$\pm\infty$`.
+    Numerical,
+    /// A parameter update did not change `$f$`.
+    NoImprovementPossible,
+    /// Maximum number of function evaluations was hit.
+    LostPatience,
+    /// The number of parameters `$n$` is zero.
+    NoParameters,
+    /// Indicates that `$m < n$`, which is not allowed.
+    NotEnoughResiduals,
+}
+
+#[derive(Debug)]
+/// Information about the minimization.
+///
+/// Use this to inspect the minimization process. Most importantly
+/// you may want to check if there was a failure.
+pub struct MinimizationReport<F: RealField> {
+    pub failure: Option<Failure>,
+    pub number_of_evaluations: usize,
+    /// Contains the value of `$f(\vec{x})$`.
+    pub objective_function: F,
+}
+
+/// Helper to keep target and report about it together.
+struct TargetReport<F, N, M, O>
+where
+    F: RealField,
+    N: Dim,
+    M: Dim,
+    O: LeastSquaresProblem<F, N, M>,
+{
+    target: O,
+    report: MinimizationReport<F>,
+    marker: core::marker::PhantomData<(N, M)>,
+}
+
+impl<F, N, M, O> TargetReport<F, N, M, O>
+where
+    F: RealField,
+    N: Dim,
+    M: Dim,
+    O: LeastSquaresProblem<F, N, M>,
+{
+    fn failure(self, failure: Failure) -> (O, MinimizationReport<F>) {
+        (
+            self.target,
+            MinimizationReport {
+                failure: Some(failure),
+                ..self.report
+            },
+        )
+    }
+
+    fn success(self) -> (O, MinimizationReport<F>) {
+        (self.target, self.report)
+    }
+
+    fn counted_residuals(&mut self) -> Option<Vector<F, M, O::ResidualStorage>> {
+        self.report.number_of_evaluations += 1;
+        let residuals = self.target.residuals();
+        if let Some(residuals) = self.target.residuals() {
+            self.report.objective_function = residuals.norm_squared() * convert(0.5);
+        }
+        residuals
+    }
+}
 
 /// Levenberg-Marquardt optimization algorithm.
 ///
@@ -14,156 +88,337 @@ use crate::LeastSquaresProblem;
 /// The runtime and termination behavior can be controlled by various hyperparameters.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct LevenbergMarquardt<F> {
-    /// Limit for the maximum number of iterations.
-    pub max_iterations: usize,
-    /// Limit for the number of times that `$\lambda$` can diverge
-    /// consecutively from Gauss-Newton due to a failed improvement. Once the
-    /// solution is as good as possible, it will begin regressing to gradient descent. This
-    /// limit prevents it from wasting the remaining cycles of the algorithm.
-    pub consecutive_divergence_limit: usize,
-    /// The initial value for `$\lambda$`. As `$\lambda$` grows higher,
-    /// Levenberg-Marquardt approaches gradient descent, which is better at converging to a distant
-    /// minima. As `$\lambda$` grows lower, Levenberg-Marquardt approaches Gauss-Newton, which allows faster
-    /// convergence closer to the minima. A `$\lambda$` of `0.0` would imply that it is purely based on
-    /// Gauss-Newton approximation. Please do not set `$\lambda$` to exactly `0.0` or the `lambda_scale` will be unable to
-    /// increase `$\lambda$` since it does so through multiplication.
-    pub initial_lambda: F,
-    /// Must be set to a value below `1.0`. On each iteration of Levenberg-Marquardt,
-    /// the lambda is used as-is and multiplied by `lambda_converge`. If the original lambda or the
-    /// new lambda is better, that lambda becomes the new lambda. If neither are better than the
-    /// previous sum-of-squares, then lambda is multiplied by `lambda_diverge`.
-    pub lambda_converge: F,
-    /// Must be set to a value above `1.0` and highly recommended to set it **above**
-    /// `lambda_converge^-1` (it will re-test an already-used lambda otherwise). On each iteration,
-    /// if the sum-of-squares regresses, then lambda is multiplied by `lambda_diverge` to move closer
-    /// to gradient descent in hopes that it will cause it to converge.
-    pub lambda_diverge: F,
-    /// The threshold at which the average-of-squares is low enough that the algorithm can
-    /// terminate. This exists so that the algorithm can short-circuit and exit early if the
-    /// solution was easy to find. Set this to `0.0` if you want it to continue for all `max_iterations`.
-    /// You might do that if you always have a fixed amount of time per optimization, such as when
-    /// processing live video frames.
-    pub threshold: F,
+    ftol: F,
+    xtol: F,
+    gtol: F,
+    stepbound: F,
+    patience: usize,
+    scale_diag: bool,
 }
 
-impl<F> Default for LevenbergMarquardt<F>
-where
-    F: FromPrimitive,
-{
-    fn default() -> Self {
+impl<F: RealField + Float> LevenbergMarquardt<F> {
+    pub fn new() -> Self {
+        let user_tol = F::default_epsilon() * convert(30.0);
         Self {
-            max_iterations: 1000,
-            consecutive_divergence_limit: 5,
-            initial_lambda: F::from_f32(50.0)
-                .expect("leverberg-marquardt vector and matrix type cant store 50.0"),
-            lambda_converge: F::from_f32(0.8)
-                .expect("leverberg-marquardt vector and matrix type cant store 0.8"),
-            lambda_diverge: F::from_f32(2.0)
-                .expect("leverberg-marquardt vector and matrix type cant store 2.0"),
-            threshold: F::from_f32(0.0)
-                .expect("leverberg-marquardt vector and matrix type cant store 0.0"),
+            ftol: user_tol,
+            xtol: user_tol,
+            gtol: user_tol,
+            stepbound: convert(100.0),
+            patience: 100,
+            scale_diag: true,
+        }
+    }
+
+    /// Set the relative error desired in the objective function `$f$`.
+    ///
+    /// Termination occurs when both the actual and
+    /// predicted relative reductions for `$f$` are at most `ftol`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `$\mathtt{ftol} < 0$`.
+    pub fn with_ftol(self, ftol: F) -> Self {
+        assert!(!ftol.is_negative(), "ftol must be >= 0");
+        Self { ftol, ..self }
+    }
+
+    /// Set relative error between last two approximations.
+    ///
+    /// Termination occurs when the relative error between
+    /// two consecutive iterates is at most `xtol`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `$\mathtt{xtol} < 0$`.
+    pub fn with_xtol(self, xtol: F) -> Self {
+        assert!(!xtol.is_negative(), "xtol must be >= 0");
+        Self { xtol, ..self }
+    }
+
+    /// Set orthogonality desired between the residual vector and its derivative.
+    ///
+    /// Termination occurs when the cosine of the angle
+    /// between the residual vector `$\vec{r}$` and any column of the Jacobian `$\mathbf{J}$` is at
+    /// most `gtol` in absolute value.
+    ///
+    /// With other words, the algorithm will terminate if
+    /// ```math
+    ///   \max_{i=1,\ldots,n}\frac{|(\mathbf{J}^\top \vec{r})_i|}{\|\mathbf{J}\vec{e}_i\|\|\vec{r}\|} \leq \texttt{gtol}.
+    /// ```
+    ///
+    /// This tests more or less if a _critical point_ was found, i.e., whether
+    /// `$\nabla f(\vec{x}) = \mathbf{J}^\top\vec{r} \approx 0$`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `$\mathtt{gtol} < 0$`.
+    pub fn with_gtol(self, gtol: F) -> Self {
+        assert!(!gtol.is_negative(), "gtol must be >= 0");
+        Self { gtol, ..self }
+    }
+
+    /// Set factor for the initial step bound.
+    ///
+    /// This bound is set to `$\mathtt{stepbound}\cdot\|\mathbf{D}\vec{x}\|$`
+    /// if nonzero, or else to `stepbound` itself. In most cases `stepbound` should lie
+    /// in the interval `$[0.1,100]$`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `$\mathtt{stepbound} \leq 0$`.
+    pub fn with_stepbound(self, stepbound: F) -> Self {
+        assert!(stepbound.is_positive(), "stepbound must be > 0");
+        Self { stepbound, ..self }
+    }
+
+    /// Set the maximal number of function evaluations.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `$\mathtt{patience} \leq 0$`.
+    pub fn with_patience(self, patience: usize) -> Self {
+        assert!(patience > 0, "patience must be > 0");
+        Self { patience, ..self }
+    }
+
+    /// Enable or disable whether the variables will be rescaled internally.
+    pub fn with_scale_diag(self, scale_diag: bool) -> Self {
+        Self { scale_diag, ..self }
+    }
+
+    /// Try to solve the given least-squares problem.
+    pub fn minimize<N, M, O>(
+        &self,
+        initial_x: Vector<F, N, O::ParameterStorage>,
+        target: O,
+    ) -> (O, MinimizationReport<F>)
+    where
+        N: DimMin<M> + DimName,
+        M: DimMin<N> + DimName,
+        O: LeastSquaresProblem<F, N, M>,
+        DefaultAllocator: Allocator<F, N>
+            + Allocator<F, N, N>
+            + Allocator<F, M>
+            + Allocator<F, N, Buffer = O::ParameterStorage>
+            + Allocator<usize, N>,
+        ShapeConstraint: DimEq<DimMinimum<N, M>, N> + DimEq<DimMinimum<M, N>, N>,
+    {
+        const P1: f64 = 0.1;
+        const P0001: f64 = 1.0e-4;
+
+        let mut report = TargetReport {
+            target,
+            report: MinimizationReport {
+                failure: None,
+                number_of_evaluations: 0,
+                objective_function: <F as Float>::nan(),
+            },
+            marker: core::marker::PhantomData,
+        };
+
+        // Evaluate with at start point
+        let mut x = initial_x;
+        report.target.set_params(&mut x);
+        let mut residuals = if let Some(residuals) = report.counted_residuals() {
+            residuals
+        } else {
+            return report.failure(Failure::User);
+        };
+        // Compute norm
+        let mut residuals_norm = report.report.objective_function * convert(2.0);
+
+        // Initialize diagonal
+        let mut diag = VectorN::<F, N>::from_element(F::one());
+        // Check n > 0
+        if diag.nrows() == 0 {
+            return report.failure(Failure::NoParameters);
+        }
+        // Check m >= n
+        if diag.nrows() > residuals.nrows() {
+            return report.failure(Failure::NotEnoughResiduals);
+        }
+        if !residuals_norm.is_finite() {
+            return report.failure(Failure::Numerical);
+        }
+        if residuals_norm <= Float::min_positive_value() {
+            // Already zero, nothing to do
+            return report.success();
+        }
+
+        let mut tmp = VectorN::<F, N>::zeros();
+
+        let mut delta = F::zero();
+        let mut lambda = F::zero();
+        let mut xnorm = F::zero();
+
+        let mut first_outer = true;
+        loop {
+            // Compute jacobian
+            let jacobian = if let Some(jacobian) = report.target.jacobian() {
+                jacobian
+            } else {
+                return report.failure(Failure::User);
+            };
+
+            let qr = PivotedQR::new(jacobian).ok().unwrap();
+            let mut lls = qr.into_least_squares_diagonal_problem(residuals);
+
+            // Compute norm of scaled gradient and detect degeneracy
+            let gnorm = lls.max_a_t_b_scaled() / residuals_norm;
+            if gnorm <= self.gtol {
+                return report.success();
+            }
+
+            if first_outer {
+                // Initialize diag and delta
+                xnorm = if self.scale_diag {
+                    for (d, col_norm) in diag.iter_mut().zip(lls.column_norms.iter()) {
+                        *d = if col_norm.is_zero() {
+                            F::one()
+                        } else {
+                            *col_norm
+                        };
+                    }
+                    tmp.cmpy(F::one(), &diag, &x, F::zero());
+                    tmp.norm()
+                } else {
+                    x.norm()
+                };
+                if !xnorm.is_finite() {
+                    return report.failure(Failure::Numerical);
+                }
+                delta = if xnorm.is_zero() {
+                    self.stepbound
+                } else {
+                    self.stepbound * xnorm
+                };
+            } else if self.scale_diag {
+                // Update diag
+                for (d, norm) in diag.iter_mut().zip(lls.column_norms.iter()) {
+                    *d = Float::max(*norm, *d);
+                }
+            }
+
+            let mut first_inner = true;
+            residuals = loop {
+                let param = determine_lambda_and_parameter_update(&mut lls, &diag, delta, lambda);
+                lambda = param.lambda;
+                let pnorm = param.dp_norm;
+                if !pnorm.is_finite() {
+                    return report.failure(Failure::Numerical);
+                }
+                // at first call, adjust the initial step bound
+                if first_outer && first_inner && pnorm < delta {
+                    delta = pnorm;
+                }
+
+                // These values are needed later. We check now to fail early.
+                let temp2 = lambda * Float::powi(pnorm / residuals_norm, 2);
+                if !temp2.is_finite() {
+                    return report.failure(Failure::Numerical);
+                }
+                let temp1 = lls.a_x_norm_squared(&param.step) / Float::powi(residuals_norm, 2);
+                if !temp1.is_finite() {
+                    return report.failure(Failure::Numerical);
+                }
+
+                // Compute new parameters: x - p
+                tmp.copy_from(&x);
+                tmp.axpy(-F::one(), &param.step, F::one());
+                // Evaluate
+                report.target.set_params(&mut tmp);
+                residuals = if let Some(residuals) = report.counted_residuals() {
+                    residuals
+                } else {
+                    return report.failure(Failure::User);
+                };
+                let new_residuals_norm = report.report.objective_function * convert(2.);
+
+                // Compute predicted and actual reduction
+                let actual_reduction = if new_residuals_norm * convert(P1) < residuals_norm {
+                    F::one() - Float::powi(new_residuals_norm / residuals_norm, 2)
+                } else {
+                    -F::one()
+                };
+                let predicted_reduction = temp1 + temp2 * convert(2.0);
+
+                let ratio = if predicted_reduction.is_zero() {
+                    F::zero()
+                } else {
+                    actual_reduction / predicted_reduction
+                };
+                let half: F = convert(0.5);
+                if ratio <= convert(0.25) {
+                    let mut temp = if !actual_reduction.is_negative() {
+                        half
+                    } else {
+                        let dir_der = -temp1 + temp2;
+                        half * dir_der / (dir_der + half * actual_reduction)
+                    };
+                    if new_residuals_norm * convert(P1) >= residuals_norm || temp < convert(P1) {
+                        temp = convert(P1);
+                    };
+                    delta = temp * Float::min(delta, pnorm / convert(P1));
+                    lambda /= temp;
+                } else if lambda.is_zero() || ratio >= convert(0.75) {
+                    delta = pnorm * convert(2.);
+                    lambda *= half;
+                }
+
+                let inner_success = ratio >= convert(P0001);
+                // on sucess, update x, residuals and their norms
+                if inner_success {
+                    core::mem::swap(&mut x, &mut tmp);
+                    xnorm = if self.scale_diag {
+                        tmp.cmpy(F::one(), &diag, &x, F::zero());
+                        tmp.norm()
+                    } else {
+                        x.norm()
+                    };
+                    if !xnorm.is_finite() {
+                        return report.failure(Failure::Numerical);
+                    }
+                    residuals_norm = new_residuals_norm;
+                } else {
+                    // Reset objective function value
+                    report.report.objective_function = residuals_norm * convert(0.5);
+                }
+
+                // convergence tests
+                if residuals_norm <= F::min_positive_value()
+                    || (Float::abs(actual_reduction) <= self.ftol
+                        && predicted_reduction <= self.ftol
+                        && ratio <= convert(2.))
+                    || delta <= self.xtol * xnorm
+                {
+                    return report.success();
+                }
+
+                // termination tests
+                if report.report.number_of_evaluations >= self.patience {
+                    return report.failure(Failure::LostPatience);
+                }
+                if (Float::abs(actual_reduction) <= F::default_epsilon()
+                    && predicted_reduction <= F::default_epsilon()
+                    && ratio <= convert(2.))
+                    || delta <= F::default_epsilon() * xnorm
+                    || gnorm <= F::default_epsilon()
+                {
+                    return report.failure(Failure::NoImprovementPossible);
+                }
+
+                first_inner = false;
+                if inner_success {
+                    break residuals;
+                }
+            };
+            first_outer = false;
         }
     }
 }
 
-impl<F> LevenbergMarquardt<F> {
-    /// Try to solve the given least-squares problem.
-    ///
-    /// # Initial value
-    ///
-    /// The initial guess for the paramters `$\vec{x}$` must be
-    /// already stored in `target`. A good initial guess is usually essential
-    /// for the minimization to be successful.
-    pub fn minimize<N, M, O>(&self, mut target: O) -> O
-    where
-        F: RealField,
-        N: DimMin<N> + DimName,
-        M: Dim,
-        O: LeastSquaresProblem<F, N, M>,
-        DefaultAllocator: Allocator<F, N>,
-        DefaultAllocator: Allocator<F, N, N>,
-        DefaultAllocator: Allocator<F, N, Buffer = O::ParameterStorage>,
-        ShapeConstraint: DimEq<DimMinimum<N, N>, N>,
-    {
-        let mut lambda = self.initial_lambda;
-        let mut res = target.residuals();
-        let mut sum_of_squares = res.norm_squared();
-        let mut consecutive_divergences = 0;
-        let total = F::from_usize(res.len())
-            .expect("there were more items in the vector than could be represented by the type");
-
-        for _ in 0..self.max_iterations {
-            let (hessian, gradients) = {
-                let jacobian = target.jacobian();
-                (jacobian.tr_mul(&jacobian), jacobian.tr_mul(&res))
-            };
-
-            // Get a tuple of the lambda, guess, residual, and sum-of-squares.
-            // Returns an option because it may not be possible to solve the inverse.
-            let lam_tar_res_sum = |lam| {
-                // Compute JJᵀ + λ*diag(JJᵀ).
-                let mut hessian_lambda_diag = hessian.clone();
-                let new_diag = hessian_lambda_diag.map_diagonal(|n| n * (lam + F::one()));
-                hessian_lambda_diag.set_diagonal(&new_diag);
-
-                // Invert JᵀJ + λ*diag(JᵀJ) and solve for delta.
-                let delta = hessian_lambda_diag
-                    .try_inverse()
-                    .map(|inv_jjl| -inv_jjl * &gradients);
-                // Compute the new guess, residuals, and sum-of-squares.
-                let vars = delta.map(|delta| {
-                    let mut target = target.clone();
-                    target.apply_parameter_step(&delta);
-                    let res = target.residuals();
-                    let sum = res.norm_squared();
-                    (lam, target, res, sum)
-                });
-                // If the sum-of-squares is infinite or NaN it shouldn't be allowed through.
-                vars.filter(|vars| vars.3.is_finite())
-            };
-
-            // Select the vars that minimize the sum-of-squares the most.
-            let smaller_lambda = lambda * self.lambda_converge;
-            let new_vars = match (lam_tar_res_sum(smaller_lambda), lam_tar_res_sum(lambda)) {
-                (Some(s_vars), Some(o_vars)) => {
-                    Some(if s_vars.3 < o_vars.3 { s_vars } else { o_vars })
-                }
-                (Some(vars), None) | (None, Some(vars)) => Some(vars),
-                (None, None) => None,
-            };
-
-            if let Some((n_lam, n_tar, n_res, n_sum)) = new_vars {
-                // We didn't see a decrease in the new state.
-                if n_sum > sum_of_squares {
-                    // Increase lambda twice and go to the next iteration.
-                    // Increase twice so that the new two tested lambdas are different than current.
-                    lambda *= self.lambda_diverge;
-                    consecutive_divergences += 1;
-                } else {
-                    // There was a decrease, so update everything.
-                    lambda = n_lam;
-                    target = n_tar;
-                    res = n_res;
-                    sum_of_squares = n_sum;
-                    consecutive_divergences = 0;
-                }
-            } else {
-                // We were unable to take the inverse, so increase lambda in hopes that it may
-                // cause the matrix to become invertible.
-                lambda *= self.lambda_diverge;
-                consecutive_divergences += 1;
-            }
-
-            // Terminate early if we hit the consecutive divergence limit.
-            if consecutive_divergences == self.consecutive_divergence_limit {
-                break;
-            }
-
-            // We can terminate early if the sum of squares is below the threshold.
-            if sum_of_squares < self.threshold * total {
-                break;
-            }
-        }
-        target
+impl<F: RealField + Float> Default for LevenbergMarquardt<F> {
+    fn default() -> Self {
+        Self::new()
     }
 }

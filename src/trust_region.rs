@@ -6,6 +6,15 @@ use nalgebra::{
 };
 use num_traits::Float;
 
+pub struct LMParameter<F: RealField, N: DimName>
+where
+    DefaultAllocator: Allocator<F, N>,
+{
+    pub step: VectorN<F, N>,
+    pub lambda: F,
+    pub dp_norm: F,
+}
+
 /// Approximately solve the LM trust-region subproblem.
 ///
 /// Given `$\mathbf{F}\in\R^{m\times n}$` and a non-singular diagonal matrix `$\mathbf{D}$`
@@ -38,11 +47,11 @@ use num_traits::Float;
 /// Chapter 4.3 of "Numerical Optimization" by Nocedal and Wright also contains
 /// information about this algorithm but it misses a few details.
 pub fn determine_lambda_and_parameter_update<F, M, N, S>(
-    mut lls: LinearLeastSquaresDiagonalProblem<F, M, N, S>,
+    lls: &mut LinearLeastSquaresDiagonalProblem<F, M, N, S>,
     diag: &VectorN<F, N>,
     delta: F,
     initial_lambda: F,
-) -> (VectorN<F, N>, F)
+) -> LMParameter<F, N>
 where
     F: RealField + Float,
     M: Dim,
@@ -58,11 +67,15 @@ where
     let has_full_rank = lls.has_full_rank();
     let (mut p, mut l) = lls.solve_with_zero_diagonal();
     let mut diag_p = p.component_mul(&diag);
-    let diag_p_norm = diag_p.norm();
+    let mut diag_p_norm = diag_p.norm();
     let mut fp = diag_p_norm - delta;
     if fp <= delta * convert(REL_ERR) {
         // we have a feasible p with lambda = 0
-        return (p, F::zero());
+        return LMParameter {
+            step: p,
+            lambda: F::zero(),
+            dp_norm: diag_p_norm,
+        };
     }
 
     // we now look for lambda > 0 with ||D p|| = delta
@@ -106,11 +119,11 @@ where
         diag_p.axpy(l_sqrt, diag, F::zero());
         let (p_new, mut l) = lls.solve_with_diagonal(&diag_p, p);
         p = p_new;
+        diag_p = p.component_mul(&diag);
+        diag_p_norm = diag_p.norm();
         if iteration == 10 {
             break;
         }
-        diag_p = p.component_mul(&diag);
-        let diag_p_norm = diag_p.norm();
         let fp_old = fp;
         fp = diag_p_norm - delta;
         if Float::abs(fp) <= delta * convert(REL_ERR)
@@ -134,7 +147,11 @@ where
         lambda = Float::max(lambda_lower, lambda + newton_correction);
     }
 
-    (p, lambda)
+    LMParameter {
+        step: p,
+        lambda,
+        dp_norm: diag_p_norm,
+    }
 }
 
 #[cfg(test)]
@@ -151,13 +168,13 @@ mod tests {
         let residual = Vector4::new(7., -1., 0., -1.);
 
         let qr = PivotedQR::new(j).ok().unwrap();
-        let lls = qr.into_least_squares_diagonal_problem(residual);
+        let mut lls = qr.into_least_squares_diagonal_problem(residual);
         let diag = Vector3::new(18.2, 18.2, 3.2);
-        let (p_o, l_o) = determine_lambda_and_parameter_update(lls, &diag, 0.5, 0.2);
+        let param = determine_lambda_and_parameter_update(&mut lls, &diag, 0.5, 0.2);
 
-        assert!((l_o - 34.628643558156341f64).abs() < 1e-10);
+        assert!((param.lambda - 34.628643558156341f64).abs() < 1e-10);
         let p_r = Vector3::new(0.017591648698939, -0.020395135814051, 0.059285196018896);
-        assert!((p_o - p_r).norm() < 1e-10);
+        assert!((param.step - p_r).norm() < 1e-10);
     }
 
     #[test]
@@ -168,13 +185,13 @@ mod tests {
         let residual = Vector4::new(-7., -8., -8., -10.);
 
         let qr = PivotedQR::new(j).ok().unwrap();
-        let lls = qr.into_least_squares_diagonal_problem(residual);
+        let mut lls = qr.into_least_squares_diagonal_problem(residual);
         let diag = Vector3::new(10.2, 13.2, 1.2);
-        let (p_o, l_o) = determine_lambda_and_parameter_update(lls, &diag, 0.5, 0.2);
+        let param = determine_lambda_and_parameter_update(&mut lls, &diag, 0.5, 0.2);
 
-        assert!(l_o == 0.0);
+        assert!(param.lambda == 0.0);
         let p_r = Vector3::new(-0.048474221517806, -0.007207732068190, 0.083138659283539);
-        assert!((p_o - p_r).norm() < 1e-10);
+        assert!((param.step - p_r).norm() < 1e-10);
     }
 
     #[test]
@@ -185,13 +202,13 @@ mod tests {
         let residual = Vector4::new(1., -5., 2., 7.);
 
         let qr = PivotedQR::new(j).ok().unwrap();
-        let lls = qr.into_least_squares_diagonal_problem(residual);
+        let mut lls = qr.into_least_squares_diagonal_problem(residual);
         let diag = Vector3::new(4.2, 8.2, 11.2);
-        let (p_o, l_o) = determine_lambda_and_parameter_update(lls, &diag, 0.5, 0.2);
+        let param = determine_lambda_and_parameter_update(&mut lls, &diag, 0.5, 0.2);
 
-        assert!((l_o - 0.017646940861467f64).abs() < 1e-10);
+        assert!((param.lambda - 0.017646940861467f64).abs() < 1e-10);
         let p_r = Vector3::new(-0.008462374169585, 0.033658082419054, 0.037230479167632);
-        assert!((p_o - p_r).norm() < 1e-10);
+        assert!((param.step - p_r).norm() < 1e-10);
     }
 
     #[test]
@@ -202,12 +219,12 @@ mod tests {
         let residual = Vector4::new(-5., 3., -2., 7.);
 
         let qr = PivotedQR::new(j).ok().unwrap();
-        let lls = qr.into_least_squares_diagonal_problem(residual);
+        let mut lls = qr.into_least_squares_diagonal_problem(residual);
         let diag = Vector3::new(6.2, 1.2, 0.2);
-        let (p_o, l_o) = determine_lambda_and_parameter_update(lls, &diag, 0.5, 0.2);
+        let param = determine_lambda_and_parameter_update(&mut lls, &diag, 0.5, 0.2);
 
-        assert!(l_o.abs() < 1e-15);
+        assert!(param.lambda.abs() < 1e-15);
         let p_r = Vector3::new(-0.000277548738904, -0.046232379576219, 0.266724338086713);
-        assert!((p_o - p_r).norm() < 1e-10);
+        assert!((param.step - p_r).norm() < 1e-10);
     }
 }
