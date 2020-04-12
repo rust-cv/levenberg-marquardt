@@ -227,7 +227,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
             return report.failure(Failure::User);
         };
         // Compute norm
-        let mut residuals_norm = report.report.objective_function * convert(2.0);
+        let mut residuals_norm = Float::sqrt(report.report.objective_function * convert(2.0));
 
         // Initialize diagonal
         let n = x.data.shape().0;
@@ -335,7 +335,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
                 } else {
                     return report.failure(Failure::User);
                 };
-                let new_residuals_norm = report.report.objective_function * convert(2.);
+                let new_residuals_norm = Float::sqrt(report.report.objective_function * convert(2.));
 
                 // Compute predicted and actual reduction
                 let actual_reduction = if new_residuals_norm * convert(P1) < residuals_norm {
@@ -384,7 +384,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
                     residuals_norm = new_residuals_norm;
                 } else {
                     // Reset objective function value
-                    report.report.objective_function = residuals_norm * convert(0.5);
+                    report.report.objective_function = Float::powi(residuals_norm, 2) * convert(0.5);
                 }
 
                 // convergence tests

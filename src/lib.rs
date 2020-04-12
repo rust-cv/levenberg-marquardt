@@ -88,7 +88,7 @@
 //! let (_result, report) = LevenbergMarquardt::new()
 //!     .minimize(Vector2::new(1., 1.), problem);
 //! assert!(report.failure.is_none());
-//! assert!(report.objective_function.abs() < 1e-7);
+//! assert!(report.objective_function.abs() < 1e-10);
 //! ```
 //!
 //! # Derivative checking
