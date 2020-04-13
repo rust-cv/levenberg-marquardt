@@ -3,6 +3,8 @@
 //! The QR factorization is used to implement an efficient solver for the
 //! linear least-squares problem which is repeatedly required to be
 //! solved in the LM algorithm.
+#[cfg(test)]
+use approx::assert_relative_eq;
 use nalgebra::{
     allocator::Allocator,
     constraint::{DimEq, ShapeConstraint},
@@ -506,10 +508,10 @@ fn test_pivoted_qr() {
     assert_eq!(qr.permutation, nalgebra::Vector3::new(2, 0, 1));
 
     let column_norms = Vector3::new(3.7416574, 11.2249722, 19.1311265);
-    assert!((qr.column_norms - column_norms).norm() < 1e-7);
+    assert_relative_eq!(qr.column_norms, column_norms, epsilon = 1e-7);
 
     let r_diag = Vector3::new(-19.1311265, 1.8700983, 0.0);
-    assert!((qr.r_diag - r_diag).norm() < 1e-7);
+    assert_relative_eq!(qr.r_diag, r_diag, epsilon = 1e-7);
 
     let qr_ref = Matrix4x3::<f64>::from_iterator(
         [
@@ -529,7 +531,7 @@ fn test_pivoted_qr() {
         .iter()
         .map(|x| *x),
     );
-    assert!((qr.qr - qr_ref).norm() < 1e-7);
+    assert_relative_eq!(qr.qr, qr_ref, epsilon = 1e-7);
 }
 
 #[test]
@@ -546,7 +548,7 @@ fn test_pivoted_qr_more_branches() {
     );
     let qr = PivotedQR::new(a).ok().unwrap();
     let r_diag = Vector3::new(-67.683085036070864, -55.250741178610944, 0.00000000000001);
-    assert!((qr.r_diag - r_diag).norm() < 1e-10);
+    assert_relative_eq!(qr.r_diag, r_diag);
 }
 
 #[cfg(test)]
@@ -578,7 +580,7 @@ fn test_into_lls() {
     use nalgebra::Vector3;
     let lls = default_lls(1);
     let qt_b = Vector3::new(-6.272500481871799, 1.963603245291175, -0.288494026015405);
-    assert!((lls.qt_b - qt_b).norm() < 1e-10);
+    assert_relative_eq!(lls.qt_b, qt_b, epsilon = 1e-14);
 }
 
 #[test]
@@ -587,9 +589,12 @@ fn test_elimate_diag_and_l() {
     let mut lls = default_lls(1);
     let rhs = lls.eliminate_diag(&Vector3::new(1.0, 0.5, 0.0), lls.qt_b.clone());
     let rhs_ref = Vector3::new(-6.272500481871799, 1.731584982206922, 0.612416936078506);
-    assert!((rhs - rhs_ref).norm() < 1e-10);
+    assert_relative_eq!(rhs, rhs_ref);
 
     // contains L
+    let ldiag_ref = Vector3::new(-19.131126469708992, 2.120676250530203, 0.666641352293790);
+    assert_relative_eq!(lls.l_diag, ldiag_ref);
+
     let r_ref = Matrix3::new(
         -19.131126469708992,
         -3.240791915633763,
@@ -601,11 +606,8 @@ fn test_elimate_diag_and_l() {
         0.824564277241393,
         -0.000000000000001,
     );
-    let ldiag_ref = Vector3::new(-19.131126469708992, 2.120676250530203, 0.666641352293790);
-    assert!((lls.l_diag - ldiag_ref).norm() < 1e-10);
-
-    let r = lls.upper_r.slice_range(..3, ..3);
-    assert!((r - r_ref).norm() < 1e-10);
+    let r = Matrix3::from_iterator(lls.upper_r.slice_range(..3, ..3).iter().map(|x| *x));
+    assert_relative_eq!(r, r_ref);
 }
 
 #[test]
@@ -614,7 +616,7 @@ fn test_lls_x_1() {
     let mut lls = default_lls(1);
     let (x_out, _) = lls.solve_with_diagonal(&Vector3::new(1.0, 0.5, 0.0), Vector3::zeros());
     let x_ref = Vector3::new(0.459330143540669, 0.918660287081341, -0.287081339712919);
-    assert!((x_out - x_ref).norm() < 1e-10);
+    assert_relative_eq!(x_out, x_ref, epsilon = 1e-14);
 }
 
 #[test]
@@ -628,13 +630,19 @@ fn test_lls_x_2() {
     let mut lls = qr.into_least_squares_diagonal_problem(Vector4::new(-5., 3., -2., 7.));
 
     let rdiag_exp = Vector3::new(-44.068129073061407, 29.147349299100057, 0.);
-    let rdiag_out = lls.upper_r.slice_range(..3, ..3).diagonal();
-    assert!((rdiag_out - rdiag_exp).norm() < 1e-10);
+    let rdiag_out = Vector3::from_iterator(
+        lls.upper_r
+            .slice_range(..3, ..3)
+            .diagonal()
+            .iter()
+            .map(|x| *x),
+    );
+    assert_relative_eq!(rdiag_out, rdiag_exp);
 
     let diag = Vector3::new(2.772724292099739, 0.536656314599949, 0.089442719099992);
     let (x_out, _) = lls.solve_with_diagonal(&diag, Vector3::zeros());
     let x_exp = Vector3::new(-0.000277544878320, -0.046225239392197, 0.266720628065249);
-    assert!((x_out - x_exp).norm() < 1e-10);
+    assert_relative_eq!(x_out, x_exp, epsilon = 1e-14);
 }
 
 #[test]
@@ -644,7 +652,7 @@ fn test_lls_zero_diagonal() {
     assert!(lls.has_full_rank());
     let (x_out, _l) = lls.solve_with_zero_diagonal();
     let x_ref = Vector3::new(87., -38., 10.);
-    assert!((x_out - x_ref).norm() < 1e-10);
+    assert_relative_eq!(x_out, x_ref);
 }
 
 #[test]
@@ -663,11 +671,11 @@ fn test_cholesky_lower() {
 
     let out_mul = chol.mul_qt_b(Vector3::zeros());
     let exp_mul = Vector3::new(2., 4., 2.05);
-    assert!((out_mul - exp_mul).norm() < 1e-10);
+    assert_relative_eq!(out_mul, exp_mul);
 
     let out_solve = chol.solve(Vector3::new(1.0, 2.0, 0.5));
     let exp_solve = Vector3::new(1., 0., -5.);
-    assert!((out_solve - exp_solve).norm() < 1e-10);
+    assert_relative_eq!(out_solve, exp_solve);
 }
 
 #[test]
@@ -686,11 +694,11 @@ fn test_cholesky_upper() {
 
     let out_mul = chol.mul_qt_b(Vector3::zeros());
     let exp_mul = Vector3::new(4., 19., 21.5);
-    assert!((out_mul - exp_mul).norm() < 1e-10);
+    assert_relative_eq!(out_mul, exp_mul);
 
     let out_solve = chol.solve(Vector3::new(1.0, 2.0, 0.5));
     let exp_solve = Vector3::new(0.125, 0.1875, -0.06944444444444445);
-    assert!((out_solve - exp_solve).norm() < 1e-10);
+    assert_relative_eq!(out_solve, exp_solve);
 }
 
 #[test]
@@ -702,7 +710,7 @@ fn test_column_max_norm() {
     let qr = PivotedQR::new(a).ok().unwrap();
     let b = Vector4::new(1., 2., 3., 4.);
     let norm = qr.into_least_squares_diagonal_problem(b).max_a_t_b_scaled();
-    assert!((norm - 0.88499332).abs() < 1e-7);
+    assert_relative_eq!(norm, 0.88499332, epsilon = 1e-8);
 }
 
 #[test]
@@ -712,5 +720,5 @@ fn test_a_x_norm_squared() {
     let qr = PivotedQR::new(a).ok().unwrap();
     let mut lls = qr.into_least_squares_diagonal_problem(Vector4::zeros());
     let result = lls.a_x_norm_squared(&Vector3::new(1., 8., 3.));
-    assert!((result - 6710.) < 1e-10);
+    assert_relative_eq!(result, 6710., epsilon = 1e-11);
 }

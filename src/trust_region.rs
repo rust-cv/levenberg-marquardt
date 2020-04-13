@@ -159,6 +159,7 @@ mod tests {
     use super::determine_lambda_and_parameter_update;
     use crate::qr::*;
     use nalgebra::*;
+    use approx::assert_relative_eq;
 
     #[test]
     fn test_case1() {
@@ -172,9 +173,9 @@ mod tests {
         let diag = Vector3::new(18.2, 18.2, 3.2);
         let param = determine_lambda_and_parameter_update(&mut lls, &diag, 0.5, 0.2);
 
-        assert!((param.lambda - 34.628643558156341f64).abs() < 1e-10);
+        assert_relative_eq!(param.lambda, 34.628643558156341f64);
         let p_r = Vector3::new(0.017591648698939, -0.020395135814051, 0.059285196018896);
-        assert!((param.step - p_r).norm() < 1e-10);
+        assert_relative_eq!(param.step, p_r, epsilon = 1e-14);
     }
 
     #[test]
@@ -189,9 +190,9 @@ mod tests {
         let diag = Vector3::new(10.2, 13.2, 1.2);
         let param = determine_lambda_and_parameter_update(&mut lls, &diag, 0.5, 0.2);
 
-        assert!(param.lambda == 0.0);
+        assert_eq!(param.lambda, 0.0);
         let p_r = Vector3::new(-0.048474221517806, -0.007207732068190, 0.083138659283539);
-        assert!((param.step - p_r).norm() < 1e-10);
+        assert_relative_eq!(param.step, p_r, epsilon = 1e-14);
     }
 
     #[test]
@@ -206,9 +207,9 @@ mod tests {
         let diag = Vector3::new(4.2, 8.2, 11.2);
         let param = determine_lambda_and_parameter_update(&mut lls, &diag, 0.5, 0.2);
 
-        assert!((param.lambda - 0.017646940861467f64).abs() < 1e-10);
+        assert_relative_eq!(param.lambda, 0.017646940861467f64, epsilon = 1e-14);
         let p_r = Vector3::new(-0.008462374169585, 0.033658082419054, 0.037230479167632);
-        assert!((param.step - p_r).norm() < 1e-10);
+        assert_relative_eq!(param.step, p_r, epsilon = 1e-14);
     }
 
     #[test]
@@ -223,8 +224,8 @@ mod tests {
         let diag = Vector3::new(6.2, 1.2, 0.2);
         let param = determine_lambda_and_parameter_update(&mut lls, &diag, 0.5, 0.2);
 
-        assert!(param.lambda.abs() < 1e-15);
+        assert_relative_eq!(param.lambda, 0.);
         let p_r = Vector3::new(-0.000277548738904, -0.046232379576219, 0.266724338086713);
-        assert!((param.step - p_r).norm() < 1e-10);
+        assert_relative_eq!(param.step, p_r, epsilon = 1e-14);
     }
 }
