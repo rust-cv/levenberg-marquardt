@@ -158,8 +158,8 @@ where
 mod tests {
     use super::determine_lambda_and_parameter_update;
     use crate::qr::*;
-    use nalgebra::*;
     use approx::assert_relative_eq;
+    use nalgebra::*;
 
     #[test]
     fn test_case1() {

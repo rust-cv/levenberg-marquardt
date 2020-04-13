@@ -94,8 +94,7 @@
 //! # Derivative checking
 //!
 //! You should try using [`differentiate_numerically`](fn.differentiate_numerically.html)
-//! in a unit test to verify that your Jacobian implementation matches the residuals. See
-//! the details and example there.
+//! in a unit test to verify that your Jacobian implementation matches the residuals.
 #![no_std]
 
 mod lm;
@@ -107,4 +106,4 @@ mod utils;
 pub use lm::{Failure, LevenbergMarquardt, MinimizationReport};
 pub use problem::LeastSquaresProblem;
 
-pub use utils::differentiate_numerically;
+pub use utils::{differentiate_holomorphic_numerically, differentiate_numerically};
