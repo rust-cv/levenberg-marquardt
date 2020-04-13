@@ -97,6 +97,9 @@
 //! in a unit test to verify that your Jacobian implementation matches the residuals.
 #![no_std]
 
+#[cfg(test)]
+extern crate alloc;
+
 mod lm;
 mod problem;
 mod qr;

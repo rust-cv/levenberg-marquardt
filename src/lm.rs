@@ -10,7 +10,14 @@ use nalgebra::{
 };
 use num_traits::Float;
 
-#[derive(Debug)]
+#[cfg(test)]
+mod test_helpers;
+#[cfg(test)]
+mod test_init_step;
+#[cfg(test)]
+mod test_update_diag;
+
+#[derive(PartialEq, Eq, Debug)]
 /// Reasons for failure of the minimization.
 pub enum Failure {
     /// The residual or Jacobian computation was not successful.
@@ -172,7 +179,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
             Ok(res) => res,
         };
         loop {
-            // Build LLS
+            // Build linear least-squaress problem used for the trust-region subproblem
             let mut lls = {
                 let jacobian = match lm.jacobian() {
                     Err(reason) => return lm.into_report(reason),
@@ -182,6 +189,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
                 qr.into_least_squares_diagonal_problem(residuals)
             };
 
+            // Update the diagonal, initialize "delta" in first call
             if let Err(reason) = lm.update_diag(&mut lls) {
                 return lm.into_report(reason);
             };
@@ -203,7 +211,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
     }
 }
 
-/// Struct which holds the state of the LM algorithm and implements individual steps.
+/// Struct which holds the state of the LM algorithm and which implements its individual steps.
 struct LM<'a, F, N, M, O>
 where
     F: RealField,
@@ -213,17 +221,24 @@ where
     DefaultAllocator: Allocator<F, N>,
 {
     config: &'a LevenbergMarquardt<F>,
-    /// Current parameters
+    /// Current parameters `$\vec{x}$`
     x: Vector<F, N, O::ParameterStorage>,
     tmp: Vector<F, N, O::ParameterStorage>,
+    /// The implementation of `LeastSquaresProblem`
     target: O,
+    /// Statistics and termination reasons, used for return value
     report: MinimizationReport<F>,
+    /// The delta from the trust-region algorithm
     delta: F,
     lambda: F,
+    /// `$\|\mathbf{D}\vec{x}\|`
     xnorm: F,
     residuals_norm: F,
+    /// The diagonal of `$\mathbf{D}$`
     diag: VectorN<F, N>,
+    /// Flag to check if it is the first trust region iteration
     first_trust_region_iteration: bool,
+    /// Flag to check if it is the first diagonal update
     first_update: bool,
 }
 
@@ -354,7 +369,7 @@ where
         }
 
         if self.first_update {
-            // Initialize diag and delta
+            // Initialize diag and xnorm
             self.xnorm = if self.config.scale_diag {
                 for (d, col_norm) in self.diag.iter_mut().zip(lls.column_norms.iter()) {
                     *d = if col_norm.is_zero() {
@@ -371,6 +386,7 @@ where
             if !self.xnorm.is_finite() {
                 return Err(Some(Failure::Numerical));
             }
+            // Initialize delta
             self.delta = if self.xnorm.is_zero() {
                 self.config.stepbound
             } else {
@@ -465,9 +481,9 @@ where
             self.lambda *= half;
         }
 
-        let inner_success = ratio >= convert(P0001);
-        // on sucess, update x, residuals and their norms
-        if inner_success {
+        let update_considered_good = ratio >= convert(P0001);
+        if update_considered_good {
+            // update x, residuals and their norms
             core::mem::swap(&mut self.x, &mut self.tmp);
             self.xnorm = if self.config.scale_diag {
                 self.tmp.cmpy(F::one(), &self.diag, &self.x, F::zero());
@@ -505,9 +521,10 @@ where
             return Err(Some(Failure::NoImprovementPossible));
         }
 
-        if inner_success {
+        if update_considered_good {
             Ok(Some(residuals))
         } else {
+            // Need another iteration, did not change the parameters
             Ok(None)
         }
     }
