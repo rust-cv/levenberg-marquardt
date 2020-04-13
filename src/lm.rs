@@ -1,12 +1,12 @@
-use crate::qr::PivotedQR;
-use crate::trust_region::determine_lambda_and_parameter_update;
+use crate::qr::{LinearLeastSquaresDiagonalProblem, PivotedQR};
+use crate::trust_region::{determine_lambda_and_parameter_update, LMParameter};
 use crate::LeastSquaresProblem;
 use nalgebra::{
     allocator::Allocator,
     constraint::{DimEq, ShapeConstraint},
     convert,
     storage::Storage,
-    DefaultAllocator, Dim, DimMin, DimMinimum, RealField, Vector, VectorN, U1,
+    DefaultAllocator, DimMin, DimMinimum, Matrix, RealField, Vector, VectorN, U1,
 };
 use num_traits::Float;
 
@@ -39,50 +39,6 @@ pub struct MinimizationReport<F: RealField> {
     pub objective_function: F,
 }
 
-/// Helper to keep target and report about it together.
-struct TargetReport<F, N, M, O>
-where
-    F: RealField,
-    N: Dim,
-    M: Dim,
-    O: LeastSquaresProblem<F, N, M>,
-{
-    target: O,
-    report: MinimizationReport<F>,
-    marker: core::marker::PhantomData<(N, M)>,
-}
-
-impl<F, N, M, O> TargetReport<F, N, M, O>
-where
-    F: RealField,
-    N: Dim,
-    M: Dim,
-    O: LeastSquaresProblem<F, N, M>,
-{
-    fn failure(self, failure: Failure) -> (O, MinimizationReport<F>) {
-        (
-            self.target,
-            MinimizationReport {
-                failure: Some(failure),
-                ..self.report
-            },
-        )
-    }
-
-    fn success(self) -> (O, MinimizationReport<F>) {
-        (self.target, self.report)
-    }
-
-    fn counted_residuals(&mut self) -> Option<Vector<F, M, O::ResidualStorage>> {
-        self.report.number_of_evaluations += 1;
-        let residuals = self.target.residuals();
-        if let Some(residuals) = self.target.residuals() {
-            self.report.objective_function = residuals.norm_squared() * convert(0.5);
-        }
-        residuals
-    }
-}
-
 /// Levenberg-Marquardt optimization algorithm.
 ///
 /// See the [module documentation](index.html) for a usage example.
@@ -96,6 +52,12 @@ pub struct LevenbergMarquardt<F> {
     stepbound: F,
     patience: usize,
     scale_diag: bool,
+}
+
+impl<F: RealField + Float> Default for LevenbergMarquardt<F> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<F: RealField + Float> LevenbergMarquardt<F> {
@@ -205,225 +167,348 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
             + Allocator<usize, N>,
         ShapeConstraint: DimEq<DimMinimum<N, M>, N> + DimEq<DimMinimum<M, N>, N>,
     {
-        const P1: f64 = 0.1;
-        const P0001: f64 = 1.0e-4;
-
-        let mut report = TargetReport {
-            target,
-            report: MinimizationReport {
-                failure: None,
-                number_of_evaluations: 0,
-                objective_function: <F as Float>::nan(),
-            },
-            marker: core::marker::PhantomData,
+        let (mut lm, mut residuals) = match LM::new(self, initial_x, target) {
+            Err(report) => return report,
+            Ok(res) => res,
         };
-
-        // Evaluate with at start point
-        let mut x = initial_x;
-        report.target.set_params(&x);
-        let mut residuals = if let Some(residuals) = report.counted_residuals() {
-            residuals
-        } else {
-            return report.failure(Failure::User);
-        };
-        // Compute norm
-        let mut residuals_norm = Float::sqrt(report.report.objective_function * convert(2.0));
-
-        // Initialize diagonal
-        let n = x.data.shape().0;
-        let mut diag = VectorN::<F, N>::from_element_generic(n, U1, F::one());
-        // Check n > 0
-        if diag.nrows() == 0 {
-            return report.failure(Failure::NoParameters);
-        }
-        // Check m >= n
-        if diag.nrows() > residuals.nrows() {
-            return report.failure(Failure::NotEnoughResiduals);
-        }
-        if !residuals_norm.is_finite() {
-            return report.failure(Failure::Numerical);
-        }
-        if residuals_norm <= Float::min_positive_value() {
-            // Already zero, nothing to do
-            return report.success();
-        }
-
-        let mut tmp = VectorN::<F, N>::zeros_generic(n, U1);
-
-        let mut delta = F::zero();
-        let mut lambda = F::zero();
-        let mut xnorm = F::zero();
-
-        let mut first_outer = true;
         loop {
-            // Compute jacobian
-            let jacobian = if let Some(jacobian) = report.target.jacobian() {
-                jacobian
-            } else {
-                return report.failure(Failure::User);
+            // Build LLS
+            let mut lls = {
+                let jacobian = match lm.jacobian() {
+                    Err(reason) => return lm.into_report(reason),
+                    Ok(jacobian) => jacobian,
+                };
+                let qr = PivotedQR::new(jacobian).ok().unwrap();
+                qr.into_least_squares_diagonal_problem(residuals)
             };
 
-            let qr = PivotedQR::new(jacobian).ok().unwrap();
-            let mut lls = qr.into_least_squares_diagonal_problem(residuals);
+            if let Err(reason) = lm.update_diag(&mut lls) {
+                return lm.into_report(reason);
+            };
 
-            // Compute norm of scaled gradient and detect degeneracy
-            let gnorm = lls.max_a_t_b_scaled() / residuals_norm;
-            if gnorm <= self.gtol {
-                return report.success();
-            }
-
-            if first_outer {
-                // Initialize diag and delta
-                xnorm = if self.scale_diag {
-                    for (d, col_norm) in diag.iter_mut().zip(lls.column_norms.iter()) {
-                        *d = if col_norm.is_zero() {
-                            F::one()
-                        } else {
-                            *col_norm
-                        };
-                    }
-                    tmp.cmpy(F::one(), &diag, &x, F::zero());
-                    tmp.norm()
-                } else {
-                    x.norm()
-                };
-                if !xnorm.is_finite() {
-                    return report.failure(Failure::Numerical);
-                }
-                delta = if xnorm.is_zero() {
-                    self.stepbound
-                } else {
-                    self.stepbound * xnorm
-                };
-            } else if self.scale_diag {
-                // Update diag
-                for (d, norm) in diag.iter_mut().zip(lls.column_norms.iter()) {
-                    *d = Float::max(*norm, *d);
-                }
-            }
-
-            let mut first_inner = true;
             residuals = loop {
-                let param = determine_lambda_and_parameter_update(&mut lls, &diag, delta, lambda);
-                lambda = param.lambda;
-                let pnorm = param.dp_norm;
-                if !pnorm.is_finite() {
-                    return report.failure(Failure::Numerical);
-                }
-                // at first call, adjust the initial step bound
-                if first_outer && first_inner && pnorm < delta {
-                    delta = pnorm;
-                }
-
-                // These values are needed later. We check now to fail early.
-                let temp2 = lambda * Float::powi(pnorm / residuals_norm, 2);
-                if !temp2.is_finite() {
-                    return report.failure(Failure::Numerical);
-                }
-                let temp1 = lls.a_x_norm_squared(&param.step) / Float::powi(residuals_norm, 2);
-                if !temp1.is_finite() {
-                    return report.failure(Failure::Numerical);
-                }
-
-                // Compute new parameters: x - p
-                tmp.copy_from(&x);
-                tmp.axpy(-F::one(), &param.step, F::one());
-                // Evaluate
-                report.target.set_params(&tmp);
-                residuals = if let Some(residuals) = report.counted_residuals() {
-                    residuals
-                } else {
-                    return report.failure(Failure::User);
-                };
-                let new_residuals_norm =
-                    Float::sqrt(report.report.objective_function * convert(2.));
-
-                // Compute predicted and actual reduction
-                let actual_reduction = if new_residuals_norm * convert(P1) < residuals_norm {
-                    F::one() - Float::powi(new_residuals_norm / residuals_norm, 2)
-                } else {
-                    -F::one()
-                };
-                let predicted_reduction = temp1 + temp2 * convert(2.0);
-
-                let ratio = if predicted_reduction.is_zero() {
-                    F::zero()
-                } else {
-                    actual_reduction / predicted_reduction
-                };
-                let half: F = convert(0.5);
-                if ratio <= convert(0.25) {
-                    let mut temp = if !actual_reduction.is_negative() {
-                        half
-                    } else {
-                        let dir_der = -temp1 + temp2;
-                        half * dir_der / (dir_der + half * actual_reduction)
-                    };
-                    if new_residuals_norm * convert(P1) >= residuals_norm || temp < convert(P1) {
-                        temp = convert(P1);
-                    };
-                    delta = temp * Float::min(delta, pnorm / convert(P1));
-                    lambda /= temp;
-                } else if lambda.is_zero() || ratio >= convert(0.75) {
-                    delta = pnorm * convert(2.);
-                    lambda *= half;
-                }
-
-                let inner_success = ratio >= convert(P0001);
-                // on sucess, update x, residuals and their norms
-                if inner_success {
-                    core::mem::swap(&mut x, &mut tmp);
-                    xnorm = if self.scale_diag {
-                        tmp.cmpy(F::one(), &diag, &x, F::zero());
-                        tmp.norm()
-                    } else {
-                        x.norm()
-                    };
-                    if !xnorm.is_finite() {
-                        return report.failure(Failure::Numerical);
-                    }
-                    residuals_norm = new_residuals_norm;
-                } else {
-                    // Reset objective function value
-                    report.report.objective_function =
-                        Float::powi(residuals_norm, 2) * convert(0.5);
-                }
-
-                // convergence tests
-                if residuals_norm <= F::min_positive_value()
-                    || (Float::abs(actual_reduction) <= self.ftol
-                        && predicted_reduction <= self.ftol
-                        && ratio <= convert(2.))
-                    || delta <= self.xtol * xnorm
-                {
-                    return report.success();
-                }
-
-                // termination tests
-                if report.report.number_of_evaluations >= self.patience {
-                    return report.failure(Failure::LostPatience);
-                }
-                if (Float::abs(actual_reduction) <= F::default_epsilon()
-                    && predicted_reduction <= F::default_epsilon()
-                    && ratio <= convert(2.))
-                    || delta <= F::default_epsilon() * xnorm
-                    || gnorm <= F::default_epsilon()
-                {
-                    return report.failure(Failure::NoImprovementPossible);
-                }
-
-                first_inner = false;
-                if inner_success {
-                    break residuals;
+                let param =
+                    determine_lambda_and_parameter_update(&mut lls, &lm.diag, lm.delta, lm.lambda);
+                let tr_iteration = lm.trust_region_iteration(&mut lls, param);
+                match tr_iteration {
+                    // successful paramter update, break and recompute Jacobian
+                    Ok(Some(residuals)) => break residuals,
+                    // terminate (either success or failure)
+                    Err(reason) => return lm.into_report(reason),
+                    // need another iteration
+                    Ok(None) => (),
                 }
             };
-            first_outer = false;
         }
     }
 }
 
-impl<F: RealField + Float> Default for LevenbergMarquardt<F> {
-    fn default() -> Self {
-        Self::new()
+/// Struct which holds the state of the LM algorithm and implements individual steps.
+struct LM<'a, F, N, M, O>
+where
+    F: RealField,
+    N: DimMin<M>,
+    M: DimMin<N>,
+    O: LeastSquaresProblem<F, N, M>,
+    DefaultAllocator: Allocator<F, N>,
+{
+    config: &'a LevenbergMarquardt<F>,
+    /// Current parameters
+    x: Vector<F, N, O::ParameterStorage>,
+    tmp: Vector<F, N, O::ParameterStorage>,
+    target: O,
+    report: MinimizationReport<F>,
+    delta: F,
+    lambda: F,
+    xnorm: F,
+    residuals_norm: F,
+    diag: VectorN<F, N>,
+    first_trust_region_iteration: bool,
+    first_update: bool,
+}
+
+impl<'a, F, N, M, O> LM<'a, F, N, M, O>
+where
+    F: RealField + Float,
+    N: DimMin<M>,
+    M: DimMin<N>,
+    O: LeastSquaresProblem<F, N, M>,
+    DefaultAllocator: Allocator<F, N>,
+{
+    #[allow(clippy::type_complexity)]
+    fn new(
+        config: &'a LevenbergMarquardt<F>,
+        initial_x: Vector<F, N, O::ParameterStorage>,
+        mut target: O,
+    ) -> Result<(Self, Vector<F, M, O::ResidualStorage>), (O, MinimizationReport<F>)> {
+        let mut report = MinimizationReport {
+            failure: None,
+            number_of_evaluations: 1,
+            objective_function: <F as Float>::nan(),
+        };
+
+        // Evaluate at start point
+        let x = initial_x;
+        target.set_params(&x);
+        let (residuals, residuals_norm) = if let Some(residuals) = target.residuals() {
+            let norm_squared = residuals.norm_squared();
+            report.objective_function = norm_squared * convert(0.5);
+            (residuals, Float::sqrt(norm_squared))
+        } else {
+            return Err((
+                target,
+                MinimizationReport {
+                    failure: Some(Failure::User),
+                    ..report
+                },
+            ));
+        };
+
+        // Initialize diagonal
+        let n = x.data.shape().0;
+        let diag = VectorN::<F, N>::from_element_generic(n, U1, F::one());
+        // Check n > 0
+        if diag.nrows() == 0 {
+            return Err((
+                target,
+                MinimizationReport {
+                    failure: Some(Failure::NoParameters),
+                    ..report
+                },
+            ));
+        }
+
+        // Check m >= n
+        if diag.nrows() > residuals.nrows() {
+            return Err((
+                target,
+                MinimizationReport {
+                    failure: Some(Failure::NotEnoughResiduals),
+                    ..report
+                },
+            ));
+        }
+
+        if !residuals_norm.is_finite() {
+            return Err((
+                target,
+                MinimizationReport {
+                    failure: Some(Failure::Numerical),
+                    ..report
+                },
+            ));
+        }
+
+        if residuals_norm <= Float::min_positive_value() {
+            // Already zero, nothing to do
+            return Err((target, report));
+        }
+
+        Ok((
+            Self {
+                config,
+                target,
+                report,
+                tmp: x.clone(),
+                x,
+                diag,
+                delta: F::zero(),
+                lambda: F::zero(),
+                xnorm: F::zero(),
+                residuals_norm,
+                first_trust_region_iteration: true,
+                first_update: true,
+            },
+            residuals,
+        ))
+    }
+
+    fn into_report(self, failure: Option<Failure>) -> (O, MinimizationReport<F>) {
+        (
+            self.target,
+            MinimizationReport {
+                failure,
+                ..self.report
+            },
+        )
+    }
+
+    fn jacobian(&self) -> Result<Matrix<F, M, N, O::JacobianStorage>, Option<Failure>> {
+        match self.target.jacobian() {
+            Some(jacobian) => Ok(jacobian),
+            None => Err(Some(Failure::User)),
+        }
+    }
+
+    fn update_diag(
+        &mut self,
+        lls: &mut LinearLeastSquaresDiagonalProblem<F, M, N, O::JacobianStorage>,
+    ) -> Result<(), Option<Failure>>
+    where
+        DefaultAllocator: Allocator<usize, N>,
+    {
+        // Compute norm of scaled gradient and detect degeneracy
+        let gnorm = lls.max_a_t_b_scaled() / self.residuals_norm;
+        if gnorm <= self.config.gtol {
+            return Err(None);
+        }
+
+        if self.first_update {
+            // Initialize diag and delta
+            self.xnorm = if self.config.scale_diag {
+                for (d, col_norm) in self.diag.iter_mut().zip(lls.column_norms.iter()) {
+                    *d = if col_norm.is_zero() {
+                        F::one()
+                    } else {
+                        *col_norm
+                    };
+                }
+                self.tmp.cmpy(F::one(), &self.diag, &self.x, F::zero());
+                self.tmp.norm()
+            } else {
+                self.x.norm()
+            };
+            if !self.xnorm.is_finite() {
+                return Err(Some(Failure::Numerical));
+            }
+            self.delta = if self.xnorm.is_zero() {
+                self.config.stepbound
+            } else {
+                self.config.stepbound * self.xnorm
+            };
+            self.first_update = false;
+        } else if self.config.scale_diag {
+            // Update diag
+            for (d, norm) in self.diag.iter_mut().zip(lls.column_norms.iter()) {
+                *d = Float::max(*norm, *d);
+            }
+        }
+        Ok(())
+    }
+
+    #[allow(clippy::type_complexity)]
+    fn trust_region_iteration(
+        &mut self,
+        lls: &mut LinearLeastSquaresDiagonalProblem<F, M, N, O::JacobianStorage>,
+        param: LMParameter<F, N>,
+    ) -> Result<Option<Vector<F, M, O::ResidualStorage>>, Option<Failure>>
+    where
+        DefaultAllocator: Allocator<usize, N>,
+    {
+        const P1: f64 = 0.1;
+        const P0001: f64 = 1.0e-4;
+
+        self.lambda = param.lambda;
+        let pnorm = param.dp_norm;
+        if !pnorm.is_finite() {
+            return Err(Some(Failure::Numerical));
+        }
+
+        if self.first_trust_region_iteration && pnorm < self.delta {
+            self.first_trust_region_iteration = false;
+            self.delta = pnorm;
+        }
+
+        // These values are needed later. We check now to fail early.
+        let temp2 = self.lambda * Float::powi(pnorm / self.residuals_norm, 2);
+        if !temp2.is_finite() {
+            return Err(Some(Failure::Numerical));
+        }
+        let temp1 = lls.a_x_norm_squared(&param.step) / Float::powi(self.residuals_norm, 2);
+        if !temp1.is_finite() {
+            return Err(Some(Failure::Numerical));
+        }
+
+        // Compute new parameters: x - p
+        self.tmp.copy_from(&self.x);
+        self.tmp.axpy(-F::one(), &param.step, F::one());
+        // Evaluate
+        self.target.set_params(&self.tmp);
+        let new_objective_function;
+        self.report.number_of_evaluations += 1;
+        let (residuals, new_residuals_norm) = if let Some(residuals) = self.target.residuals() {
+            let norm_squared = residuals.norm_squared();
+            new_objective_function = norm_squared * convert(0.5);
+            (residuals, Float::sqrt(norm_squared))
+        } else {
+            return Err(Some(Failure::User));
+        };
+
+        // Compute predicted and actual reduction
+        let actual_reduction = if new_residuals_norm * convert(P1) < self.residuals_norm {
+            F::one() - Float::powi(new_residuals_norm / self.residuals_norm, 2)
+        } else {
+            -F::one()
+        };
+        let predicted_reduction = temp1 + temp2 * convert(2.0);
+
+        let ratio = if predicted_reduction.is_zero() {
+            F::zero()
+        } else {
+            actual_reduction / predicted_reduction
+        };
+        let half: F = convert(0.5);
+        if ratio <= convert(0.25) {
+            let mut temp = if !actual_reduction.is_negative() {
+                half
+            } else {
+                let dir_der = -temp1 + temp2;
+                half * dir_der / (dir_der + half * actual_reduction)
+            };
+            if new_residuals_norm * convert(P1) >= self.residuals_norm || temp < convert(P1) {
+                temp = convert(P1);
+            };
+            self.delta = temp * Float::min(self.delta, pnorm / convert(P1));
+            self.lambda /= temp;
+        } else if self.lambda.is_zero() || ratio >= convert(0.75) {
+            self.delta = pnorm * convert(2.);
+            self.lambda *= half;
+        }
+
+        let inner_success = ratio >= convert(P0001);
+        // on sucess, update x, residuals and their norms
+        if inner_success {
+            core::mem::swap(&mut self.x, &mut self.tmp);
+            self.xnorm = if self.config.scale_diag {
+                self.tmp.cmpy(F::one(), &self.diag, &self.x, F::zero());
+                self.tmp.norm()
+            } else {
+                self.x.norm()
+            };
+            if !self.xnorm.is_finite() {
+                return Err(Some(Failure::Numerical));
+            }
+            self.residuals_norm = new_residuals_norm;
+            self.report.objective_function = new_objective_function;
+        }
+
+        // convergence tests
+        if self.residuals_norm <= F::min_positive_value()
+            || (Float::abs(actual_reduction) <= self.config.ftol
+                && predicted_reduction <= self.config.ftol
+                && ratio <= convert(2.))
+            || self.delta <= self.config.xtol * self.xnorm
+        {
+            return Err(None);
+        }
+
+        // termination tests
+        if self.report.number_of_evaluations >= self.config.patience {
+            return Err(Some(Failure::LostPatience));
+        }
+        if (Float::abs(actual_reduction) <= F::default_epsilon()
+            && predicted_reduction <= F::default_epsilon()
+            && ratio <= convert(2.))
+            || self.delta <= F::default_epsilon() * self.xnorm
+            || pnorm <= F::default_epsilon()
+        {
+            return Err(Some(Failure::NoImprovementPossible));
+        }
+
+        if inner_success {
+            Ok(Some(residuals))
+        } else {
+            Ok(None)
+        }
     }
 }
