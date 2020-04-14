@@ -21,8 +21,10 @@
 //! - and its Jacobian `$\mathbf{J} \in \R^{m\times n}$`, defined as
 //!   ```math
 //!   \mathbf{J} \coloneqq
+//!   \def\arraystretch{1.5}
 //!   \begin{pmatrix}
 //!   \frac{\partial r_1}{\partial x_1} & \cdots & \frac{\partial r_1}{\partial x_n} \\
+//!   \frac{\partial r_2}{\partial x_1} & \cdots & \frac{\partial r_2}{\partial x_n} \\
 //!   \vdots & \ddots & \vdots \\
 //!   \frac{\partial r_m}{\partial x_1} & \cdots & \frac{\partial r_m}{\partial x_n}
 //!   \end{pmatrix}.
