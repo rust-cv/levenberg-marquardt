@@ -67,7 +67,7 @@ use num_traits::float::Float;
 /// #     }
 /// # }
 /// // Parameters for which we want to check your derivative
-/// let x = Vector2::new(6., 10.);
+/// let x = Vector2::new(6., -10.);
 /// // Let `problem` be an instance of `LeastSquaresProblem`
 /// # let mut problem = ExampleProblem::<f64> { p: Vector2::zeros(), };
 /// problem.set_params(&x);
@@ -98,10 +98,11 @@ where
     const SCALE: f64 = 12.;
 
     let mut jacobian = Matrix::<F, M, N, O::JacobianStorage>::zeros_generic(m, n);
+    let eps = Float::sqrt(F::default_epsilon());
     for i in 0..n.value() {
         quotient.fill(F::zero());
         let x0 = params[i];
-        let h = Float::sqrt(F::default_epsilon()) * x0;
+        let h = Float::max(eps * eps, eps * Float::abs(x0));
         for [a, b] in STENCIL.iter() {
             params[i] = x0 + h * convert(*b);
             problem.set_params(&params);
@@ -167,7 +168,7 @@ where
 /// }
 ///
 /// // parameters for which you want to test your derivative
-/// let x = Vector2::new(0.03877264483558185, 0.7734472300384164);
+/// let x = Vector2::new(0.03877264483558185, -0.7734472300384164);
 ///
 /// // instantiate f64 variant to compute the derivative we want to check
 /// let jacobian_from_trait = {
@@ -211,7 +212,7 @@ where
     let mut jacobian = MatrixMN::<F, M, N>::zeros_generic(m, n);
     for i in 0..n.value() {
         let xi = params[i];
-        let h = Complex::<F>::from_real(F::default_epsilon()) * xi;
+        let h = Complex::<F>::from_real(F::default_epsilon()) * xi.abs();
         params[i] = xi + Complex::<F>::i() * h;
         problem.set_params(&params);
         let mut residuals = problem.residuals()?;

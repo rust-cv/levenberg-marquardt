@@ -56,7 +56,7 @@
 //!     p: Vector2<f32>,
 //! }
 //!
-//! // We must implement a trait for every problem we want to solve
+//! // We implement a trait for every problem we want to solve
 //! impl LeastSquaresProblem<f32, U2, U2> for ExampleProblem {
 //!     type ParameterStorage = Owned<f32, U2>;
 //!     type ResidualStorage = Owned<f32, U2>;

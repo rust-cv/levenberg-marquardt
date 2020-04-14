@@ -64,8 +64,7 @@ impl TerminationReason {
     /// For example `$ m \geq n > 0$` was not fulfilled.
     pub fn was_usage_issue(&self) -> bool {
         match self {
-            TerminationReason::NotEnoughResiduals
-            | TerminationReason::NoParameters => true,
+            TerminationReason::NotEnoughResiduals | TerminationReason::NoParameters => true,
             _ => false,
         }
     }
