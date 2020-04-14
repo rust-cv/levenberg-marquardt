@@ -80,6 +80,7 @@ impl TerminationReason {
 /// you may want to check if there was a failure.
 pub struct MinimizationReport<F: RealField> {
     pub termination: TerminationReason,
+    /// Number of residuals which were computed.
     pub number_of_evaluations: usize,
     /// Contains the value of `$f(\vec{x})$`.
     pub objective_function: F,
@@ -199,7 +200,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
         Self { scale_diag, ..self }
     }
 
-    /// Try to solve the given least-squares problem.
+    /// Try to solve the given least squares problem.
     pub fn minimize<N, M, O>(
         &self,
         initial_x: Vector<F, N, O::ParameterStorage>,
@@ -221,7 +222,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
             Ok(res) => res,
         };
         loop {
-            // Build linear least-squaress problem used for the trust-region subproblem
+            // Build linear least squaress problem used for the trust-region subproblem
             let mut lls = {
                 let jacobian = match lm.jacobian() {
                     Err(reason) => return lm.into_report(reason),

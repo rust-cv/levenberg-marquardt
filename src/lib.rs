@@ -1,7 +1,7 @@
 //! Implementation of the [Levenberg-Marquardt](https://en.wikipedia.org/wiki/Levenberg%E2%80%93Marquardt_algorithm)
 //! optimization algorithm using [nalgebra](https://nalgebra.org).
 //!
-//! This algorithm tries to solve the least-squares optimization problem
+//! This algorithm tries to solve the least squares optimization problem
 //! ```math
 //! \min_{\vec{x}\in\R^n}f(\vec{x})\quad\text{where}\quad\begin{cases}\begin{aligned}
 //!   \ f\!:\R^n &\to \R \\
@@ -31,12 +31,11 @@
 //!   ```
 //!
 //! Finally, you have to provide an initial guess for `$\vec{x}$`. This can
-//! be a constant value, but typically the optimization result _crucially_ depends
+//! be a constant value, but typically the optimization result crucially depends
 //! on a good initial value.
 //!
 //! The algorithm also has a number of hyperparameters which are documented
-//! at [`LevenbergMarquardt`](struct.LevenbergMarquardt.html) along with
-//! implementation details.
+//! at [`LevenbergMarquardt`](struct.LevenbergMarquardt.html).
 //!
 //! # Usage Example
 //!

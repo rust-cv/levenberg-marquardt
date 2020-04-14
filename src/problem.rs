@@ -1,7 +1,7 @@
 use nalgebra::{storage::ContiguousStorageMut, ComplexField, Dim, Matrix, Vector};
 use num_traits::FromPrimitive;
 
-/// A least-squares minimization problem.
+/// A least squares minimization problem.
 ///
 /// This is what [`LevenbergMarquardt`](struct.LevenbergMarquardt.html) needs
 /// to compute the residuals and the Jacobian. See the [module documentation](index.html)
@@ -24,6 +24,6 @@ where
     /// Compute the residual vector.
     fn residuals(&self) -> Option<Vector<F, M, Self::ResidualStorage>>;
 
-    /// Compute the Jacobian for the residual vector.
+    /// Compute the Jacobian of the residual vector.
     fn jacobian(&self) -> Option<Matrix<F, M, N, Self::JacobianStorage>>;
 }

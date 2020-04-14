@@ -1,7 +1,7 @@
 //! Pivoted QR factorization and a specialized LLS solver.
 //!
 //! The QR factorization is used to implement an efficient solver for the
-//! linear least-squares problem which is repeatedly required to be
+//! linear least squares problem which is repeatedly required to be
 //! solved in the LM algorithm.
 #[cfg(test)]
 use approx::assert_relative_eq;
@@ -139,7 +139,7 @@ where
     }
 
     /// Consume the QR-decomposition and transform it into
-    /// a parametrized least-squares problem.
+    /// a parametrized least squares problem.
     ///
     /// See [`LinearLeastSquaresDiagonalProblem`](struct.LinearLeastSquaresDiagonalProblem.html)
     /// for details.
@@ -174,7 +174,7 @@ where
     }
 }
 
-/// Parametrized linear least-squares problem for the LM algorithm.
+/// Parametrized linear least squares problem for the LM algorithm.
 ///
 /// The problem is of the form
 /// ```math
@@ -366,7 +366,7 @@ where
         self.solve_after_elimination(rhs)
     }
 
-    /// Solve the least-squares problem with a zero diagonal.
+    /// Solve the least squares problem with a zero diagonal.
     pub fn solve_with_zero_diagonal(&mut self) -> (VectorN<F, N>, CholeskyFactor<F, M, N, S>) {
         let n = self.upper_r.data.shape().1;
         let l = self.upper_r.generic_slice((0, 0), (n, n));
