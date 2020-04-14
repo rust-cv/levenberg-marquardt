@@ -32,9 +32,10 @@ pub enum TerminationReason {
     Orthogonal,
     /// The `ftol` or `xtol` criterion was fulfilled.
     Converged { ftol: bool, xtol: bool },
-    /// A parameter update did not change `$f$`.
-    // FIXME
-    NoImprovementPossible,
+    /// The bound for `ftol`, `xtol` or `gtol` was set so low that the
+    /// test passed with the machine epsilon but not with the actual
+    /// bound. This means you must increase the bound.
+    NoImprovementPossible(&'static str),
     /// Maximum number of function evaluations was hit.
     LostPatience,
     /// The number of parameters `$n$` is zero.
@@ -64,7 +65,9 @@ impl TerminationReason {
     /// For example `$ m \geq n > 0$` was not fulfilled.
     pub fn was_usage_issue(&self) -> bool {
         match self {
-            TerminationReason::NotEnoughResiduals | TerminationReason::NoParameters => true,
+            TerminationReason::NotEnoughResiduals
+            | TerminationReason::NoParameters
+            | TerminationReason::NoImprovementPossible(_) => true,
             _ => false,
         }
     }
@@ -272,6 +275,7 @@ where
     lambda: F,
     /// `$\|\mathbf{D}\vec{x}\|`
     xnorm: F,
+    gnorm: F,
     residuals_norm: F,
     /// The diagonal of `$\mathbf{D}$`
     diag: VectorN<F, N>,
@@ -369,6 +373,7 @@ where
                 delta: F::zero(),
                 lambda: F::zero(),
                 xnorm: F::zero(),
+                gnorm: F::zero(),
                 residuals_norm,
                 first_trust_region_iteration: true,
                 first_update: true,
@@ -402,11 +407,11 @@ where
         DefaultAllocator: Allocator<usize, N>,
     {
         // Compute norm of scaled gradient and detect degeneracy
-        let gnorm = match lls.max_a_t_b_scaled() {
+        self.gnorm = match lls.max_a_t_b_scaled() {
             Some(max_at_b) => max_at_b / self.residuals_norm,
             None => return Err(TerminationReason::Numerical("jacobian")),
         };
-        if gnorm <= self.config.gtol {
+        if self.gnorm <= self.config.gtol {
             return Err(TerminationReason::Orthogonal);
         }
 
@@ -462,28 +467,34 @@ where
             return Err(TerminationReason::Numerical("subproblem ||Dp||"));
         }
 
-        if self.first_trust_region_iteration && pnorm < self.delta {
-            self.first_trust_region_iteration = false;
-            self.delta = pnorm;
+        let predicted_reduction;
+        let dir_der;
+        {
+            let temp2 = self.lambda * Float::powi(pnorm / self.residuals_norm, 2);
+            if !temp2.is_finite() {
+                return Err(TerminationReason::Numerical("trust-region reduction"));
+            }
+            let temp1 = lls.a_x_norm_squared(&param.step) / Float::powi(self.residuals_norm, 2);
+            if !temp1.is_finite() {
+                return Err(TerminationReason::Numerical("trust-region reduction"));
+            }
+            predicted_reduction = temp1 + temp2 * convert(2.0);
+            dir_der = -temp1 + temp2;
         }
 
-        // These values are needed later. We check now to fail early.
-        let temp2 = self.lambda * Float::powi(pnorm / self.residuals_norm, 2);
-        if !temp2.is_finite() {
-            return Err(TerminationReason::Numerical("trust-region reduction"));
+        if self.first_trust_region_iteration && pnorm < self.delta {
+            self.delta = pnorm;
         }
-        let temp1 = lls.a_x_norm_squared(&param.step) / Float::powi(self.residuals_norm, 2);
-        if !temp1.is_finite() {
-            return Err(TerminationReason::Numerical("trust-region reduction"));
-        }
+        self.first_trust_region_iteration = false;
 
         // Compute new parameters: x - p
         self.tmp.copy_from(&self.x);
         self.tmp.axpy(-F::one(), &param.step, F::one());
+
         // Evaluate
         self.target.set_params(&self.tmp);
-        let new_objective_function;
         self.report.number_of_evaluations += 1;
+        let new_objective_function;
         let (residuals, new_residuals_norm) = if let Some(residuals) = self.target.residuals() {
             let norm_squared = residuals.norm_squared();
             new_objective_function = norm_squared * convert(0.5);
@@ -498,7 +509,6 @@ where
         } else {
             -F::one()
         };
-        let predicted_reduction = temp1 + temp2 * convert(2.0);
 
         let ratio = if predicted_reduction.is_zero() {
             F::zero()
@@ -510,7 +520,6 @@ where
             let mut temp = if !actual_reduction.is_negative() {
                 half
             } else {
-                let dir_der = -temp1 + temp2;
                 half * dir_der / (dir_der + half * actual_reduction)
             };
             if new_residuals_norm * convert(P1) >= self.residuals_norm || temp < convert(P1) {
@@ -559,14 +568,20 @@ where
         if self.report.number_of_evaluations >= self.config.patience {
             return Err(TerminationReason::LostPatience);
         }
-        if (Float::abs(actual_reduction) <= F::default_epsilon()
+
+        // We now check if one of the ftol, xtol or gtol criteria
+        // is fulfilld with the machine epsilon.
+        if Float::abs(actual_reduction) <= F::default_epsilon()
             && predicted_reduction <= F::default_epsilon()
-            && ratio <= convert(2.))
-            || self.delta <= F::default_epsilon() * self.xnorm
-        // || gnorm <= F::default_epsilon()
+            && ratio <= convert(2.)
         {
-            // FIXME: The gnorm check should be removed? Is it pnorm?
-            return Err(TerminationReason::NoImprovementPossible);
+            return Err(TerminationReason::NoImprovementPossible("ftol"));
+        }
+        if self.delta <= F::default_epsilon() * self.xnorm {
+            return Err(TerminationReason::NoImprovementPossible("xtol"));
+        }
+        if self.gnorm <= F::default_epsilon() {
+            return Err(TerminationReason::NoImprovementPossible("gtol"));
         }
 
         if update_considered_good {

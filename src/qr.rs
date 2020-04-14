@@ -305,21 +305,21 @@ where
     /// ```
     ///
     /// A fraction with column norm zero is counted as zero. If any
-    /// of the computations are nan of inf, `None` is returned.
+    /// of the computations are nan, `None` is returned.
     pub fn max_a_t_b_scaled(&self) -> Option<F> {
         // compute max column of Ab scaled by column norm of A
         let mut max = F::zero();
+        #[allow(clippy::eq_op)]
         for (j, col) in self.upper_r.column_iter().enumerate() {
             let scale = self.column_norms[self.permutation[j]];
             if scale.is_zero() {
                 continue;
             }
             let sum = col.rows_range(..j + 1).dot(&self.qt_b.rows_range(..j + 1));
-            let tmp = sum.abs() / scale;
-            if !tmp.is_finite() {
+            if sum != sum || scale != scale {
                 return None;
             }
-            max = max.max(tmp);
+            max = max.max(sum.abs() / scale);
         }
         Some(max)
     }
@@ -710,7 +710,7 @@ fn test_cholesky_upper() {
 
 #[test]
 fn test_column_max_norm() {
-    use ::core::f64::{INFINITY, NAN};
+    use ::core::f64::NAN;
     use nalgebra::*;
     let a = Matrix4x3::from_column_slice(&[
         14., -12., 20., -11., 19., 38., -4., -11., -14., 12., -20., 11.,
@@ -719,14 +719,6 @@ fn test_column_max_norm() {
     let b = Vector4::new(1., 2., 3., 4.);
     let max_at_b = qr.into_least_squares_diagonal_problem(b).max_a_t_b_scaled();
     assert_relative_eq!(max_at_b.unwrap(), 0.88499332, epsilon = 1e-8);
-
-    let a = Matrix4x3::from_column_slice(&[
-        INFINITY, -12., 20., -11., 19., 38., -4., -11., -14., 12., -20., 11.,
-    ]);
-    let qr = PivotedQR::new(a).ok().unwrap();
-    let b = Vector4::new(1., 2., 3., 4.);
-    let max_at_b = qr.into_least_squares_diagonal_problem(b).max_a_t_b_scaled();
-    assert_eq!(max_at_b, None);
 
     let a = Matrix4x3::from_column_slice(&[
         NAN, -12., 20., -11., 19., 38., -4., -11., -14., 12., -20., 11.,
