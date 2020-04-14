@@ -18,13 +18,22 @@ mod test_init_step;
 mod test_update_diag;
 
 #[derive(PartialEq, Eq, Debug)]
-/// Reasons for failure of the minimization.
-pub enum Failure {
-    /// The residual or Jacobian computation was not successful.
-    User,
+/// Reasons for terminating the minimization.
+pub enum TerminationReason {
+    /// The residual or Jacobian computation was not successful, it returned `None`.
+    User(&'static str),
     /// Encountered `NaN` or `$\pm\infty$`.
-    Numerical,
+    Numerical(&'static str),
+    /// The residuals are literally zero.
+    ResidualsZero,
+    /// The residuals vector and the Jacobian columns are almost orthogonal.
+    ///
+    /// This is the `gtol` termination criterion.
+    Orthogonal,
+    /// The `ftol` or `xtol` criterion was fulfilled.
+    Converged { ftol: bool, xtol: bool },
     /// A parameter update did not change `$f$`.
+    // FIXME
     NoImprovementPossible,
     /// Maximum number of function evaluations was hit.
     LostPatience,
@@ -34,13 +43,41 @@ pub enum Failure {
     NotEnoughResiduals,
 }
 
+impl TerminationReason {
+    /// Compute whether the outcome is considered successful.
+    ///
+    /// This does not necessarily mean we have a minimizer.
+    /// Some termination criteria are approximations for necessary
+    /// optimality conditions or check limitations due to
+    /// floating point arithmetic.
+    pub fn was_successful(&self) -> bool {
+        match self {
+            TerminationReason::ResidualsZero
+            | TerminationReason::Orthogonal
+            | TerminationReason::Converged { .. } => true,
+            _ => false,
+        }
+    }
+
+    /// A fundamental assumptions was not met.
+    ///
+    /// For example `$ m \geq n > 0$` was not fulfilled.
+    pub fn was_usage_issue(&self) -> bool {
+        match self {
+            TerminationReason::NotEnoughResiduals
+            | TerminationReason::NoParameters => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Debug)]
 /// Information about the minimization.
 ///
 /// Use this to inspect the minimization process. Most importantly
 /// you may want to check if there was a failure.
 pub struct MinimizationReport<F: RealField> {
-    pub failure: Option<Failure>,
+    pub termination: TerminationReason,
     pub number_of_evaluations: usize,
     /// Contains the value of `$f(\vec{x})$`.
     pub objective_function: F,
@@ -114,11 +151,14 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
     ///
     /// With other words, the algorithm will terminate if
     /// ```math
-    ///   \max_{i=1,\ldots,n}\frac{|(\mathbf{J}^\top \vec{r})_i|}{\|\mathbf{J}\vec{e}_i\|\|\vec{r}\|} \leq \texttt{gtol}.
+    ///   \cos\bigl(\sphericalangle (\mathbf{J}\vec{e}_i, \vec{r})\bigr) =
+    ///   \frac{|(\mathbf{J}^\top \vec{r})_i|}{\|\mathbf{J}\vec{e}_i\|\|\vec{r}\|} \leq \texttt{gtol}
+    ///   \quad\text{for all }i=1,\ldots,n.
     /// ```
     ///
-    /// This tests more or less if a _critical point_ was found, i.e., whether
-    /// `$\nabla f(\vec{x}) = \mathbf{J}^\top\vec{r} \approx 0$`.
+    /// This is based on the fact that those vectors are orthognal near the optimum (gradient is zero).
+    /// The angle check is scale invariant, whereas checking that
+    /// `$\nabla f(\vec{x})\approx \vec{0}$` is not.
     ///
     /// # Panics
     ///
@@ -257,7 +297,7 @@ where
         mut target: O,
     ) -> Result<(Self, Vector<F, M, O::ResidualStorage>), (O, MinimizationReport<F>)> {
         let mut report = MinimizationReport {
-            failure: None,
+            termination: TerminationReason::ResidualsZero,
             number_of_evaluations: 1,
             objective_function: <F as Float>::nan(),
         };
@@ -273,7 +313,7 @@ where
             return Err((
                 target,
                 MinimizationReport {
-                    failure: Some(Failure::User),
+                    termination: TerminationReason::User("residuals"),
                     ..report
                 },
             ));
@@ -287,7 +327,7 @@ where
             return Err((
                 target,
                 MinimizationReport {
-                    failure: Some(Failure::NoParameters),
+                    termination: TerminationReason::NoParameters,
                     ..report
                 },
             ));
@@ -298,7 +338,7 @@ where
             return Err((
                 target,
                 MinimizationReport {
-                    failure: Some(Failure::NotEnoughResiduals),
+                    termination: TerminationReason::NotEnoughResiduals,
                     ..report
                 },
             ));
@@ -308,7 +348,7 @@ where
             return Err((
                 target,
                 MinimizationReport {
-                    failure: Some(Failure::Numerical),
+                    termination: TerminationReason::Numerical("residuals norm"),
                     ..report
                 },
             ));
@@ -338,34 +378,37 @@ where
         ))
     }
 
-    fn into_report(self, failure: Option<Failure>) -> (O, MinimizationReport<F>) {
+    fn into_report(self, termination: TerminationReason) -> (O, MinimizationReport<F>) {
         (
             self.target,
             MinimizationReport {
-                failure,
+                termination,
                 ..self.report
             },
         )
     }
 
-    fn jacobian(&self) -> Result<Matrix<F, M, N, O::JacobianStorage>, Option<Failure>> {
+    fn jacobian(&self) -> Result<Matrix<F, M, N, O::JacobianStorage>, TerminationReason> {
         match self.target.jacobian() {
             Some(jacobian) => Ok(jacobian),
-            None => Err(Some(Failure::User)),
+            None => Err(TerminationReason::User("jacobian")),
         }
     }
 
     fn update_diag(
         &mut self,
         lls: &mut LinearLeastSquaresDiagonalProblem<F, M, N, O::JacobianStorage>,
-    ) -> Result<(), Option<Failure>>
+    ) -> Result<(), TerminationReason>
     where
         DefaultAllocator: Allocator<usize, N>,
     {
         // Compute norm of scaled gradient and detect degeneracy
-        let gnorm = lls.max_a_t_b_scaled() / self.residuals_norm;
+        let gnorm = match lls.max_a_t_b_scaled() {
+            Some(max_at_b) => max_at_b / self.residuals_norm,
+            None => return Err(TerminationReason::Numerical("jacobian")),
+        };
         if gnorm <= self.config.gtol {
-            return Err(None);
+            return Err(TerminationReason::Orthogonal);
         }
 
         if self.first_update {
@@ -384,7 +427,7 @@ where
                 self.x.norm()
             };
             if !self.xnorm.is_finite() {
-                return Err(Some(Failure::Numerical));
+                return Err(TerminationReason::Numerical("subproblem x"));
             }
             // Initialize delta
             self.delta = if self.xnorm.is_zero() {
@@ -407,7 +450,7 @@ where
         &mut self,
         lls: &mut LinearLeastSquaresDiagonalProblem<F, M, N, O::JacobianStorage>,
         param: LMParameter<F, N>,
-    ) -> Result<Option<Vector<F, M, O::ResidualStorage>>, Option<Failure>>
+    ) -> Result<Option<Vector<F, M, O::ResidualStorage>>, TerminationReason>
     where
         DefaultAllocator: Allocator<usize, N>,
     {
@@ -417,7 +460,7 @@ where
         self.lambda = param.lambda;
         let pnorm = param.dp_norm;
         if !pnorm.is_finite() {
-            return Err(Some(Failure::Numerical));
+            return Err(TerminationReason::Numerical("subproblem ||Dp||"));
         }
 
         if self.first_trust_region_iteration && pnorm < self.delta {
@@ -428,11 +471,11 @@ where
         // These values are needed later. We check now to fail early.
         let temp2 = self.lambda * Float::powi(pnorm / self.residuals_norm, 2);
         if !temp2.is_finite() {
-            return Err(Some(Failure::Numerical));
+            return Err(TerminationReason::Numerical("trust-region reduction"));
         }
         let temp1 = lls.a_x_norm_squared(&param.step) / Float::powi(self.residuals_norm, 2);
         if !temp1.is_finite() {
-            return Err(Some(Failure::Numerical));
+            return Err(TerminationReason::Numerical("trust-region reduction"));
         }
 
         // Compute new parameters: x - p
@@ -447,7 +490,7 @@ where
             new_objective_function = norm_squared * convert(0.5);
             (residuals, Float::sqrt(norm_squared))
         } else {
-            return Err(Some(Failure::User));
+            return Err(TerminationReason::User("residuals"));
         };
 
         // Compute predicted and actual reduction
@@ -492,33 +535,39 @@ where
                 self.x.norm()
             };
             if !self.xnorm.is_finite() {
-                return Err(Some(Failure::Numerical));
+                return Err(TerminationReason::Numerical("new x"));
             }
             self.residuals_norm = new_residuals_norm;
             self.report.objective_function = new_objective_function;
         }
 
         // convergence tests
-        if self.residuals_norm <= F::min_positive_value()
-            || (Float::abs(actual_reduction) <= self.config.ftol
-                && predicted_reduction <= self.config.ftol
-                && ratio <= convert(2.))
-            || self.delta <= self.config.xtol * self.xnorm
-        {
-            return Err(None);
+        if self.residuals_norm <= F::min_positive_value() {
+            return Err(TerminationReason::ResidualsZero);
+        }
+        let ftol_check = Float::abs(actual_reduction) <= self.config.ftol
+            && predicted_reduction <= self.config.ftol
+            && ratio <= convert(2.);
+        let xtol_check = self.delta <= self.config.xtol * self.xnorm;
+        if ftol_check || xtol_check {
+            return Err(TerminationReason::Converged {
+                ftol: ftol_check,
+                xtol: xtol_check,
+            });
         }
 
         // termination tests
         if self.report.number_of_evaluations >= self.config.patience {
-            return Err(Some(Failure::LostPatience));
+            return Err(TerminationReason::LostPatience);
         }
         if (Float::abs(actual_reduction) <= F::default_epsilon()
             && predicted_reduction <= F::default_epsilon()
             && ratio <= convert(2.))
             || self.delta <= F::default_epsilon() * self.xnorm
-            || pnorm <= F::default_epsilon()
+        // || gnorm <= F::default_epsilon()
         {
-            return Err(Some(Failure::NoImprovementPossible));
+            // FIXME: The gnorm check should be removed? Is it pnorm?
+            return Err(TerminationReason::NoImprovementPossible);
         }
 
         if update_considered_good {

@@ -4,7 +4,7 @@ use core::f64::{INFINITY, MIN_POSITIVE, NAN};
 use nalgebra::{Vector1, Vector2, Vector3, VectorN, U0, U1, U2, U3};
 
 use super::test_helpers::{MockCall, MockProblem};
-use super::{Failure, LevenbergMarquardt, LM};
+use super::{LevenbergMarquardt, TerminationReason, LM};
 
 #[test]
 fn nan_or_inf_none_residual() {
@@ -13,7 +13,7 @@ fn nan_or_inf_none_residual() {
     let (mut problem, err) = LM::new(&LevenbergMarquardt::new(), Vector2::zeros(), problem)
         .err()
         .unwrap();
-    assert_eq!(err.failure, Some(Failure::User));
+    assert_eq!(err.termination, TerminationReason::User("residuals"));
     assert_eq!(err.number_of_evaluations, 1);
     assert_eq!(
         problem.calls(),
@@ -26,7 +26,10 @@ fn nan_or_inf_none_residual() {
     let (mut problem, err) = LM::new(&LevenbergMarquardt::new(), Vector2::zeros(), problem)
         .err()
         .unwrap();
-    assert_eq!(err.failure, Some(Failure::Numerical));
+    assert_eq!(
+        err.termination,
+        TerminationReason::Numerical("residuals norm")
+    );
     assert_eq!(err.number_of_evaluations, 1);
     assert_eq!(
         problem.calls(),
@@ -39,7 +42,10 @@ fn nan_or_inf_none_residual() {
     let (mut problem, err) = LM::new(&LevenbergMarquardt::new(), Vector2::zeros(), problem)
         .err()
         .unwrap();
-    assert_eq!(err.failure, Some(Failure::Numerical));
+    assert_eq!(
+        err.termination,
+        TerminationReason::Numerical("residuals norm")
+    );
     assert_eq!(err.number_of_evaluations, 1);
     assert_eq!(
         problem.calls(),
@@ -54,7 +60,7 @@ fn already_zero() {
     let (mut problem, err) = LM::new(&LevenbergMarquardt::new(), Vector2::zeros(), problem)
         .err()
         .unwrap();
-    assert_eq!(err.failure, None);
+    assert_eq!(err.termination, TerminationReason::ResidualsZero);
     assert_eq!(err.number_of_evaluations, 1);
     assert_eq!(
         problem.calls(),
@@ -66,7 +72,7 @@ fn already_zero() {
     let (mut problem, err) = LM::new(&LevenbergMarquardt::new(), Vector1::new(10.), problem)
         .err()
         .unwrap();
-    assert_eq!(err.failure, None);
+    assert_eq!(err.termination, TerminationReason::ResidualsZero);
     assert_eq!(err.number_of_evaluations, 1);
     assert_eq!(
         problem.calls(),
@@ -86,7 +92,7 @@ fn no_params() {
     )
     .err()
     .unwrap();
-    assert_eq!(err.failure, Some(Failure::NoParameters));
+    assert_eq!(err.termination, TerminationReason::NoParameters);
     assert_eq!(err.number_of_evaluations, 1);
     assert_eq!(
         problem.calls(),
@@ -100,7 +106,7 @@ fn too_few_residuals() {
     let (mut problem, err) = LM::new(&LevenbergMarquardt::new(), Vector3::zeros(), problem)
         .err()
         .unwrap();
-    assert_eq!(err.failure, Some(Failure::NotEnoughResiduals));
+    assert_eq!(err.termination, TerminationReason::NotEnoughResiduals);
     assert_eq!(err.number_of_evaluations, 1);
     assert_eq!(
         problem.calls(),

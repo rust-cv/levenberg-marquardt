@@ -169,7 +169,7 @@ fn lines() {
         };
         let (problem, report) =
             LevenbergMarquardt::new().minimize(model.clone().into_vec(), problem);
-        assert!(report.failure.is_none());
+        assert!(report.termination.was_successful());
         let real_model = Line { normal_angle, c };
         would_have_failed = would_have_failed || model.norm_cosine_distance(&real_model) >= 0.01;
         let new_cosine_distance = problem.model.norm_cosine_distance(&real_model);

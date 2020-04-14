@@ -1,4 +1,4 @@
-use ::core::f64::{INFINITY, MIN_POSITIVE, NAN};
+use ::core::f64::{INFINITY, NAN};
 use alloc::vec;
 
 use approx::assert_relative_eq;
@@ -6,7 +6,7 @@ use nalgebra::*;
 
 use super::test_helpers::{MockCall, MockProblem};
 
-use super::{Failure, LevenbergMarquardt, LM};
+use super::{LevenbergMarquardt, TerminationReason, LM};
 use crate::qr::PivotedQR;
 
 #[test]
@@ -23,7 +23,7 @@ fn gnorm_and_gtol() {
         .ok()
         .unwrap()
         .into_least_squares_diagonal_problem(residuals);
-    assert_eq!(lm.update_diag(&mut lls), Err(None));
+    assert_eq!(lm.update_diag(&mut lls), Err(TerminationReason::Orthogonal));
     assert_eq!(
         lm.target.calls(),
         &[MockCall::SetParams, MockCall::Residuals]
@@ -37,7 +37,7 @@ fn gnorm_and_gtol() {
         .ok()
         .unwrap()
         .into_least_squares_diagonal_problem(residuals);
-    assert_ne!(lm.update_diag(&mut lls), Err(None));
+    assert_ne!(lm.update_diag(&mut lls), Err(TerminationReason::Orthogonal));
     assert_eq!(
         lm.target.calls(),
         &[MockCall::SetParams, MockCall::Residuals]
@@ -96,7 +96,7 @@ fn diag_init_and_second_call() {
 
 #[test]
 fn nan_inf_xnorm() {
-    fn setup(x: Vector2<f64>, jacobian: Matrix3x2<f64>) -> Option<Failure> {
+    fn setup(x: Vector2<f64>, jacobian: Matrix3x2<f64>) -> TerminationReason {
         let problem = MockProblem::<U2, U3>::new(vec![Some(Vector3::new(1., 2., 0.5))]);
         let config = LevenbergMarquardt::new();
         let (mut lm, residuals) = LM::new(&config, x, problem).ok().unwrap();
@@ -114,11 +114,21 @@ fn nan_inf_xnorm() {
     let jacobian = Matrix3x2::new(1., 2., 4., -2., 0.5, 0.1);
     assert_eq!(
         setup(Vector2::new(INFINITY, 0.), jacobian.clone()),
-        Some(Failure::Numerical)
+        TerminationReason::Numerical("subproblem x")
     );
     assert_eq!(
         setup(Vector2::new(NAN, 0.), jacobian.clone()),
-        Some(Failure::Numerical)
+        TerminationReason::Numerical("subproblem x")
+    );
+
+    let x = Vector2::new(1., 2.);
+    assert_eq!(
+        setup(x.clone(), Matrix3x2::new(INFINITY, 2., 4., -2., 0.5, 0.1)),
+        TerminationReason::Numerical("jacobian")
+    );
+    assert_eq!(
+        setup(x.clone(), Matrix3x2::new(NAN, 2., 4., -2., 0.5, 0.1)),
+        TerminationReason::Numerical("jacobian")
     );
 }
 

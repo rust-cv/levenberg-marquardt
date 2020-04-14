@@ -87,7 +87,7 @@
 //! };
 //! let (_result, report) = LevenbergMarquardt::new()
 //!     .minimize(Vector2::new(1., 1.), problem);
-//! assert!(report.failure.is_none());
+//! assert!(report.termination.was_successful());
 //! assert!(report.objective_function.abs() < 1e-10);
 //! ```
 //!
@@ -106,7 +106,7 @@ mod qr;
 mod trust_region;
 mod utils;
 
-pub use lm::{Failure, LevenbergMarquardt, MinimizationReport};
+pub use lm::{LevenbergMarquardt, MinimizationReport, TerminationReason};
 pub use problem::LeastSquaresProblem;
 
 pub use utils::{differentiate_holomorphic_numerically, differentiate_numerically};

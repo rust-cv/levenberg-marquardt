@@ -303,18 +303,25 @@ where
     /// ```math
     ///   \max_{i=1,\ldots,n}\frac{|(\mathbf{A}^\top \vec{b})_i|}{\|\mathbf{A}\vec{e}_i\|}.
     /// ```
-    pub fn max_a_t_b_scaled(&self) -> F {
+    ///
+    /// A fraction with column norm zero is counted as zero. If any
+    /// of the computations are nan of inf, `None` is returned.
+    pub fn max_a_t_b_scaled(&self) -> Option<F> {
         // compute max column of Ab scaled by column norm of A
-        let mut max_norm = F::zero();
+        let mut max = F::zero();
         for (j, col) in self.upper_r.column_iter().enumerate() {
             let scale = self.column_norms[self.permutation[j]];
             if scale.is_zero() {
                 continue;
             }
             let sum = col.rows_range(..j + 1).dot(&self.qt_b.rows_range(..j + 1));
-            max_norm = max_norm.max(sum.abs() / scale);
+            let tmp = sum.abs() / scale;
+            if !tmp.is_finite() {
+                return None;
+            }
+            max = max.max(tmp);
         }
-        max_norm
+        Some(max)
     }
 
     /// Compute `$\|\mathbf{A}\vec{x}\|^2 = \vec{x}^\top\mathbf{A}^\top\mathbf{A}\vec{x}$`.
@@ -703,14 +710,37 @@ fn test_cholesky_upper() {
 
 #[test]
 fn test_column_max_norm() {
+    use ::core::f64::{INFINITY, NAN};
     use nalgebra::*;
     let a = Matrix4x3::from_column_slice(&[
         14., -12., 20., -11., 19., 38., -4., -11., -14., 12., -20., 11.,
     ]);
     let qr = PivotedQR::new(a).ok().unwrap();
     let b = Vector4::new(1., 2., 3., 4.);
-    let norm = qr.into_least_squares_diagonal_problem(b).max_a_t_b_scaled();
-    assert_relative_eq!(norm, 0.88499332, epsilon = 1e-8);
+    let max_at_b = qr.into_least_squares_diagonal_problem(b).max_a_t_b_scaled();
+    assert_relative_eq!(max_at_b.unwrap(), 0.88499332, epsilon = 1e-8);
+
+    let a = Matrix4x3::from_column_slice(&[
+        INFINITY, -12., 20., -11., 19., 38., -4., -11., -14., 12., -20., 11.,
+    ]);
+    let qr = PivotedQR::new(a).ok().unwrap();
+    let b = Vector4::new(1., 2., 3., 4.);
+    let max_at_b = qr.into_least_squares_diagonal_problem(b).max_a_t_b_scaled();
+    assert_eq!(max_at_b, None);
+
+    let a = Matrix4x3::from_column_slice(&[
+        NAN, -12., 20., -11., 19., 38., -4., -11., -14., 12., -20., 11.,
+    ]);
+    let qr = PivotedQR::new(a).ok().unwrap();
+    let b = Vector4::new(1., 2., 3., 4.);
+    let max_at_b = qr.into_least_squares_diagonal_problem(b).max_a_t_b_scaled();
+    assert_eq!(max_at_b, None);
+
+    let a = Matrix4x3::zeros();
+    let qr = PivotedQR::new(a).ok().unwrap();
+    let b = Vector4::new(1., 2., 3., 4.);
+    let max_at_b = qr.into_least_squares_diagonal_problem(b).max_a_t_b_scaled();
+    assert_eq!(max_at_b, Some(0.));
 }
 
 #[test]
