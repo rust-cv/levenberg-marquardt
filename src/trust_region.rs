@@ -1,5 +1,6 @@
 //! Solver for the trust-region sub-problem in the LM algorithm.
 use crate::qr::LinearLeastSquaresDiagonalProblem;
+use crate::utils::enorm;
 use nalgebra::{
     allocator::Allocator, convert, storage::ContiguousStorageMut, DefaultAllocator, Dim, RealField,
     VectorN,
@@ -67,7 +68,7 @@ where
     let has_full_rank = lls.has_full_rank();
     let (mut p, mut l) = lls.solve_with_zero_diagonal();
     let mut diag_p = p.component_mul(&diag);
-    let mut diag_p_norm = diag_p.norm();
+    let mut diag_p_norm = enorm(&diag_p);
     let mut fp = diag_p_norm - delta;
     if fp <= delta * convert(REL_ERR) {
         // we have a feasible p with lambda = 0
@@ -84,7 +85,7 @@ where
     let mut lambda_lower = if has_full_rank {
         p.cmpy(Float::recip(diag_p_norm), diag, &diag_p, F::zero());
         p = l.solve(p);
-        let norm = p.norm();
+        let norm = enorm(&p);
         fp / delta / norm / norm
     } else {
         F::zero()
@@ -97,7 +98,7 @@ where
         for j in 0..p.nrows() {
             p[j] /= diag[l.permutation[j]];
         }
-        gnorm = p.norm();
+        gnorm = enorm(&p);
         let upper = gnorm / delta;
         if upper.is_zero() {
             F::min_positive_value() / Float::min(delta, convert(REL_ERR))
@@ -108,19 +109,19 @@ where
 
     let mut lambda = Float::min(Float::max(initial_lambda, lambda_lower), lambda_upper);
     if lambda.is_zero() {
-        lambda = gnorm / delta;
+        lambda = gnorm / diag_p_norm;
     }
 
     for iteration in 0.. {
         if lambda.is_zero() {
-            lambda = Float::max(F::min_positive_value(), lambda * convert(0.001));
+            lambda = Float::max(F::min_positive_value(), lambda_upper * convert(0.001));
         }
         let l_sqrt = Float::sqrt(lambda);
         diag_p.axpy(l_sqrt, diag, F::zero());
         let (p_new, mut l) = lls.solve_with_diagonal(&diag_p, p);
         p = p_new;
         diag_p = p.component_mul(&diag);
-        diag_p_norm = diag_p.norm();
+        diag_p_norm = enorm(&diag_p);
         if iteration == 10 {
             break;
         }
@@ -133,10 +134,11 @@ where
         }
 
         let newton_correction = {
-            p.cmpy(Float::recip(diag_p_norm), diag, &diag_p, F::zero());
+            p.cmpy(F::one(), diag, &diag_p, F::zero());
+            p /= diag_p_norm;
             p = l.solve(p);
-            let norm = p.norm();
-            fp / delta / norm / norm
+            let norm = enorm(&p);
+            fp / delta / (norm * norm)
         };
 
         if fp.is_positive() {
@@ -207,7 +209,7 @@ mod tests {
         let diag = Vector3::new(4.2, 8.2, 11.2);
         let param = determine_lambda_and_parameter_update(&mut lls, &diag, 0.5, 0.2);
 
-        assert_relative_eq!(param.lambda, 0.017646940861467f64, epsilon = 1e-14);
+        assert_relative_eq!(param.lambda, 0.017646940861467262f64, epsilon = 1e-14);
         let p_r = Vector3::new(-0.008462374169585, 0.033658082419054, 0.037230479167632);
         assert_relative_eq!(param.step, p_r, epsilon = 1e-14);
     }

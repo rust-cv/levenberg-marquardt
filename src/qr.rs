@@ -10,9 +10,11 @@ use nalgebra::{
     constraint::{DimEq, ShapeConstraint},
     convert,
     storage::{ContiguousStorageMut, Storage},
-    DefaultAllocator, Dim, DimMin, DimMinimum, Matrix, MatrixSlice, RealField, Vector, VectorN, U1,
+    DefaultAllocator, Dim, DimMin, DimMinimum, Matrix, MatrixSlice, Vector, VectorN, U1,
 };
-use num_traits::FromPrimitive;
+use num_traits::Float;
+
+use crate::utils::{dot, enorm};
 
 /// Erros which can occur using the pivoted QR factorization or the solver.
 pub enum Error {
@@ -30,7 +32,7 @@ pub enum Error {
 /// ```
 pub struct PivotedQR<F, M, N, S>
 where
-    F: RealField,
+    F: nalgebra::RealField + Float,
     M: Dim + DimMin<N>,
     N: Dim,
     S: ContiguousStorageMut<F, M, N>,
@@ -51,7 +53,7 @@ where
 
 impl<F, M, N, S> PivotedQR<F, M, N, S>
 where
-    F: RealField + FromPrimitive,
+    F: nalgebra::RealField + Float,
     M: Dim + DimMin<N>,
     N: Dim,
     S: ContiguousStorageMut<F, M, N>,
@@ -70,7 +72,7 @@ where
             return Err(Error::ShapeConstraintFailed);
         }
         let column_norms =
-            VectorN::<F, N>::from_iterator_generic(n, U1, a.column_iter().map(|c| c.norm()));
+            VectorN::<F, N>::from_iterator_generic(n, U1, a.column_iter().map(|c| enorm(&c)));
         let mut r_diag = column_norms.clone();
         let mut work = column_norms.clone();
         let mut permutation = VectorN::<usize, N>::from_iterator_generic(n, U1, 0..);
@@ -78,10 +80,12 @@ where
             // pivot
             {
                 let kmax = r_diag.slice_range(j.., ..).imax() + j;
-                a.swap_columns(j, kmax);
-                permutation.swap_rows(j, kmax);
-                r_diag[kmax] = r_diag[j];
-                work[kmax] = work[j];
+                if kmax != j {
+                    a.swap_columns(j, kmax);
+                    permutation.swap_rows(j, kmax);
+                    r_diag[kmax] = r_diag[j];
+                    work[kmax] = work[j];
+                }
             }
             // compute Householder reflection vector w_j to
             // reduce the j-th column
@@ -89,7 +93,7 @@ where
             let (left, mut right) = lower.columns_range_pair_mut(j, j + 1..);
             let w_j = {
                 let mut axis = left;
-                let mut aj_norm = axis.norm();
+                let mut aj_norm = enorm(&axis);
                 if aj_norm.is_zero() {
                     r_diag[j] = F::zero();
                     continue;
@@ -98,34 +102,28 @@ where
                     aj_norm = -aj_norm;
                 }
                 r_diag[j] = -aj_norm;
-                axis.unscale_mut(aj_norm);
+                axis /= aj_norm;
                 axis[0] += F::one();
                 axis
             };
             // apply reflection to remaining rows
-            for (mut k, mut col) in right.column_iter_mut().enumerate() {
-                let temp = {
-                    let sum = col.dot(&w_j);
-                    sum / w_j[0]
-                };
-                col.axpy(-temp, &w_j, F::one());
+            for (k, mut col) in right.column_iter_mut().enumerate() {
+                let k = k + j + 1;
+                col.axpy(-(dot(&col, &w_j) / w_j[0]), &w_j, F::one());
                 // update partial column norms
                 // see "Lapack Working Note 176"
-                k += j + 1;
                 if r_diag[k].is_zero() {
                     continue;
                 }
-                let temp = col[0] / r_diag[k];
-                let temp = if temp.abs() < F::one() {
-                    r_diag[k] *= (F::one() - temp * temp).sqrt();
-                    r_diag[k] / work[k]
-                } else {
-                    F::zero()
+                let r_diagk = unsafe { r_diag.vget_unchecked_mut(k) };
+                *r_diagk *= {
+                    let temp = Float::powi(col[0] / *r_diagk, 2);
+                    Float::sqrt(Float::max(F::one() - temp, F::zero()))
                 };
-                let z005: F = convert(0.05f64);
-                if temp.abs().is_zero() || z005 * (temp * temp) <= F::default_epsilon() {
-                    r_diag[k] = col.slice_range(1.., ..).norm();
-                    work[k] = r_diag[k];
+                let z05: F = convert(0.05f64);
+                if z05 * Float::powi(*r_diagk / work[k], 2) <= F::default_epsilon() {
+                    *r_diagk = enorm(&col.slice_range(1.., ..));
+                    work[k] = *r_diagk;
                 }
             }
         }
@@ -157,7 +155,7 @@ where
         for j in 0..n.value() {
             let axis = self.qr.slice_range(j.., j);
             if !axis[0].is_zero() {
-                let temp = b.rows_range(j..).dot(&axis) / axis[0];
+                let temp = dot(&b.rows_range(j..), &axis) / axis[0];
                 b.rows_range_mut(j..).axpy(-temp, &axis, F::one());
             }
             qt_b[j] = b[j];
@@ -202,7 +200,7 @@ where
 /// [`into_least_squares_diagonal_problem`](struct.PivotedQR.html#into_least_squares_diagonal_problem).
 pub struct LinearLeastSquaresDiagonalProblem<F, M, N, S>
 where
-    F: RealField,
+    F: nalgebra::RealField + Float,
     M: Dim,
     N: Dim,
     S: ContiguousStorageMut<F, M, N>,
@@ -223,7 +221,7 @@ where
 
 pub struct CholeskyFactor<'a, F, M, N, S>
 where
-    F: RealField,
+    F: nalgebra::RealField,
     M: Dim,
     N: Dim,
     S: ContiguousStorageMut<F, M, N>,
@@ -239,7 +237,7 @@ where
 
 impl<'a, F, M, N, S> CholeskyFactor<'a, F, M, N, S>
 where
-    F: RealField,
+    F: nalgebra::RealField,
     M: Dim,
     N: Dim,
     S: ContiguousStorageMut<F, M, N>,
@@ -282,7 +280,7 @@ where
             }
         } else {
             for (i, col) in self.l.column_iter().enumerate() {
-                out[i] = self.qt_b.rows_range(..i + 1).dot(&col.rows_range(..i + 1));
+                out[i] = dot(&self.qt_b.rows_range(..i + 1), &col.rows_range(..i + 1));
             }
         }
         out
@@ -291,7 +289,7 @@ where
 
 impl<F, M, N, S> LinearLeastSquaresDiagonalProblem<F, M, N, S>
 where
-    F: RealField,
+    F: nalgebra::RealField + Float,
     M: Dim,
     N: Dim,
     S: ContiguousStorageMut<F, M, N>,
@@ -309,23 +307,23 @@ where
     pub fn max_a_t_b_scaled(&self) -> Option<F> {
         // compute max column of Ab scaled by column norm of A
         let mut max = F::zero();
-        #[allow(clippy::eq_op)]
         for (j, col) in self.upper_r.column_iter().enumerate() {
             let scale = self.column_norms[self.permutation[j]];
             if scale.is_zero() {
                 continue;
             }
-            let sum = col.rows_range(..j + 1).dot(&self.qt_b.rows_range(..j + 1));
-            if sum != sum || scale != scale {
+            let sum = dot(&col.rows_range(..j + 1), &self.qt_b.rows_range(..j + 1));
+            let temp = Float::abs(sum) / scale;
+            if temp.is_nan() {
                 return None;
             }
-            max = max.max(sum.abs() / scale);
+            max = Float::max(max, temp);
         }
         Some(max)
     }
 
-    /// Compute `$\|\mathbf{A}\vec{x}\|^2 = \vec{x}^\top\mathbf{A}^\top\mathbf{A}\vec{x}$`.
-    pub fn a_x_norm_squared(&mut self, x: &VectorN<F, N>) -> F {
+    /// Compute `$\|\mathbf{A}\vec{x}\| = \sqrt{\vec{x}^\top\mathbf{A}^\top\mathbf{A}\vec{x}}$`.
+    pub fn a_x_norm(&mut self, x: &VectorN<F, N>) -> F {
         self.work.fill(F::zero());
         for (i, (col, idx)) in self
             .upper_r
@@ -337,7 +335,7 @@ where
                 .rows_range_mut(..i + 1)
                 .axpy(x[*idx], &col.rows_range(..i + 1), F::one());
         }
-        self.work.norm_squared()
+        enorm(&self.work)
     }
 
     /// Solve the linear least squares problem
@@ -371,7 +369,10 @@ where
         let n = self.upper_r.data.shape().1;
         let l = self.upper_r.generic_slice((0, 0), (n, n));
         self.work.copy_from(&self.qt_b);
-        l.solve_upper_triangular_mut(&mut self.work);
+        let rank = self.r_rank();
+        self.work.rows_range_mut(rank..).fill(F::zero());
+        l.slice_range(..rank, ..rank)
+            .solve_upper_triangular_mut(&mut self.work.rows_range_mut(..rank));
         let x = VectorN::<F, N>::from_iterator_generic(
             n,
             U1,
@@ -391,6 +392,14 @@ where
     pub fn has_full_rank(&self) -> bool {
         let n = self.upper_r.ncols();
         !(0..n).any(|j| self.upper_r[(j, j)].is_zero())
+    }
+
+    fn r_rank(&self) -> usize {
+        let n = self.l_diag.nrows();
+        (0..n)
+            .map(|i| unsafe { self.upper_r.get_unchecked((i, i)) })
+            .position(F::is_zero)
+            .unwrap_or(n)
     }
 
     fn rank(&self) -> usize {
@@ -413,9 +422,10 @@ where
 
         // solve L^T * x = rhs
         for j in (0..rank).rev() {
-            let dot = l
-                .slice_range(j + 1..rank, j)
-                .dot(&rhs.slice_range(j + 1..rank, 0));
+            let dot = dot(
+                &l.slice_range(j + 1..rank, j),
+                &rhs.slice_range(j + 1..rank, 0),
+            );
             unsafe {
                 let x = rhs.vget_unchecked_mut(j);
                 let diag = self.l_diag.vget_unchecked(j);
@@ -471,13 +481,13 @@ where
                     }
                     let r_kk = unsafe { r_and_l.get_unchecked_mut((k, k)) };
                     // determine the Givens rotation
-                    let (sin, cos) = if r_kk.abs() < self.l_diag[k].abs() {
+                    let (sin, cos) = if Float::abs(*r_kk) < Float::abs(self.l_diag[k]) {
                         let cot = *r_kk / self.l_diag[k];
-                        let sin = (F::one() + cot * cot).sqrt().recip();
+                        let sin = Float::recip(Float::sqrt(F::one() + cot * cot));
                         (sin, sin * cot)
                     } else {
                         let tan = self.l_diag[k] / (*r_kk);
-                        let cos = (F::one() + tan * tan).sqrt().recip();
+                        let cos = Float::recip(Float::sqrt(F::one() + tan * tan));
                         (cos * tan, cos)
                     };
                     // compute the modified diagonal element of R and (Q^T*b,0)
@@ -505,40 +515,32 @@ where
 
 #[test]
 fn test_pivoted_qr() {
-    // Reference data was generated using the implementation from the library
-    // "lmfit".
-    // Also, the values were checked with SciPy's "qr" method.
     use nalgebra::{Matrix4x3, Vector3};
-    let a = Matrix4x3::<f64>::from_iterator((0..).map(|i| i as f64));
+    #[rustfmt::skip]
+    let a = Matrix4x3::<f64>::new(
+        2.0,  1.,  4.0,
+        0.0, 10., -1.0,
+        0.0,  4.,  0.5,
+        1.0,  0.,   0.,
+    );
     let qr = PivotedQR::new(a).ok().unwrap();
 
-    assert_eq!(qr.permutation, nalgebra::Vector3::new(2, 0, 1));
+    assert_eq!(qr.permutation, nalgebra::Vector3::new(1, 2, 0));
 
-    let column_norms = Vector3::new(3.7416574, 11.2249722, 19.1311265);
-    assert_relative_eq!(qr.column_norms, column_norms, epsilon = 1e-7);
+    let column_norms = Vector3::new(2.23606797749979, 10.816653826391969, 4.153311931459037);
+    assert_relative_eq!(qr.column_norms, column_norms);
 
-    let r_diag = Vector3::new(-19.1311265, 1.8700983, 0.0);
-    assert_relative_eq!(qr.r_diag, r_diag, epsilon = 1e-7);
+    let r_diag = Vector3::new(-10.816653826391967, 4.1368161505254095, 1.0778765953488594);
+    assert_relative_eq!(qr.r_diag, r_diag);
 
-    let qr_ref = Matrix4x3::<f64>::from_iterator(
-        [
-            1.4181667,
-            0.4704375,
-            0.5227084,
-            0.5749792,
-            -3.2407919,
-            1.0401278,
-            -0.4307302,
-            -0.9015882,
-            -11.1859592,
-            0.9350492,
-            1.7310553,
-            0.6823183,
-        ]
-        .iter()
-        .map(|x| *x),
+    #[rustfmt::skip]
+    let qr_ref = Matrix4x3::<f64>::new(
+        1.0924500327042048 ,  0.3698001308168193 , -0.18490006540840964,
+        0.9245003270420484 ,  1.9843572039046236 ,  1.9503830421256012 ,
+        0.3698001308168194 ,  0.17618426468067802,  1.3732023003846023 ,
+        0.                 , -0.                 , -0.9277499894840426 ,
     );
-    assert_relative_eq!(qr.qr, qr_ref, epsilon = 1e-7);
+    assert_relative_eq!(qr.qr, qr_ref, epsilon = 1e-14);
 }
 
 #[test]
@@ -555,7 +557,37 @@ fn test_pivoted_qr_more_branches() {
     );
     let qr = PivotedQR::new(a).ok().unwrap();
     let r_diag = Vector3::new(-67.683085036070864, -55.250741178610944, 0.00000000000001);
+    assert_relative_eq!(qr.r_diag, r_diag, epsilon = 1e-14);
+}
+
+#[test]
+fn test_pivoted_qr_big_rank1() {
+    // This test case was generated directly from MINPACK's QRFAC
+    use nalgebra::{MatrixMN, Vector5, U5, U10};
+    let a = MatrixMN::<f64, U10, U5>::from_fn(|i,j| ((i + 1) * (j + 1)) as f64);
+    let qr = PivotedQR::new(a).ok().unwrap();
+    let r_diag = Vector5::<f64>::new(-98.107084351742913, -3.9720546451956370E-015, 0., 0., 0.);
     assert_relative_eq!(qr.r_diag, r_diag);
+    #[rustfmt::skip]
+    let qr_ref = MatrixMN::<f64, U10, U5>::from_column_slice(&[
+        // matrix looks transposed in this form, this is a column slice!
+        // column 1
+          1.0509647191437625 , 0.10192943828752511, 0.15289415743128767, 0.20385887657505022,  0.25482359571881280,
+          0.30578831486257535, 0.35675303400633790, 0.40771775315010045, 0.45868247229386300,  0.50964719143762560,
+        // column 2
+        -58.864250611045748  , 1.0000000000000000 , 0.0000000000000000 , 0.0000000000000000 , -0.44721359549995793,
+          0.0000000000000000 , 0.0000000000000000 , 0.0000000000000000 , 0.0000000000000000 , -0.89442719099991586,
+        // column 3
+        -39.242833740697165  , 0.0000000000000000 , 0.0000000000000000 , 0.0000000000000000 ,  0.0000000000000000 ,
+          0.0000000000000000 , 0.0000000000000000 , 0.0000000000000000 , 0.0000000000000000 ,  0.0000000000000000 ,
+        // column 4
+        -78.485667481394330  , 0.0000000000000000 , 0.0000000000000000 , 0.0000000000000000 ,  0.0000000000000000 ,
+          0.0000000000000000 , 0.0000000000000000 , 0.0000000000000000 , 0.0000000000000000 ,  0.0000000000000000 ,
+        // column 5
+        -19.621416870348583  , 0.0000000000000000 , 0.0000000000000000 , 0.0000000000000000 ,  0.0000000000000000 ,
+          0.0000000000000000 , 0.0000000000000000 , 0.0000000000000000 , 0.0000000000000000 ,  0.0000000000000000 ,
+    ]);
+    assert_relative_eq!(qr.qr, qr_ref);
 }
 
 #[cfg(test)]
@@ -584,9 +616,18 @@ fn default_lls(
 
 #[test]
 fn test_into_lls() {
-    use nalgebra::Vector3;
-    let lls = default_lls(1);
-    let qt_b = Vector3::new(-6.272500481871799, 1.963603245291175, -0.288494026015405);
+    // data was generated with Python implementation "lmmin" and SciPy MINPACK binding
+    use nalgebra::{Matrix4x3, Vector3, Vector4};
+    #[rustfmt::skip]
+    let a = Matrix4x3::<f64>::new(
+        2.0,  1.,  4.0,
+        0.0, 10., -1.0,
+        0.0,  4.,  0.5,
+        1.0,  0.,   0.,
+    );
+    let qr = PivotedQR::new(a).ok().unwrap();
+    let lls = qr.into_least_squares_diagonal_problem(Vector4::new(1.0, 2.0, 5.0, 4.0));
+    let qt_b = Vector3::new(-3.790451340872398, 1.4266308163005572, 2.334839404175348);
     assert_relative_eq!(lls.qt_b, qt_b, epsilon = 1e-14);
 }
 
@@ -736,11 +777,11 @@ fn test_column_max_norm() {
 }
 
 #[test]
-fn test_a_x_norm_squared() {
+fn test_a_x_norm() {
     use nalgebra::*;
     let a = Matrix4x3::new(3., 6., 2., 7., 4., 3., 2., 0., 4., 5., 1., 6.);
     let qr = PivotedQR::new(a).ok().unwrap();
     let mut lls = qr.into_least_squares_diagonal_problem(Vector4::zeros());
-    let result = lls.a_x_norm_squared(&Vector3::new(1., 8., 3.));
-    assert_relative_eq!(result, 6710., epsilon = 1e-11);
+    let result = lls.a_x_norm(&Vector3::new(1., 8., 3.));
+    assert_relative_eq!(result, Float::sqrt(6710.));
 }

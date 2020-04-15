@@ -22,6 +22,8 @@ Solver for non-linear least-squares problems.
 The implementation is a port of the classic MINPACK implementation of the
 Levenberg-Marquardt (LM) algorithm. This versions is sometimes referred to as _exact_ LM.
 
+We tried to achieve an floating point result _identical_ to the one of MINPACK, even (or especially) for rank deficient unstable problems. The Fortran algorithm was extended with `NaN` and `inf` handling, similar to what [lmfit][lmfit] does.
+
 # Usage
 
 See the [docs](https://docs.rs/levenberg-marquardt/) for detailed information.
@@ -40,7 +42,8 @@ assert!(report.termination.was_succes());
 Sofware:
 
 - The [MINPACK](https://www.netlib.org/minpack/) Fortran implementation.
-- A C version/update, [lmfit](https://jugit.fz-juelich.de/mlz/lmfit).
+- A C version/update, [lmfit][lmfit].
+- A Python implementation in [pwkit](https://github.com/pkgw/pwkit/blob/master/pwkit/lmmin.py).
 
 One original reference for the algorithm seems to be
 
@@ -50,3 +53,5 @@ by one of the authors of MINPACK.
 
 The algorihm is also described in the form as
 implemented by this crate in the [book "Numerical Optimization"](https://link.springer.com/book/10.1007%2F978-0-387-40065-5) by Nocedal and Wright, chapters 4 and 10.
+
+[lmfit]: https://github.com/pkgw/pwkit/blob/master/pwkit/lmmin.py

@@ -224,3 +224,125 @@ where
     }
     Some(jacobian)
 }
+
+#[inline]
+pub(crate) fn enorm<F, N, VS>(v: &Vector<F, N, VS>) -> F
+where
+    F: nalgebra::RealField + Float,
+    N: Dim,
+    VS: Storage<F, N, U1>,
+{
+    let mut s1 = F::zero();
+    let mut s2 = F::zero();
+    let mut s3 = F::zero();
+    let mut x1max = F::zero();
+    let mut x3max = F::zero();
+    let agiant = Float::sqrt(<F as Float>::max_value()) / convert(v.nrows() as f64);
+    let rdwarf = Float::sqrt(<F as Float>::min_positive_value());
+    for xi in v.iter() {
+        let xabs = xi.abs();
+        if xabs.is_nan() {
+            return xabs;
+        }
+        if xabs >= agiant || xabs <= rdwarf {
+            if xabs > rdwarf {
+                // sum for large components
+                if xabs > x1max {
+                    s1 = F::one() + s1 * Float::powi(x1max / xabs, 2);
+                    x1max = xabs;
+                } else {
+                    s1 += Float::powi(xabs / x1max, 2);
+                }
+            } else {
+                // sum for small components
+                if xabs > x3max {
+                    s3 = F::one() + s3 * Float::powi(x3max / xabs, 2);
+                    x3max = xabs;
+                } else if xabs != F::zero() {
+                    s3 += Float::powi(xabs / x3max, 2);
+                }
+            }
+        } else {
+            s2 += xabs * xabs;
+        }
+    }
+
+    if !s1.is_zero() {
+        x1max * Float::sqrt(s1 + (s2 / x1max) / x1max)
+    } else if !s2.is_zero() {
+        Float::sqrt(if s2 >= x3max {
+            s2 * (F::one() + (x3max / s2) * (x3max * s3))
+        } else {
+            x3max * ((s2 / x3max) + (x3max * s3))
+        })
+    } else {
+        x3max * Float::sqrt(s3)
+    }
+}
+
+#[inline]
+pub(crate) fn dot<F, N, AS, BS>(a: &Vector<F, N, AS>, b: &Vector<F, N, BS>) -> F
+where
+    F: nalgebra::RealField,
+    N: Dim,
+    AS: Storage<F, N, U1>,
+    BS: Storage<F, N, U1>,
+{
+    let mut dot = F::zero();
+    for (x, y) in a.iter().zip(b.iter()) {
+        dot += *x * *y;
+    }
+    dot
+}
+
+#[allow(dead_code)]
+/// Debug helper to inspect the binary representation of  a `f64` or `f32`.
+pub(crate) fn float_repr<F: Float>(f: F) -> String {
+    assert!(F::one() / (F::one() + F::one()) != F::zero());
+    let bytes = core::mem::size_of::<F>();
+    let mut out;
+    if bytes == 8 {
+        out = String::with_capacity((8 * 2 + 8 - 1) + 27 + 3);
+        let f = *unsafe { core::mem::transmute::<_, &f64>(&f) };
+        let as_int: u64 = unsafe { core::mem::transmute(f) };
+        for i in (0..bytes).rev() {
+            out += &format!(
+                "{:02x}{}",
+                as_int >> 8 * i & 0xFF,
+                if i == 0 { "" } else { ":" }
+            );
+        }
+        out += &format!(" ({:+.20E})", f);
+    } else if bytes == 4 {
+        out = String::with_capacity((4 * 2 + 4 - 1) + 17 + 3);
+        let f = *unsafe { core::mem::transmute::<_, &f32>(&f) };
+        let as_int: u32 = unsafe { core::mem::transmute(f) };
+        for i in (0..bytes).rev() {
+            print!(
+                "{:02x}{}",
+                as_int >> 8 * i & 0xFF,
+                if i == 0 { "" } else { ":" }
+            );
+        }
+        println!(" ({:.10E})", f);
+    } else {
+        unimplemented!()
+    }
+    out
+}
+
+// #[test]
+// fn test_linear_case() {
+//     use crate::lm::test_examples::LinearFullRank;
+//     use approx::assert_relative_eq;
+//     use nalgebra::U5;
+//     let mut x = VectorN::<f64, U5>::from_element(1.);
+//     x[2] = -10.;
+//     let mut problem = LinearFullRank {
+//         params: x.clone(),
+//         m: 6,
+//     };
+//     let jac_num = differentiate_numerically(x, &mut problem).unwrap();
+//     let jac_trait = problem.jacobian().unwrap();
+//     assert_relative_eq!(jac_num, jac_trait);
+// }

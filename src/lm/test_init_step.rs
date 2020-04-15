@@ -1,4 +1,5 @@
 use alloc::vec;
+use approx::assert_relative_eq;
 use core::f64::{INFINITY, MIN_POSITIVE, NAN};
 
 use nalgebra::{Vector1, Vector2, Vector3, VectorN, U0, U1, U2, U3};
@@ -126,7 +127,7 @@ fn initial_diagonal_and_residual() {
         [MockCall::SetParams, MockCall::Residuals].as_ref()
     );
     assert_eq!(lm.diag, Vector2::new(1., 1.));
-    assert_eq!(
+    assert_relative_eq!(
         lm.report.objective_function,
         Vector2::new(0.5, 1.).norm_squared() * 0.5
     );

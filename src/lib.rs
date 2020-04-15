@@ -105,7 +105,7 @@ mod lm;
 mod problem;
 mod qr;
 mod trust_region;
-mod utils;
+pub(crate) mod utils;
 
 pub use lm::{LevenbergMarquardt, MinimizationReport, TerminationReason};
 pub use problem::LeastSquaresProblem;

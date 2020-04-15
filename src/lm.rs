@@ -1,5 +1,6 @@
 use crate::qr::{LinearLeastSquaresDiagonalProblem, PivotedQR};
 use crate::trust_region::{determine_lambda_and_parameter_update, LMParameter};
+use crate::utils::enorm;
 use crate::LeastSquaresProblem;
 use nalgebra::{
     allocator::Allocator,
@@ -171,6 +172,23 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
         Self { gtol, ..self }
     }
 
+    /// Shortcut to set `tol` as in MINPACK `LMDER1`.
+    ///
+    /// Sets `ftol = xtol = tol` and `gtol = 0`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `$\mathtt{tol} \leq 0$`.
+    pub fn with_tol(self, tol: F) -> Self {
+        assert!(tol.is_positive(), "tol must > 0");
+        Self {
+            ftol: tol,
+            xtol: tol,
+            gtol: F::zero(),
+            ..self
+        }
+    }
+
     /// Set factor for the initial step bound.
     ///
     /// This bound is set to `$\mathtt{stepbound}\cdot\|\mathbf{D}\vec{x}\|$`
@@ -310,9 +328,9 @@ where
         let x = initial_x;
         target.set_params(&x);
         let (residuals, residuals_norm) = if let Some(residuals) = target.residuals() {
-            let norm_squared = residuals.norm_squared();
-            report.objective_function = norm_squared * convert(0.5);
-            (residuals, Float::sqrt(norm_squared))
+            let norm = enorm(&residuals);
+            report.objective_function = norm * norm * convert(0.5);
+            (residuals, norm)
         } else {
             return Err((
                 target,
@@ -427,9 +445,9 @@ where
                     };
                 }
                 self.tmp.cmpy(F::one(), &self.diag, &self.x, F::zero());
-                self.tmp.norm()
+                enorm(&self.tmp)
             } else {
-                self.x.norm()
+                enorm(&self.x)
             };
             if !self.xnorm.is_finite() {
                 return Err(TerminationReason::Numerical("subproblem x"));
@@ -471,16 +489,16 @@ where
         let predicted_reduction;
         let dir_der;
         {
-            let temp2 = self.lambda * Float::powi(pnorm / self.residuals_norm, 2);
-            if !temp2.is_finite() {
-                return Err(TerminationReason::Numerical("trust-region reduction"));
-            }
-            let temp1 = lls.a_x_norm_squared(&param.step) / Float::powi(self.residuals_norm, 2);
+            let temp1 = Float::powi(lls.a_x_norm(&param.step) / self.residuals_norm, 2);
             if !temp1.is_finite() {
                 return Err(TerminationReason::Numerical("trust-region reduction"));
             }
+            let temp2 = Float::powi((Float::sqrt(self.lambda) * pnorm) / self.residuals_norm, 2);
+            if !temp2.is_finite() {
+                return Err(TerminationReason::Numerical("trust-region reduction"));
+            }
             predicted_reduction = temp1 + temp2 * convert(2.0);
-            dir_der = -temp1 + temp2;
+            dir_der = -(temp1 + temp2);
         }
 
         if self.first_trust_region_iteration && pnorm < self.delta {
@@ -497,9 +515,9 @@ where
         self.report.number_of_evaluations += 1;
         let new_objective_function;
         let (residuals, new_residuals_norm) = if let Some(residuals) = self.target.residuals() {
-            let norm_squared = residuals.norm_squared();
-            new_objective_function = norm_squared * convert(0.5);
-            (residuals, Float::sqrt(norm_squared))
+            let norm = enorm(&residuals);
+            new_objective_function = norm * norm * convert(0.5);
+            (residuals, norm)
         } else {
             return Err(TerminationReason::User("residuals"));
         };
@@ -526,7 +544,7 @@ where
             if new_residuals_norm * convert(P1) >= self.residuals_norm || temp < convert(P1) {
                 temp = convert(P1);
             };
-            self.delta = temp * Float::min(self.delta, pnorm / convert(P1));
+            self.delta = temp * Float::min(self.delta, pnorm * convert(10.));
             self.lambda /= temp;
         } else if self.lambda.is_zero() || ratio >= convert(0.75) {
             self.delta = pnorm * convert(2.);
@@ -539,9 +557,9 @@ where
             core::mem::swap(&mut self.x, &mut self.tmp);
             self.xnorm = if self.config.scale_diag {
                 self.tmp.cmpy(F::one(), &self.diag, &self.x, F::zero());
-                self.tmp.norm()
+                enorm(&self.tmp)
             } else {
-                self.x.norm()
+                enorm(&self.x)
             };
             if !self.xnorm.is_finite() {
                 return Err(TerminationReason::Numerical("new x"));
