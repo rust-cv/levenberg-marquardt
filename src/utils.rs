@@ -303,24 +303,24 @@ pub(crate) fn float_repr<F: Float>(f: F) -> String {
     let mut out;
     if bytes == 8 {
         out = String::with_capacity((8 * 2 + 8 - 1) + 27 + 3);
-        let f = *unsafe { core::mem::transmute::<_, &f64>(&f) };
-        let as_int: u64 = unsafe { core::mem::transmute(f) };
+        let f = unsafe { *(&f as *const F as *const f64) };
+        let as_int: u64 = f.to_bits();
         for i in (0..bytes).rev() {
             out += &format!(
                 "{:02x}{}",
-                as_int >> 8 * i & 0xFF,
+                as_int >> (8 * i) & 0xFF,
                 if i == 0 { "" } else { ":" }
             );
         }
         out += &format!(" ({:+.20E})", f);
     } else if bytes == 4 {
         out = String::with_capacity((4 * 2 + 4 - 1) + 17 + 3);
-        let f = *unsafe { core::mem::transmute::<_, &f32>(&f) };
-        let as_int: u32 = unsafe { core::mem::transmute(f) };
+        let f = unsafe { *(&f as *const F as *const f32) };
+        let as_int: u32 = f.to_bits();
         for i in (0..bytes).rev() {
             print!(
                 "{:02x}{}",
-                as_int >> 8 * i & 0xFF,
+                as_int >> (8 * i) & 0xFF,
                 if i == 0 { "" } else { ":" }
             );
         }
