@@ -83,10 +83,14 @@ where
     // by using an approximate Newton iteration.
 
     let mut lambda_lower = if has_full_rank {
-        p.cmpy(Float::recip(diag_p_norm), diag, &diag_p, F::zero());
+        p.copy_from(&diag_p);
+        p /= diag_p_norm;
+        for (p, d) in p.iter_mut().zip(diag.iter()) {
+            *p *= *d;
+        }
         p = l.solve(p);
         let norm = enorm(&p);
-        fp / delta / norm / norm
+        ((fp / delta) / norm) / norm
     } else {
         F::zero()
     };
@@ -134,11 +138,14 @@ where
         }
 
         let newton_correction = {
-            p.cmpy(F::one(), diag, &diag_p, F::zero());
+            p.copy_from(&diag_p);
             p /= diag_p_norm;
+            for (p, d) in p.iter_mut().zip(diag.iter()) {
+                *p *= *d;
+            }
             p = l.solve(p);
             let norm = enorm(&p);
-            fp / delta / (norm * norm)
+            ((fp / delta) / norm) / norm
         };
 
         if fp.is_positive() {

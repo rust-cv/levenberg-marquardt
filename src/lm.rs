@@ -12,6 +12,8 @@ use nalgebra::{
 use num_traits::Float;
 
 #[cfg(test)]
+pub(crate) mod test_examples;
+#[cfg(test)]
 mod test_helpers;
 #[cfg(test)]
 mod test_init_step;

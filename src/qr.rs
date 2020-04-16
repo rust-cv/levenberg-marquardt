@@ -468,6 +468,8 @@ where
             };
         }
         // eliminate the diagonal entries from D using Givens rotations
+        let p5: F = convert(0.5);
+        let p25: F = convert(0.25);
         for j in 0..n {
             let diag_entry = unsafe { *diag.vget_unchecked(*self.permutation.vget_unchecked(j)) };
             if !diag_entry.is_zero() {
@@ -483,11 +485,11 @@ where
                     // determine the Givens rotation
                     let (sin, cos) = if Float::abs(*r_kk) < Float::abs(self.l_diag[k]) {
                         let cot = *r_kk / self.l_diag[k];
-                        let sin = Float::recip(Float::sqrt(F::one() + cot * cot));
+                        let sin = p5 / Float::sqrt(p25 + p25 * (cot * cot));
                         (sin, sin * cot)
                     } else {
                         let tan = self.l_diag[k] / (*r_kk);
-                        let cos = Float::recip(Float::sqrt(F::one() + tan * tan));
+                        let cos = p5 / Float::sqrt(p25 + p25 * (tan * tan));
                         (cos * tan, cos)
                     };
                     // compute the modified diagonal element of R and (Q^T*b,0)
@@ -563,8 +565,8 @@ fn test_pivoted_qr_more_branches() {
 #[test]
 fn test_pivoted_qr_big_rank1() {
     // This test case was generated directly from MINPACK's QRFAC
-    use nalgebra::{MatrixMN, Vector5, U5, U10};
-    let a = MatrixMN::<f64, U10, U5>::from_fn(|i,j| ((i + 1) * (j + 1)) as f64);
+    use nalgebra::{MatrixMN, Vector5, U10, U5};
+    let a = MatrixMN::<f64, U10, U5>::from_fn(|i, j| ((i + 1) * (j + 1)) as f64);
     let qr = PivotedQR::new(a).ok().unwrap();
     let r_diag = Vector5::<f64>::new(-98.107084351742913, -3.9720546451956370E-015, 0., 0., 0.);
     assert_relative_eq!(qr.r_diag, r_diag);
