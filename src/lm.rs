@@ -570,6 +570,7 @@ where
 
         // convergence tests
         if self.residuals_norm <= F::min_positive_value() {
+            self.reset_params_if(!update_considered_good);
             return Err(TerminationReason::ResidualsZero);
         }
         let ftol_check = Float::abs(actual_reduction) <= self.config.ftol
@@ -577,6 +578,7 @@ where
             && ratio <= convert(2.);
         let xtol_check = self.delta <= self.config.xtol * self.xnorm;
         if ftol_check || xtol_check {
+            self.reset_params_if(!update_considered_good);
             return Err(TerminationReason::Converged {
                 ftol: ftol_check,
                 xtol: xtol_check,
@@ -585,6 +587,7 @@ where
 
         // termination tests
         if self.report.number_of_evaluations >= self.config.patience {
+            self.reset_params_if(!update_considered_good);
             return Err(TerminationReason::LostPatience);
         }
 
@@ -594,12 +597,15 @@ where
             && predicted_reduction <= F::default_epsilon()
             && ratio <= convert(2.)
         {
+            self.reset_params_if(!update_considered_good);
             return Err(TerminationReason::NoImprovementPossible("ftol"));
         }
         if self.delta <= F::default_epsilon() * self.xnorm {
+            self.reset_params_if(!update_considered_good);
             return Err(TerminationReason::NoImprovementPossible("xtol"));
         }
         if self.gnorm <= F::default_epsilon() {
+            self.reset_params_if(!update_considered_good);
             return Err(TerminationReason::NoImprovementPossible("gtol"));
         }
 
@@ -608,6 +614,13 @@ where
         } else {
             // Need another iteration, did not change the parameters
             Ok(None)
+        }
+    }
+
+    #[inline]
+    fn reset_params_if(&mut self, reset: bool) {
+        if reset {
+            self.target.set_params(&self.x);
         }
     }
 }
