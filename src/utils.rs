@@ -5,6 +5,21 @@ use nalgebra::{
 };
 use num_traits::float::Float;
 
+#[cfg(feature = "RUSTC_IS_NIGHTLY")]
+pub use std::intrinsics::{likely, unlikely};
+
+#[cfg(not(feature = "RUSTC_IS_NIGHTLY"))]
+#[inline]
+pub fn likely(b: bool) -> bool {
+    b
+}
+
+#[cfg(not(feature = "RUSTC_IS_NIGHTLY"))]
+#[inline]
+pub fn unlikely(b: bool) -> bool {
+    b
+}
+
 /// Compute a numerical approximation of the Jacobian.
 ///
 /// The function is intended to be used for debugging or testing.
@@ -241,10 +256,10 @@ where
     let rdwarf = Float::sqrt(<F as Float>::min_positive_value());
     for xi in v.iter() {
         let xabs = xi.abs();
-        if xabs.is_nan() {
+        if unlikely(xabs.is_nan()) {
             return xabs;
         }
-        if xabs >= agiant || xabs <= rdwarf {
+        if unlikely(xabs >= agiant || xabs <= rdwarf) {
             if xabs > rdwarf {
                 // sum for large components
                 if xabs > x1max {
@@ -267,10 +282,10 @@ where
         }
     }
 
-    if !s1.is_zero() {
+    if unlikely(!s1.is_zero()) {
         x1max * Float::sqrt(s1 + (s2 / x1max) / x1max)
-    } else if !s2.is_zero() {
-        Float::sqrt(if s2 >= x3max {
+    } else if likely(!s2.is_zero()) {
+        Float::sqrt(if likely(s2 >= x3max) {
             s2 * (F::one() + (x3max / s2) * (x3max * s3))
         } else {
             x3max * ((s2 / x3max) + (x3max * s3))

@@ -247,7 +247,11 @@ fn test_linear_rank1_zero() {
         .with_tol(TOL)
         .minimize(initial, problem);
     assert!(report.termination.was_successful());
-    assert_relative_eq!(report.objective_function, 1.8235294117647058, epsilon = 1e-14);
+    assert_relative_eq!(
+        report.objective_function,
+        1.8235294117647058,
+        epsilon = 1e-14
+    );
     assert_relative_eq!(
         problem.params,
         VectorN::<f64, U5>::from_column_slice(&[
