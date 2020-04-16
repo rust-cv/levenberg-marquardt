@@ -240,38 +240,38 @@ fn setup_linear_rank1_zero(m: usize, factor: f64) -> (VectorN<f64, U5>, LinearRa
     (guess, problem)
 }
 
-// #[test]
-// fn test_linear_rank1_zero() {
-//     let (initial, problem) = setup_linear_rank1_zero(10, 1.);
-//     let (problem, report) = LevenbergMarquardt::new()
-//         .with_tol(TOL)
-//         .minimize(initial, problem);
-//     assert!(report.termination.was_successful());
-//     assert_relative_eq!(report.objective_function, 1.8235294117647058);
-//     assert_relative_eq!(
-//         problem.params,
-//         VectorN::<f64, U5>::from_column_slice(&[
-//             1.,
-//             -210.3615324224772,
-//             32.120420811321296,
-//             81.13456824980642,
-//             1.
-//         ])
-//     );
+#[test]
+fn test_linear_rank1_zero() {
+    let (initial, problem) = setup_linear_rank1_zero(10, 1.);
+    let (problem, report) = LevenbergMarquardt::new()
+        .with_tol(TOL)
+        .minimize(initial, problem);
+    assert!(report.termination.was_successful());
+    assert_relative_eq!(report.objective_function, 1.8235294117647058, epsilon = 1e-14);
+    assert_relative_eq!(
+        problem.params,
+        VectorN::<f64, U5>::from_column_slice(&[
+            1.,
+            -210.3615324224772,
+            32.120420811321296,
+            81.13456824980642,
+            1.
+        ])
+    );
 
-//     let (initial, problem) = setup_linear_rank1_zero(50, 1.);
-//     let (problem, report) = LevenbergMarquardt::new()
-//         .with_tol(TOL)
-//         .minimize(initial, problem);
-//     assert_relative_eq!(report.objective_function, 6.814432989690721);
-//     assert_relative_eq!(
-//         problem.params,
-//         VectorN::<f64, U5>::from_column_slice(&[
-//             1.,
-//             332.1494858957815,
-//             -439.6851914289522,
-//             163.69688258258626,
-//             1.,
-//         ])
-//     );
-// }
+    let (initial, problem) = setup_linear_rank1_zero(50, 1.);
+    let (problem, report) = LevenbergMarquardt::new()
+        .with_tol(TOL)
+        .minimize(initial, problem);
+    assert_relative_eq!(report.objective_function, 6.814432989690721);
+    assert_relative_eq!(
+        problem.params,
+        VectorN::<f64, U5>::from_column_slice(&[
+            1.,
+            332.1494858957815,
+            -439.6851914289522,
+            163.69688258258626,
+            1.,
+        ])
+    );
+}

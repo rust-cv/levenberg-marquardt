@@ -65,4 +65,5 @@ def linear_rank1_zero(n, m, factor=1.):
     return func, jac, np.ones(n) * factor
 
 f, jac, x0 = linear_rank1(5, 10)
-report(leastsq(f, x0, Dfun=jac, full_output=True))
+tol = 1.49012e-08
+report(leastsq(f, x0, Dfun=jac, ftol=tol, xtol=tol, gtol=0., full_output=True))
