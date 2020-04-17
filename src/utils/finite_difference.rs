@@ -46,8 +46,8 @@ pub fn derivative<F: Float + RealField>(x: F, f: impl Fn(F) -> Option<F>) -> Opt
         if !delta_h0.is_zero() {
             let mut n_h0 = -Float::ln(delta_h0);
             while n_h0 > -Float::ln(p_cbrt * step_ratio) {
-                h = h * step_ratio;
-                n_h0 = n_h0 - Float::ln(step_ratio);
+                h *= step_ratio;
+                n_h0 -= Float::ln(step_ratio);
                 changed = true;
             }
         }
@@ -56,11 +56,11 @@ pub fn derivative<F: Float + RealField>(x: F, f: impl Fn(F) -> Option<F>) -> Opt
         f1 = f(x + h)?;
         f2 = f(x - h)?;
     }
-    h = h / step_ratio;
+    h /= step_ratio;
     let two: F = convert(2.);
     let mut quotients = vec![(f1 - f2) / (h * two), (f(x + h)? - f(x - h)?) / (h * two)];
     for i in 1.. {
-        h = h / step_ratio;
+        h /= step_ratio;
         if x + h == x || h < F::epsilon() {
             break;
         }
@@ -79,7 +79,7 @@ fn extrapolate<F: RealField + Float>(evaluations: Vec<F>) -> Option<F> {
     let estimates = richardson_extrapolate(evaluations)?;
     let num = estimates.len();
     if num <= 2 {
-        return estimates.last().map(|x| *x);
+        return estimates.last().copied();
     }
     let derivatives = wynn_extrapolate(estimates)?;
     outlier_aware_minimum(derivatives)
@@ -92,9 +92,7 @@ fn outlier_aware_minimum<F: std::fmt::Debug + Float>(mut values: Vec<(F, F)>) ->
     for i in 0..num {
         let i2 = not_nan - 1;
         if values[i].0.is_nan() {
-            let back = values[i2];
-            values[i2] = values[i];
-            values[i] = back;
+            values.swap(i, i2);
             not_nan -= 1;
         }
         if i == i2 {
