@@ -1,9 +1,13 @@
+use core::cell::RefCell;
 use crate::LeastSquaresProblem;
 use nalgebra::{
     allocator::Allocator, convert, storage::Storage, Complex, ComplexField, DefaultAllocator, Dim,
     Matrix, MatrixMN, RealField, Vector, VectorN, U1,
 };
 use num_traits::float::Float;
+
+// mod derivest;
+mod finite_difference;
 
 #[cfg(feature = "RUSTC_IS_NIGHTLY")]
 pub use std::intrinsics::{likely, unlikely};
@@ -88,13 +92,12 @@ pub fn unlikely(b: bool) -> bool {
 /// problem.set_params(&x);
 /// let jacobian_trait = problem.jacobian().unwrap();
 /// let jacobian_numerical = differentiate_numerically(x, &mut problem).unwrap();
-/// // notice the relative low epsilon of 1e-7 for f64 here
-/// assert_relative_eq!(jacobian_numerical, jacobian_trait, epsilon = 1e-7);
+/// assert_relative_eq!(jacobian_numerical, jacobian_trait, epsilon = 1e-13);
 /// ```
 ///
 /// The `assert_relative_eq!` macro is from the `approx` crate.
 pub fn differentiate_numerically<F, N, M, O>(
-    mut params: Vector<F, N, O::ParameterStorage>,
+    params: Vector<F, N, O::ParameterStorage>,
     problem: &mut O,
 ) -> Option<Matrix<F, M, N, O::JacobianStorage>>
 where
@@ -106,27 +109,23 @@ where
     DefaultAllocator: Allocator<F, M, N, Buffer = O::JacobianStorage>,
 {
     problem.set_params(&params);
-    let mut quotient = problem.residuals()?;
     let n = params.data.shape().0;
-    let m = quotient.data.shape().0;
-    const STENCIL: &[[f64; 2]] = &[[-1., 2.], [8., 1.], [-8., -1.], [1., -2.]];
-    const SCALE: f64 = 12.;
-
+    let m = problem.residuals()?.data.shape().0;
+    let params = RefCell::new(params);
+    let problem = RefCell::new(problem);
     let mut jacobian = Matrix::<F, M, N, O::JacobianStorage>::zeros_generic(m, n);
-    let eps = Float::sqrt(F::default_epsilon());
-    for i in 0..n.value() {
-        quotient.fill(F::zero());
-        let x0 = params[i];
-        let h = Float::max(eps * eps, eps * Float::abs(x0));
-        for [a, b] in STENCIL.iter() {
-            params[i] = x0 + h * convert(*b);
-            problem.set_params(&params);
-            let residuals_h_ei = problem.residuals()?;
-            let a: F = convert(*a);
-            quotient.axpy(a / (h * convert(SCALE)), &residuals_h_ei, F::one());
+    for j in 0..n.value() {
+        let x = params.borrow()[j];
+        for i in 0..m.value() {
+            let f = |x| {
+                params.borrow_mut()[j] = x;
+                let mut problem = problem.borrow_mut();
+                problem.set_params(&params.borrow());
+                problem.residuals().map(|v| v[i])
+            };
+            jacobian[dbg!(i, j)] = finite_difference::derivative(x, f)?;
         }
-        params[i] = x0;
-        jacobian.column_mut(i).copy_from(&quotient);
+        params.borrow_mut()[j] = x;
     }
     Some(jacobian)
 }
@@ -296,6 +295,7 @@ where
 }
 
 #[inline]
+/// Dot product between two vectors
 pub(crate) fn dot<F, N, AS, BS>(a: &Vector<F, N, AS>, b: &Vector<F, N, BS>) -> F
 where
     F: nalgebra::RealField,
@@ -303,6 +303,9 @@ where
     AS: Storage<F, N, U1>,
     BS: Storage<F, N, U1>,
 {
+    // To achieve floating point equality with MINPACK
+    // the dot product implementation from nalgebra must not
+    // be used.
     let mut dot = F::zero();
     for (x, y) in a.iter().zip(b.iter()) {
         dot += *x * *y;
@@ -346,18 +349,18 @@ pub(crate) fn float_repr<F: Float>(f: F) -> String {
     out
 }
 
-// #[test]
-// fn test_linear_case() {
-//     use crate::lm::test_examples::LinearFullRank;
-//     use approx::assert_relative_eq;
-//     use nalgebra::U5;
-//     let mut x = VectorN::<f64, U5>::from_element(1.);
-//     x[2] = -10.;
-//     let mut problem = LinearFullRank {
-//         params: x.clone(),
-//         m: 6,
-//     };
-//     let jac_num = differentiate_numerically(x, &mut problem).unwrap();
-//     let jac_trait = problem.jacobian().unwrap();
-//     assert_relative_eq!(jac_num, jac_trait);
-// }
+#[test]
+fn test_linear_case() {
+    use crate::lm::test_examples::LinearFullRank;
+    use approx::assert_relative_eq;
+    use nalgebra::U5;
+    let mut x = VectorN::<f64, U5>::from_element(1.);
+    x[2] = -10.;
+    let mut problem = LinearFullRank {
+        params: x.clone(),
+        m: 6,
+    };
+    let jac_num = differentiate_numerically(x, &mut problem).unwrap();
+    let jac_trait = problem.jacobian().unwrap();
+    assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-12);
+}

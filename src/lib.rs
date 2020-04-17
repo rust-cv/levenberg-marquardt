@@ -99,7 +99,6 @@
 #![no_std]
 #![cfg_attr(feature = "RUSTC_IS_NIGHTLY", core_intrinsics)]
 
-#[cfg(test)]
 extern crate alloc;
 
 mod lm;
