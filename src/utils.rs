@@ -127,6 +127,7 @@ where
         }
         params.borrow_mut()[j] = x;
     }
+    problem.borrow_mut().set_params(&params.borrow());
     Some(jacobian)
 }
 
@@ -359,6 +360,46 @@ fn test_linear_case() {
     let mut problem = LinearFullRank {
         params: x.clone(),
         m: 6,
+    };
+    let jac_num = differentiate_numerically(x, &mut problem).unwrap();
+    let jac_trait = problem.jacobian().unwrap();
+    assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-12);
+}
+
+#[test]
+fn test_reset_parameters() {
+    use nalgebra::{U2, Matrix2, Vector2, storage::Owned};
+    use approx::assert_relative_eq;
+    #[derive(Clone)]
+    struct AllButOne {
+        params: VectorN<f64, U2>,
+    }
+    impl LeastSquaresProblem<f64, U2, U2> for AllButOne {
+        type ParameterStorage = Owned<f64, U2>;
+        type ResidualStorage = Owned<f64, U2>;
+        type JacobianStorage = Owned<f64, U2, U2>;
+
+        fn set_params(&mut self, params: &VectorN<f64, U2>) {
+            self.params.copy_from(params);
+        }
+
+        fn residuals(&self) -> Option<VectorN<f64, U2>> {
+            Some(Vector2::new(
+                0.0, - 100. * self.params[1].powi(2),
+            ))
+        }
+
+        #[rustfmt::skip]
+        fn jacobian(&self) -> Option<MatrixMN<f64, U2, U2>> {
+            Some(Matrix2::new(
+                0.,0.,
+                0.,-200. * self.params[1],
+            ))
+        }
+    }
+    let x = Vector2::<f64>::new(0., 1./3.);
+    let mut problem = AllButOne {
+        params: Vector2::<f64>::zeros(),
     };
     let jac_num = differentiate_numerically(x, &mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();

@@ -1,8 +1,4 @@
 //! Implementation of an adaptive finite difference approximation.
-// use nalgebra::{
-//  storage::Storage,
-//  RealField, Vector, Dim,
-// };
 use alloc::{vec, vec::Vec};
 use nalgebra::{convert, Matrix3, RealField};
 
