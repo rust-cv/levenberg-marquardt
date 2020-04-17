@@ -155,8 +155,8 @@ where
         for j in 0..n.value() {
             let axis = self.qr.slice_range(j.., j);
             if !axis[0].is_zero() {
-                let temp = dot(&b.rows_range(j..), &axis) / axis[0];
-                b.rows_range_mut(j..).axpy(-temp, &axis, F::one());
+                let temp = -dot(&b.rows_range(j..), &axis) / axis[0];
+                b.rows_range_mut(j..).axpy(temp, &axis, F::one());
             }
             qt_b[j] = b[j];
         }
@@ -304,16 +304,19 @@ where
     ///
     /// A fraction with column norm zero is counted as zero. If any
     /// of the computations are nan, `None` is returned.
-    pub fn max_a_t_b_scaled(&self) -> Option<F> {
+    pub fn max_a_t_b_scaled(&mut self, b_norm: F) -> Option<F> {
         // compute max column of Ab scaled by column norm of A
+        let b = &mut self.work;
+        b.copy_from(&self.qt_b);
+        *b /= b_norm;
         let mut max = F::zero();
         for (j, col) in self.upper_r.column_iter().enumerate() {
             let scale = self.column_norms[self.permutation[j]];
             if scale.is_zero() {
                 continue;
             }
-            let sum = dot(&col.rows_range(..j + 1), &self.qt_b.rows_range(..j + 1));
-            let temp = Float::abs(sum) / scale;
+            let sum = dot(&col.rows_range(..j + 1), &b.rows_range(..j + 1));
+            let temp = Float::abs(sum / scale);
             if temp.is_nan() {
                 return None;
             }
@@ -760,7 +763,9 @@ fn test_column_max_norm() {
     ]);
     let qr = PivotedQR::new(a).ok().unwrap();
     let b = Vector4::new(1., 2., 3., 4.);
-    let max_at_b = qr.into_least_squares_diagonal_problem(b).max_a_t_b_scaled();
+    let max_at_b = qr
+        .into_least_squares_diagonal_problem(b)
+        .max_a_t_b_scaled(1.);
     assert_relative_eq!(max_at_b.unwrap(), 0.88499332, epsilon = 1e-8);
 
     let a = Matrix4x3::from_column_slice(&[
@@ -768,13 +773,17 @@ fn test_column_max_norm() {
     ]);
     let qr = PivotedQR::new(a).ok().unwrap();
     let b = Vector4::new(1., 2., 3., 4.);
-    let max_at_b = qr.into_least_squares_diagonal_problem(b).max_a_t_b_scaled();
+    let max_at_b = qr
+        .into_least_squares_diagonal_problem(b)
+        .max_a_t_b_scaled(1.);
     assert_eq!(max_at_b, None);
 
     let a = Matrix4x3::zeros();
     let qr = PivotedQR::new(a).ok().unwrap();
     let b = Vector4::new(1., 2., 3., 4.);
-    let max_at_b = qr.into_least_squares_diagonal_problem(b).max_a_t_b_scaled();
+    let max_at_b = qr
+        .into_least_squares_diagonal_problem(b)
+        .max_a_t_b_scaled(1.);
     assert_eq!(max_at_b, Some(0.));
 }
 

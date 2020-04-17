@@ -428,8 +428,8 @@ where
         DefaultAllocator: Allocator<usize, N>,
     {
         // Compute norm of scaled gradient and detect degeneracy
-        self.gnorm = match lls.max_a_t_b_scaled() {
-            Some(max_at_b) => max_at_b / self.residuals_norm,
+        self.gnorm = match lls.max_a_t_b_scaled(self.residuals_norm) {
+            Some(max_at_b) => max_at_b,
             None => return Err(TerminationReason::Numerical("jacobian")),
         };
         if self.gnorm <= self.config.gtol {
@@ -499,7 +499,7 @@ where
             if !temp2.is_finite() {
                 return Err(TerminationReason::Numerical("trust-region reduction"));
             }
-            predicted_reduction = temp1 + temp2 * convert(2.0);
+            predicted_reduction = temp1 + temp2 / convert(0.5);
             dir_der = -(temp1 + temp2);
         }
 
@@ -549,7 +549,7 @@ where
             self.delta = temp * Float::min(self.delta, pnorm * convert(10.));
             self.lambda /= temp;
         } else if self.lambda.is_zero() || ratio >= convert(0.75) {
-            self.delta = pnorm * convert(2.);
+            self.delta = pnorm / convert(0.5);
             self.lambda *= half;
         }
 
