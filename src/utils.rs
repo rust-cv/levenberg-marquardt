@@ -1,5 +1,5 @@
-use core::cell::RefCell;
 use crate::LeastSquaresProblem;
+use core::cell::RefCell;
 use nalgebra::{
     allocator::Allocator, convert, storage::Storage, Complex, ComplexField, DefaultAllocator, Dim,
     Matrix, MatrixMN, RealField, Vector, VectorN, U1,
@@ -123,7 +123,7 @@ where
                 problem.set_params(&params.borrow());
                 problem.residuals().map(|v| v[i])
             };
-            jacobian[dbg!(i, j)] = finite_difference::derivative(x, f)?;
+            jacobian[(i, j)] = finite_difference::derivative(x, f)?;
         }
         params.borrow_mut()[j] = x;
     }
@@ -336,13 +336,13 @@ pub(crate) fn float_repr<F: Float>(f: F) -> String {
         let f = unsafe { *(&f as *const F as *const f32) };
         let as_int: u32 = f.to_bits();
         for i in (0..bytes).rev() {
-            print!(
+            out += &format!(
                 "{:02x}{}",
                 as_int >> (8 * i) & 0xFF,
                 if i == 0 { "" } else { ":" }
             );
         }
-        println!(" ({:.10E})", f);
+        out += &format!(" ({:.10E})", f);
     } else {
         unimplemented!()
     }

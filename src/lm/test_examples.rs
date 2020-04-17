@@ -57,7 +57,7 @@ fn setup_linear_full_rank(m: usize, factor: f64) -> (VectorN<f64, U5>, LinearFul
     };
     let jac_num = differentiate_numerically(guess, &mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
-    assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-7);
+    assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-12);
     (guess, problem)
 }
 
@@ -133,7 +133,7 @@ fn setup_linear_rank1(m: usize, factor: f64) -> (VectorN<f64, U5>, LinearRank1) 
     };
     let jac_num = differentiate_numerically(guess, &mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
-    assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-6);
+    assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-12);
     (guess, problem)
 }
 
@@ -236,7 +236,7 @@ fn setup_linear_rank1_zero(m: usize, factor: f64) -> (VectorN<f64, U5>, LinearRa
     };
     let jac_num = differentiate_numerically(guess, &mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
-    assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-5);
+    assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-12);
     (guess, problem)
 }
 
