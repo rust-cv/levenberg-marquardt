@@ -14,7 +14,7 @@ use nalgebra::{
 };
 use num_traits::Float;
 
-use crate::utils::{dot, enorm};
+use crate::utils::{dot, enorm, epsmch};
 
 /// Erros which can occur using the pivoted QR factorization or the solver.
 pub enum Error {
@@ -121,7 +121,7 @@ where
                     Float::sqrt(Float::max(F::one() - temp, F::zero()))
                 };
                 let z05: F = convert(0.05f64);
-                if z05 * Float::powi(*r_diagk / work[k], 2) <= F::default_epsilon() {
+                if z05 * Float::powi(*r_diagk / work[k], 2) <= epsmch() {
                     *r_diagk = enorm(&col.slice_range(1.., ..));
                     work[k] = *r_diagk;
                 }

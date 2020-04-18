@@ -11,9 +11,14 @@ documentation = "https://docs.rs/levenberg-marquardt/"
 license = "MIT"
 readme = "README.md"
 
+[features]
+default = []
+minpack-compat = []
+
 [dependencies]
 nalgebra = { version = "0.21.0", default-features = false }
 num-traits = { version = "0.2.11", default-features = false }
+cfg-if = "0.1"
 
 [dev-dependencies]
 arrsac = "0.3.0"

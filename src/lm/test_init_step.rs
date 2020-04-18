@@ -1,13 +1,15 @@
 use alloc::vec;
 use approx::assert_relative_eq;
+#[cfg(not(feature = "minpack-compat"))]
 use core::f64::{INFINITY, MIN_POSITIVE, NAN};
 
-use nalgebra::{Vector1, Vector2, Vector3, VectorN, U0, U1, U2, U3};
+use nalgebra::{Vector2, Vector3, VectorN, U0, U2, U3};
 
 use super::test_helpers::{MockCall, MockProblem};
 use super::{LevenbergMarquardt, TerminationReason, LM};
 
 #[test]
+#[cfg(not(feature = "minpack-compat"))]
 fn nan_or_inf_none_residual() {
     // residuals return None
     let problem = MockProblem::<U2, U3>::new(vec![]);
@@ -56,7 +58,9 @@ fn nan_or_inf_none_residual() {
 }
 
 #[test]
+#[cfg(not(feature = "minpack-compat"))]
 fn already_zero() {
+    use nalgebra::{Vector1, U1};
     let problem = MockProblem::<U2, U3>::new(vec![Some(Vector3::zeros())]);
     let (mut problem, err) = LM::new(&LevenbergMarquardt::new(), Vector2::zeros(), problem)
         .err()

@@ -1,6 +1,6 @@
 use crate::qr::{LinearLeastSquaresDiagonalProblem, PivotedQR};
 use crate::trust_region::{determine_lambda_and_parameter_update, LMParameter};
-use crate::utils::enorm;
+use crate::utils::{enorm, epsmch};
 use crate::LeastSquaresProblem;
 use nalgebra::{
     allocator::Allocator,
@@ -112,14 +112,26 @@ impl<F: RealField + Float> Default for LevenbergMarquardt<F> {
 
 impl<F: RealField + Float> LevenbergMarquardt<F> {
     pub fn new() -> Self {
-        let user_tol = F::default_epsilon() * convert(30.0);
-        Self {
-            ftol: user_tol,
-            xtol: user_tol,
-            gtol: user_tol,
-            stepbound: convert(100.0),
-            patience: 100,
-            scale_diag: true,
+        if cfg!(feature = "minpack-compat") {
+            let user_tol = convert(1.49012e-08);
+            Self {
+                ftol: user_tol,
+                xtol: user_tol,
+                gtol: F::zero(),
+                stepbound: convert(100.0),
+                patience: 100,
+                scale_diag: true,
+            }
+        } else {
+            let user_tol = F::default_epsilon() * convert(30.0);
+            Self {
+                ftol: user_tol,
+                xtol: user_tol,
+                gtol: user_tol,
+                stepbound: convert(100.0),
+                patience: 100,
+                scale_diag: true,
+            }
         }
     }
 
@@ -368,7 +380,7 @@ where
             ));
         }
 
-        if !residuals_norm.is_finite() {
+        if !residuals_norm.is_finite() && !cfg!(feature = "minpack-compat") {
             return Err((
                 target,
                 MinimizationReport {
@@ -378,7 +390,7 @@ where
             ));
         }
 
-        if residuals_norm <= Float::min_positive_value() {
+        if residuals_norm <= Float::min_positive_value() && !cfg!(feature = "minpack-compat") {
             // Already zero, nothing to do
             return Err((target, report));
         }
@@ -430,7 +442,10 @@ where
         // Compute norm of scaled gradient and detect degeneracy
         self.gnorm = match lls.max_a_t_b_scaled(self.residuals_norm) {
             Some(max_at_b) => max_at_b,
-            None => return Err(TerminationReason::Numerical("jacobian")),
+            None if !cfg!(feature = "minpack-compat") => {
+                return Err(TerminationReason::Numerical("jacobian"))
+            }
+            None => F::zero(),
         };
         if self.gnorm <= self.config.gtol {
             return Err(TerminationReason::Orthogonal);
@@ -451,7 +466,7 @@ where
             } else {
                 enorm(&self.x)
             };
-            if !self.xnorm.is_finite() {
+            if !self.xnorm.is_finite() && !cfg!(feature = "minpack-compat") {
                 return Err(TerminationReason::Numerical("subproblem x"));
             }
             // Initialize delta
@@ -484,7 +499,7 @@ where
 
         self.lambda = param.lambda;
         let pnorm = param.dp_norm;
-        if !pnorm.is_finite() {
+        if !pnorm.is_finite() && !cfg!(feature = "minpack-compat") {
             return Err(TerminationReason::Numerical("subproblem ||Dp||"));
         }
 
@@ -492,11 +507,11 @@ where
         let dir_der;
         {
             let temp1 = Float::powi(lls.a_x_norm(&param.step) / self.residuals_norm, 2);
-            if !temp1.is_finite() {
+            if !temp1.is_finite() && !cfg!(feature = "minpack-compat") {
                 return Err(TerminationReason::Numerical("trust-region reduction"));
             }
             let temp2 = Float::powi((Float::sqrt(self.lambda) * pnorm) / self.residuals_norm, 2);
-            if !temp2.is_finite() {
+            if !temp2.is_finite() && !cfg!(feature = "minpack-compat") {
                 return Err(TerminationReason::Numerical("trust-region reduction"));
             }
             predicted_reduction = temp1 + temp2 / convert(0.5);
@@ -563,7 +578,7 @@ where
             } else {
                 enorm(&self.x)
             };
-            if !self.xnorm.is_finite() {
+            if !self.xnorm.is_finite() && !cfg!(feature = "minpack-compat") {
                 return Err(TerminationReason::Numerical("new x"));
             }
             self.residuals_norm = new_residuals_norm;
@@ -571,13 +586,13 @@ where
         }
 
         // convergence tests
-        if self.residuals_norm <= F::min_positive_value() {
+        if !cfg!(feature = "minpack-compat") && self.residuals_norm <= F::min_positive_value() {
             self.reset_params_if(!update_considered_good);
             return Err(TerminationReason::ResidualsZero);
         }
         let ftol_check = Float::abs(actual_reduction) <= self.config.ftol
             && predicted_reduction <= self.config.ftol
-            && ratio <= convert(2.);
+            && ratio * convert(0.5) <= F::one();
         let xtol_check = self.delta <= self.config.xtol * self.xnorm;
         if ftol_check || xtol_check {
             self.reset_params_if(!update_considered_good);
@@ -595,18 +610,18 @@ where
 
         // We now check if one of the ftol, xtol or gtol criteria
         // is fulfilld with the machine epsilon.
-        if Float::abs(actual_reduction) <= F::default_epsilon()
-            && predicted_reduction <= F::default_epsilon()
-            && ratio <= convert(2.)
+        if Float::abs(actual_reduction) <= epsmch()
+            && predicted_reduction <= epsmch()
+            && ratio * convert(0.5) <= F::one()
         {
             self.reset_params_if(!update_considered_good);
             return Err(TerminationReason::NoImprovementPossible("ftol"));
         }
-        if self.delta <= F::default_epsilon() * self.xnorm {
+        if self.delta <= epsmch::<F>() * self.xnorm {
             self.reset_params_if(!update_considered_good);
             return Err(TerminationReason::NoImprovementPossible("xtol"));
         }
-        if self.gnorm <= F::default_epsilon() {
+        if self.gnorm <= epsmch() {
             self.reset_params_if(!update_considered_good);
             return Err(TerminationReason::NoImprovementPossible("gtol"));
         }

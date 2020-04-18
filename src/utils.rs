@@ -9,19 +9,20 @@ use num_traits::float::Float;
 // mod derivest;
 mod finite_difference;
 
-#[cfg(feature = "RUSTC_IS_NIGHTLY")]
-pub use std::intrinsics::{likely, unlikely};
+cfg_if::cfg_if! {
+    if #[cfg(feature = "RUSTC_IS_NIGHTLY")] {
+        pub use std::intrinsics::{likely, unlikely};
+    } else {
+        #[inline]
+        pub fn likely(b: bool) -> bool {
+            b
+        }
 
-#[cfg(not(feature = "RUSTC_IS_NIGHTLY"))]
-#[inline]
-pub fn likely(b: bool) -> bool {
-    b
-}
-
-#[cfg(not(feature = "RUSTC_IS_NIGHTLY"))]
-#[inline]
-pub fn unlikely(b: bool) -> bool {
-    b
+        #[inline]
+        pub fn unlikely(b: bool) -> bool {
+            b
+        }
+    }
 }
 
 /// Compute a numerical approximation of the Jacobian.
@@ -241,6 +242,36 @@ where
 }
 
 #[inline]
+#[allow(clippy::unreadable_literal)]
+pub(crate) fn epsmch<F: RealField>() -> F {
+    if cfg!(feature = "minpack-compat") {
+        convert(2.22044604926e-16f64)
+    } else {
+        F::default_epsilon()
+    }
+}
+
+#[inline]
+#[allow(clippy::unreadable_literal)]
+pub(crate) fn giant<F: Float>() -> F {
+    if cfg!(feature = "minpack-compat") {
+        F::from(1.79769313485e+308f64).unwrap()
+    } else {
+        F::max_value()
+    }
+}
+
+#[inline]
+#[allow(clippy::unreadable_literal)]
+pub(crate) fn dwarf<F: Float>() -> F {
+    if cfg!(feature = "minpack-compat") {
+        F::from(2.22507385852e-308f64).unwrap()
+    } else {
+        F::min_positive_value()
+    }
+}
+
+#[inline]
 pub(crate) fn enorm<F, N, VS>(v: &Vector<F, N, VS>) -> F
 where
     F: nalgebra::RealField + Float,
@@ -252,8 +283,16 @@ where
     let mut s3 = F::zero();
     let mut x1max = F::zero();
     let mut x3max = F::zero();
-    let agiant = Float::sqrt(<F as Float>::max_value()) / convert(v.nrows() as f64);
-    let rdwarf = Float::sqrt(<F as Float>::min_positive_value());
+    let agiant = if cfg!(feature = "minpack-compat") {
+        convert(1.304e19f64)
+    } else {
+        Float::sqrt(giant::<F>())
+    } / convert(v.nrows() as f64);
+    let rdwarf = if cfg!(feature = "minpack-compat") {
+        convert(3.834e-20f64)
+    } else {
+        Float::sqrt(dwarf())
+    };
     for xi in v.iter() {
         let xabs = xi.abs();
         if unlikely(xabs.is_nan()) {
@@ -368,8 +407,8 @@ fn test_linear_case() {
 
 #[test]
 fn test_reset_parameters() {
-    use nalgebra::{U2, Matrix2, Vector2, storage::Owned};
     use approx::assert_relative_eq;
+    use nalgebra::{storage::Owned, Matrix2, Vector2, U2};
     #[derive(Clone)]
     struct AllButOne {
         params: VectorN<f64, U2>,
@@ -384,9 +423,7 @@ fn test_reset_parameters() {
         }
 
         fn residuals(&self) -> Option<VectorN<f64, U2>> {
-            Some(Vector2::new(
-                0.0, - 100. * self.params[1].powi(2),
-            ))
+            Some(Vector2::new(0.0, -100. * self.params[1].powi(2)))
         }
 
         #[rustfmt::skip]
@@ -397,7 +434,7 @@ fn test_reset_parameters() {
             ))
         }
     }
-    let x = Vector2::<f64>::new(0., 1./3.);
+    let x = Vector2::<f64>::new(0., 1. / 3.);
     let mut problem = AllButOne {
         params: Vector2::<f64>::zeros(),
     };

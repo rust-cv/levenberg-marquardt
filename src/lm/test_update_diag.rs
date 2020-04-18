@@ -111,24 +111,31 @@ fn nan_inf_xnorm() {
         );
         res
     }
-    let jacobian = Matrix3x2::new(1., 2., 4., -2., 0.5, 0.1);
-    assert_eq!(
-        setup(Vector2::new(INFINITY, 0.), jacobian.clone()),
-        TerminationReason::Numerical("subproblem x")
-    );
-    assert_eq!(
-        setup(Vector2::new(NAN, 0.), jacobian.clone()),
-        TerminationReason::Numerical("subproblem x")
-    );
+    if cfg!(not(feature = "minpack-compat")) {
+        let jacobian = Matrix3x2::new(1., 2., 4., -2., 0.5, 0.1);
+        assert_eq!(
+            setup(Vector2::new(INFINITY, 0.), jacobian.clone()),
+            TerminationReason::Numerical("subproblem x")
+        );
+        assert_eq!(
+            setup(Vector2::new(NAN, 0.), jacobian.clone()),
+            TerminationReason::Numerical("subproblem x")
+        );
+    }
 
     let x = Vector2::new(1., 2.);
+    let termination_reason = if cfg!(feature = "minpack-compat") {
+        TerminationReason::Orthogonal
+    } else {
+        TerminationReason::Numerical("jacobian")
+    };
     assert_eq!(
         setup(x.clone(), Matrix3x2::new(INFINITY, 2., 4., -2., 0.5, 0.1)),
-        TerminationReason::Numerical("jacobian")
+        termination_reason
     );
     assert_eq!(
         setup(x.clone(), Matrix3x2::new(NAN, 2., 4., -2., 0.5, 0.1)),
-        TerminationReason::Numerical("jacobian")
+        termination_reason
     );
 }
 

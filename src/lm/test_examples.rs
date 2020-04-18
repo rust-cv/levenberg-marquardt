@@ -323,3 +323,254 @@ fn test_linear_rank1_zero() {
         ])
     );
 }
+
+#[test]
+fn test_rosenbruck() {
+    #[derive(Clone)]
+    struct Rosenbruck {
+        params: VectorN<f64, U2>,
+    }
+    impl LeastSquaresProblem<f64, U2, U2> for Rosenbruck {
+        type ParameterStorage = Owned<f64, U2>;
+        type ResidualStorage = Owned<f64, U2>;
+        type JacobianStorage = Owned<f64, U2, U2>;
+
+        fn set_params(&mut self, params: &VectorN<f64, U2>) {
+            self.params.copy_from(params);
+        }
+
+        fn residuals(&self) -> Option<VectorN<f64, U2>> {
+            Some(Vector2::new(
+                10. * (self.params[1] - self.params[0] * self.params[0]),
+                1. - self.params[0],
+            ))
+        }
+
+        fn jacobian(&self) -> Option<MatrixMN<f64, U2, U2>> {
+            Some(Matrix2::new(-20. * self.params[0], 10., -1., 0.))
+        }
+    }
+    let initial = Vector2::<f64>::new(-1.2, 1.);
+    let mut problem = Rosenbruck {
+        params: Vector2::<f64>::zeros(),
+    };
+    let jac_num = differentiate_numerically(Vector2::<f64>::new_random(), &mut problem).unwrap();
+    let jac_trait = problem.jacobian().unwrap();
+    assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-12);
+
+    let guess = initial.clone();
+    let (problem, report) = LevenbergMarquardt::new()
+        .with_tol(TOL)
+        .minimize(guess, problem.clone());
+    if cfg!(feature = "minpack-compat") {
+        // MINPACK gives "Orthogonal" but this is because
+        // residual is identical zero which gives NaN in the `gnorm`
+        // computation. Long story short, this will make the gnorm
+        // termination test pass in MINPACK.
+        assert_eq!(report.termination, TerminationReason::Orthogonal);
+    } else {
+        assert_eq!(report.termination, TerminationReason::ResidualsZero);
+    }
+    assert_relative_eq!(report.objective_function, 0.);
+    assert_relative_eq!(problem.params, Vector2::<f64>::from_element(1.));
+
+    let guess = initial.map(|x| x + 10.);
+    let (problem, report) = LevenbergMarquardt::new()
+        .with_tol(TOL)
+        .minimize(guess, problem.clone());
+    if cfg!(feature = "minpack-compat") {
+        assert_eq!(
+            report.termination,
+            TerminationReason::Converged {
+                ftol: false,
+                xtol: true
+            }
+        );
+    } else {
+        assert_eq!(report.termination, TerminationReason::ResidualsZero);
+    }
+    assert_relative_eq!(report.objective_function, 0.);
+    assert_relative_eq!(problem.params, Vector2::<f64>::from_element(1.));
+
+    let guess = initial.map(|x| x + 100.);
+    let (problem, report) = LevenbergMarquardt::new()
+        .with_tol(TOL)
+        .minimize(guess, problem.clone());
+    if cfg!(feature = "minpack-compat") {
+        assert_eq!(
+            report.termination,
+            TerminationReason::Converged {
+                ftol: false,
+                xtol: true
+            }
+        );
+    } else {
+        assert_eq!(report.termination, TerminationReason::ResidualsZero);
+    }
+    assert_relative_eq!(report.objective_function, 0.);
+    assert_relative_eq!(problem.params, Vector2::<f64>::from_element(1.));
+}
+
+#[test]
+fn test_helical_valley() {
+    const TPI: f64 = ::core::f64::consts::PI * 2.;
+    #[derive(Clone)]
+    struct HelicalValley {
+        params: VectorN<f64, U3>,
+    }
+    impl LeastSquaresProblem<f64, U3, U3> for HelicalValley {
+        type ParameterStorage = Owned<f64, U3>;
+        type ResidualStorage = Owned<f64, U3>;
+        type JacobianStorage = Owned<f64, U3, U3>;
+
+        fn set_params(&mut self, params: &VectorN<f64, U3>) {
+            self.params.copy_from(params);
+        }
+
+        fn residuals(&self) -> Option<VectorN<f64, U3>> {
+            let p = self.params;
+            let tmp1 = if p[0] == 0. {
+                (0.25f64).copysign(p[1])
+            } else if p[0] > 0. {
+                (p[1] / p[0]).atan() / TPI
+            } else {
+                (p[1] / p[0]).atan() / TPI + 0.5
+            };
+            let tmp2 = (p[0] * p[0] + p[1] * p[1]).sqrt();
+            Some(Vector3::new(
+                10. * (p[2] - 10. * tmp1),
+                10. * (tmp2 - 1.),
+                p[2],
+            ))
+        }
+
+        #[rustfmt::skip]
+        fn jacobian(&self) -> Option<MatrixMN<f64, U3, U3>> {
+            let p = self.params;
+            let temp = p[0] * p[0] + p[1] * p[1];
+            let tmp1 = TPI * temp;
+            let tmp2 = temp.sqrt();
+            Some(Matrix3::new(
+                100. * p[1] / tmp1, -100. * p[0] / tmp1, 10.,
+                 10. * p[0] / tmp2,   10. * p[1] / tmp2,  0.,
+                                0.,                  0.,  1.,
+            ))
+        }
+    }
+    let initial = Vector3::<f64>::new(-1., 0., 0.);
+    let mut problem = HelicalValley {
+        params: Vector3::<f64>::zeros(),
+    };
+    let jac_num = differentiate_numerically(Vector3::<f64>::new_random(), &mut problem).unwrap();
+    let jac_trait = problem.jacobian().unwrap();
+    assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-8);
+
+    let (problem, report) = LevenbergMarquardt::new()
+        .with_tol(TOL)
+        .minimize(initial.clone(), problem.clone());
+    assert_eq!(
+        report.termination,
+        TerminationReason::Converged {
+            ftol: false,
+            xtol: true
+        }
+    );
+    assert_relative_eq!(report.objective_function, 4.936724569245567e-33);
+    assert_relative_eq!(
+        problem.params,
+        Vector3::<f64>::new(1., -6.243301596789443e-18, 0.)
+    );
+
+    // MINPACK gives xtol, but have an exta residuals check in our code
+    let termination_reason = if cfg!(feature = "minpack-compat") {
+        TerminationReason::Converged {
+            ftol: false,
+            xtol: true,
+        }
+    } else {
+        TerminationReason::ResidualsZero
+    };
+
+    let (problem, report) = LevenbergMarquardt::new()
+        .with_tol(TOL)
+        .minimize(initial.map(|x| x * 10.), problem.clone());
+    assert_eq!(report.termination, termination_reason);
+    assert_relative_eq!(report.objective_function, 5.456769505027268e-39);
+    assert_relative_eq!(
+        problem.params,
+        Vector3::<f64>::new(1., 6.563910805155555e-21, 0.)
+    );
+
+    let (problem, report) = LevenbergMarquardt::new()
+        .with_tol(TOL)
+        .minimize(initial.map(|x| x * 100.), problem.clone());
+    assert_eq!(report.termination, termination_reason);
+    assert_relative_eq!(report.objective_function, 4.9259630763847064e-58);
+    assert_relative_eq!(
+        problem.params,
+        Vector3::<f64>::new(1., -1.9721522630525295e-30, 0.)
+    );
+}
+
+#[test]
+fn test_powell_singular() {
+    #[derive(Clone)]
+    struct PowellSingular {
+        params: VectorN<f64, U4>,
+    }
+    impl LeastSquaresProblem<f64, U4, U4> for PowellSingular {
+        type ParameterStorage = Owned<f64, U4>;
+        type ResidualStorage = Owned<f64, U4>;
+        type JacobianStorage = Owned<f64, U4, U4>;
+
+        fn set_params(&mut self, params: &VectorN<f64, U4>) {
+            self.params.copy_from(params);
+        }
+
+        fn residuals(&self) -> Option<VectorN<f64, U4>> {
+            let p = self.params;
+            Some(Vector4::new(
+                p[0] + 10. * p[1],
+                (5.).sqrt() * (p[2] - p[3]),
+                (p[1] - 2. * p[2]).powi(2),
+                (10.).sqrt() * (p[0] - p[3]).powi(2),
+            ))
+        }
+
+        #[rustfmt::skip]
+        fn jacobian(&self) -> Option<MatrixMN<f64, U4, U4>> {
+            let p = self.params;
+            let f = (5.).sqrt();
+            let t = (10.).sqrt();
+            let tmp1 = p[1] - 2. * p[2];
+            let tmp2 = p[0] - p[3];
+            Some(Matrix4::new(
+                           1.,       10.,         0.,             0.,
+                           0.,        0.,          f,             -f,
+                           0., 2. * tmp1, -4. * tmp1,             0.,
+                2. * t * tmp2,        0.,         0., -2. * t * tmp2,
+            ))
+        }
+    }
+    let mut problem = PowellSingular {
+        params: Vector4::<f64>::zeros(),
+    };
+    let jac_num = differentiate_numerically(Vector4::<f64>::new_random(), &mut problem).unwrap();
+    let jac_trait = problem.jacobian().unwrap();
+    assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-9);
+
+    let initial = Vector4::<f64>::new(3., -1., 0., 1.);
+    let (problem, report) = LevenbergMarquardt::new()
+        .with_tol(TOL)
+        .minimize(initial.clone(), problem.clone());
+    assert_relative_eq!(report.objective_function, 8.471646549140117e-05);
+    assert_relative_eq!(
+        problem.params,
+        Vector4::<f64>::new(
+            -0.06855356984524384,
+            0.0068364433418022855,
+            -0.052849865701564004,
+            -0.05415991486934729
+        )
+    );
+}

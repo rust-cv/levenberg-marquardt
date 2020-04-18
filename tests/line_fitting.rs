@@ -10,16 +10,21 @@ use rand::distributions::Uniform;
 use rand::{distributions::Distribution, Rng};
 use sample_consensus::{Consensus, Estimator, Model};
 
+#[cfg(feature = "minpack-compat")]
+type F = f64;
+#[cfg(not(feature = "minpack-compat"))]
+type F = f32;
+
 const LINES_TO_ESTIMATE: usize = 1000;
 
 #[derive(Debug, Clone)]
 struct Line {
-    normal_angle: f32,
-    c: f32,
+    normal_angle: F,
+    c: F,
 }
 
 impl Line {
-    fn xy_residuals(&self, point: Vector2<f32>) -> Vector2<f32> {
+    fn xy_residuals(&self, point: Vector2<F>) -> Vector2<F> {
         let normal = self.normal();
         (self.c - normal.dot(&point)) * normal
     }
@@ -28,7 +33,7 @@ impl Line {
     /// the point projected onto the line to the point itself. The
     /// Jacobian is computed in respect to the model itself.
     #[rustfmt::skip]
-    fn jacobian(&self, point: Vector2<f32>) -> Matrix2<f32> {
+    fn jacobian(&self, point: Vector2<F>) -> Matrix2<F> {
         let n = self.normal();
         let nd = Vector2::new(-self.normal_angle.sin(), self.normal_angle.cos());
         let c = self.c;
@@ -39,67 +44,67 @@ impl Line {
         )
     }
 
-    fn into_vec(self) -> Vector2<f32> {
+    fn into_vec(self) -> Vector2<F> {
         Vector2::new(self.normal_angle, self.c)
     }
 
-    fn from_vec(v: Vector2<f32>) -> Self {
+    fn from_vec(v: Vector2<F>) -> Self {
         Self {
             normal_angle: v[0],
             c: v[1],
         }
     }
 
-    fn norm_cosine_distance(&self, other: &Self) -> f32 {
+    fn norm_cosine_distance(&self, other: &Self) -> F {
         1.0 - self.normal().dot(&other.normal()).abs()
     }
 
-    fn normal(&self) -> Vector2<f32> {
+    fn normal(&self) -> Vector2<F> {
         Vector2::new(self.normal_angle.cos(), self.normal_angle.sin())
     }
 }
 
-impl Model<Vector2<f32>> for Line {
-    fn residual(&self, point: &Vector2<f32>) -> f32 {
-        (self.normal().dot(point) - self.c).abs()
+impl Model<Vector2<F>> for Line {
+    fn residual(&self, point: &Vector2<F>) -> f32 {
+        (self.normal().dot(point) - self.c).abs() as f32
     }
 }
 
 struct LineEstimator;
 
-impl Estimator<Vector2<f32>> for LineEstimator {
+impl Estimator<Vector2<F>> for LineEstimator {
     type Model = Line;
     type ModelIter = std::iter::Once<Line>;
     const MIN_SAMPLES: usize = 2;
 
     fn estimate<I>(&self, mut data: I) -> Self::ModelIter
     where
-        I: Iterator<Item = Vector2<f32>> + Clone,
+        I: Iterator<Item = Vector2<F>> + Clone,
     {
         let a = data.next().unwrap();
         let b = data.next().unwrap();
         let normal = Vector2::new(a.y - b.y, b.x - a.x).normalize();
         let c = -normal.dot(&b);
-        let normal_angle = f32::atan2(normal[1], normal[0]);
+        let normal_angle = F::atan2(normal[1], normal[0]);
         std::iter::once(Line { normal_angle, c })
     }
 }
 
 struct LineFittingOptimizationProblem<'a> {
-    points: &'a [Vector2<f32>],
+    points: &'a [Vector2<F>],
     model: Line,
 }
 
-impl<'a> LeastSquaresProblem<f32, U2, Dynamic> for LineFittingOptimizationProblem<'a> {
-    type ParameterStorage = Owned<f32, U2, U1>;
-    type JacobianStorage = Owned<f32, Dynamic, U2>;
-    type ResidualStorage = VecStorage<f32, Dynamic, U1>;
+impl<'a> LeastSquaresProblem<F, U2, Dynamic> for LineFittingOptimizationProblem<'a> {
+    type ParameterStorage = Owned<F, U2, U1>;
+    type JacobianStorage = Owned<F, Dynamic, U2>;
+    type ResidualStorage = VecStorage<F, Dynamic, U1>;
 
-    fn set_params(&mut self, p: &Vector2<f32>) {
+    fn set_params(&mut self, p: &Vector2<F>) {
         self.model = Line::from_vec(*p);
     }
 
-    fn residuals(&self) -> Option<Matrix<f32, Dynamic, U1, Self::ResidualStorage>> {
+    fn residuals(&self) -> Option<Matrix<F, Dynamic, U1, Self::ResidualStorage>> {
         let residual_data = self
             .points
             .iter()
@@ -109,12 +114,12 @@ impl<'a> LeastSquaresProblem<f32, U2, Dynamic> for LineFittingOptimizationProble
                 once(vec.x).chain(once(vec.y))
             })
             .collect();
-        Some(Matrix::<f32, Dynamic, U1, Self::ResidualStorage>::from_vec(
+        Some(Matrix::<F, Dynamic, U1, Self::ResidualStorage>::from_vec(
             residual_data,
         ))
     }
 
-    fn jacobian(&self) -> Option<MatrixMN<f32, Dynamic, U2>> {
+    fn jacobian(&self) -> Option<MatrixMN<F, Dynamic, U2>> {
         let mut jacobian = MatrixMN::zeros_generic(Dynamic::from_usize(self.points.len() * 2), U2);
         for (i, point) in self.points.iter().enumerate() {
             jacobian
@@ -136,7 +141,7 @@ fn lines() {
         // Generate <a, b> and normalize.
         let normal =
             Vector2::new(rng.gen_range(-10.0, 10.0), rng.gen_range(-10.0, 10.0)).normalize();
-        let normal_angle = f32::atan2(normal[1], normal[0]);
+        let normal_angle = F::atan2(normal[1], normal[0]);
         // Get parallel ray.
         let ray = Vector2::new(normal.y, -normal.x);
         // Generate random c.
@@ -149,10 +154,10 @@ fn lines() {
         // The points must be generated along the line, but the distance should be bounded to make it more difficult.
         let distances = Uniform::new(-50.0, 50.0);
         // Generate the points.
-        let points: Vec<Vector2<f32>> = (0..num)
+        let points: Vec<Vector2<F>> = (0..num)
             .map(|_| {
-                let residual: f32 = residuals.sample(&mut rng);
-                let distance: f32 = distances.sample(&mut rng);
+                let residual: F = residuals.sample(&mut rng);
+                let distance: F = distances.sample(&mut rng);
                 let along = ray * distance;
                 let against = (residual - c) * normal;
                 along + against

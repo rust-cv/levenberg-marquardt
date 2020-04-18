@@ -107,7 +107,16 @@ mod qr;
 mod trust_region;
 pub(crate) mod utils;
 
-pub use lm::{LevenbergMarquardt, MinimizationReport, TerminationReason};
+pub use lm::TerminationReason;
 pub use problem::LeastSquaresProblem;
 
 pub use utils::{differentiate_holomorphic_numerically, differentiate_numerically};
+
+cfg_if::cfg_if! {
+    if #[cfg(feature="minpack-compat")] {
+        pub type LevenbergMarquardt = lm::LevenbergMarquardt<f64>;
+        pub type MinimizationReport = lm::MinimizationReport<f64>;
+    } else {
+        pub use lm::{LevenbergMarquardt, MinimizationReport};
+    }
+}

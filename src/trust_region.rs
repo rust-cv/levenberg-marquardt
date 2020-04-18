@@ -1,6 +1,6 @@
 //! Solver for the trust-region sub-problem in the LM algorithm.
 use crate::qr::LinearLeastSquaresDiagonalProblem;
-use crate::utils::enorm;
+use crate::utils::{dwarf, enorm};
 use nalgebra::{
     allocator::Allocator, convert, storage::ContiguousStorageMut, DefaultAllocator, Dim, RealField,
     VectorN,
@@ -105,7 +105,7 @@ where
         gnorm = enorm(&p);
         let upper = gnorm / delta;
         if upper.is_zero() {
-            F::min_positive_value() / Float::min(delta, convert(REL_ERR))
+            dwarf::<F>() / Float::min(delta, convert(REL_ERR))
         } else {
             upper
         }
@@ -118,7 +118,7 @@ where
 
     for iteration in 0.. {
         if lambda.is_zero() {
-            lambda = Float::max(F::min_positive_value(), lambda_upper * convert(0.001));
+            lambda = Float::max(dwarf(), lambda_upper * convert(0.001));
         }
         let l_sqrt = Float::sqrt(lambda);
         diag_p.axpy(l_sqrt, diag, F::zero());
