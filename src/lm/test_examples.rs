@@ -1,9 +1,13 @@
+//! Tests with example functions.
+//!
+//! There is also a Python implementation in `test_examples.py`.
+//! This was used to get the output from MINPACK.
 use approx::assert_relative_eq;
 use nalgebra::storage::Owned;
 use nalgebra::*;
 
 use crate::utils::differentiate_numerically;
-use crate::{LeastSquaresProblem, LevenbergMarquardt};
+use crate::{LeastSquaresProblem, LevenbergMarquardt, TerminationReason};
 
 pub struct LinearFullRank {
     pub params: VectorN<f64, U5>,
@@ -55,7 +59,8 @@ fn setup_linear_full_rank(m: usize, factor: f64) -> (VectorN<f64, U5>, LinearFul
         params: VectorN::<f64, U5>::zeros(),
         m,
     };
-    let jac_num = differentiate_numerically(guess, &mut problem).unwrap();
+    let jac_num =
+        differentiate_numerically(VectorN::<f64, U5>::new_random(), &mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-12);
     (guess, problem)
@@ -67,7 +72,13 @@ fn test_linear_full_rank() {
     let (problem, report) = LevenbergMarquardt::new()
         .with_tol(TOL)
         .minimize(initial, problem);
-    assert!(report.termination.was_successful());
+    assert_eq!(
+        report.termination,
+        TerminationReason::Converged {
+            ftol: true,
+            xtol: true
+        }
+    );
     assert_relative_eq!(report.objective_function, 2.5, epsilon = 1e-14);
     assert_relative_eq!(
         problem.params,
@@ -79,7 +90,13 @@ fn test_linear_full_rank() {
     let (problem, report) = LevenbergMarquardt::new()
         .with_tol(TOL)
         .minimize(initial, problem);
-    assert!(report.termination.was_successful());
+    assert_eq!(
+        report.termination,
+        TerminationReason::Converged {
+            ftol: true,
+            xtol: true
+        }
+    );
     assert_relative_eq!(report.objective_function, 22.5, epsilon = 1e-14);
     assert_relative_eq!(
         problem.params,
@@ -131,7 +148,8 @@ fn setup_linear_rank1(m: usize, factor: f64) -> (VectorN<f64, U5>, LinearRank1) 
         params: VectorN::<f64, U5>::zeros(),
         m,
     };
-    let jac_num = differentiate_numerically(guess, &mut problem).unwrap();
+    let jac_num =
+        differentiate_numerically(VectorN::<f64, U5>::new_random(), &mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-12);
     (guess, problem)
@@ -144,7 +162,13 @@ fn test_linear_rank1() {
     let (problem, report) = LevenbergMarquardt::new()
         .with_tol(TOL)
         .minimize(initial, problem);
-    assert!(report.termination.was_successful());
+    assert_eq!(
+        report.termination,
+        TerminationReason::Converged {
+            ftol: true,
+            xtol: false
+        }
+    );
     assert_relative_eq!(report.objective_function, 1.0714285714285714);
     assert_relative_eq!(
         problem.params,
@@ -161,7 +185,13 @@ fn test_linear_rank1() {
     let (problem, report) = LevenbergMarquardt::new()
         .with_tol(TOL)
         .minimize(initial, problem);
-    assert!(report.termination.was_successful());
+    assert_eq!(
+        report.termination,
+        TerminationReason::Converged {
+            ftol: true,
+            xtol: false
+        }
+    );
     assert_relative_eq!(report.objective_function, 6.064356435643564);
     assert_relative_eq!(
         problem.params,
@@ -234,7 +264,8 @@ fn setup_linear_rank1_zero(m: usize, factor: f64) -> (VectorN<f64, U5>, LinearRa
         params: VectorN::<f64, U5>::zeros(),
         m,
     };
-    let jac_num = differentiate_numerically(guess, &mut problem).unwrap();
+    let jac_num =
+        differentiate_numerically(VectorN::<f64, U5>::new_random(), &mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-12);
     (guess, problem)
@@ -246,7 +277,13 @@ fn test_linear_rank1_zero() {
     let (problem, report) = LevenbergMarquardt::new()
         .with_tol(TOL)
         .minimize(initial, problem);
-    assert!(report.termination.was_successful());
+    assert_eq!(
+        report.termination,
+        TerminationReason::Converged {
+            ftol: true,
+            xtol: false
+        }
+    );
     assert_relative_eq!(
         report.objective_function,
         1.8235294117647058,
@@ -268,6 +305,13 @@ fn test_linear_rank1_zero() {
         .with_tol(TOL)
         .minimize(initial, problem);
     assert_relative_eq!(report.objective_function, 6.814432989690721);
+    assert_eq!(
+        report.termination,
+        TerminationReason::Converged {
+            ftol: true,
+            xtol: false
+        }
+    );
     assert_relative_eq!(
         problem.params,
         VectorN::<f64, U5>::from_column_slice(&[
