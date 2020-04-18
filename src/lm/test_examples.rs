@@ -79,11 +79,10 @@ fn test_linear_full_rank() {
             xtol: true
         }
     );
-    assert_relative_eq!(report.objective_function, 2.5, epsilon = 1e-14);
+    assert_relative_eq!(report.objective_function, 2.5000000000000004);
     assert_relative_eq!(
         problem.params,
-        VectorN::<f64, U5>::from_element(-1.),
-        epsilon = 1e-14
+        Vector5::<f64>::new(-1., -1.0000000000000004, -1., -1.0000000000000004, -1.)
     );
 
     let (initial, problem) = setup_linear_full_rank(50, 1.);
@@ -97,11 +96,16 @@ fn test_linear_full_rank() {
             xtol: true
         }
     );
-    assert_relative_eq!(report.objective_function, 22.5, epsilon = 1e-14);
+    assert_relative_eq!(report.objective_function, 22.500000000000004);
     assert_relative_eq!(
         problem.params,
-        VectorN::<f64, U5>::from_element(-1.),
-        epsilon = 1e-14
+        Vector5::<f64>::new(
+            -0.9999999999999953,
+            -1.0000000000000049,
+            -0.9999999999999976,
+            -0.9999999999999956,
+            -0.9999999999999991
+        )
     );
 }
 
@@ -192,7 +196,7 @@ fn test_linear_rank1() {
             xtol: false
         }
     );
-    assert_relative_eq!(report.objective_function, 6.064356435643564);
+    assert_relative_eq!(report.objective_function, 6.064356435643563);
     assert_relative_eq!(
         problem.params,
         VectorN::<f64, U5>::from_column_slice(&[
@@ -284,11 +288,7 @@ fn test_linear_rank1_zero() {
             xtol: false
         }
     );
-    assert_relative_eq!(
-        report.objective_function,
-        1.8235294117647058,
-        epsilon = 1e-14
-    );
+    assert_relative_eq!(report.objective_function, 1.8235294117647063,);
     assert_relative_eq!(
         problem.params,
         VectorN::<f64, U5>::from_column_slice(&[
@@ -356,7 +356,7 @@ fn test_rosenbruck() {
     };
     let jac_num = differentiate_numerically(Vector2::<f64>::new_random(), &mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
-    assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-12);
+    assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-10);
 
     let guess = initial.clone();
     let (problem, report) = LevenbergMarquardt::new()
@@ -568,7 +568,7 @@ fn test_powell_singular() {
         report.termination,
         TerminationReason::NoImprovementPossible("gtol")
     );
-    assert_relative_eq!(report.objective_function, 1.1986096828735036e-66);
+    assert_relative_eq!(report.objective_function, 1.866194344564614e-67);
     assert_relative_eq!(
         problem.params,
         Vector4::<f64>::new(
@@ -586,7 +586,7 @@ fn test_powell_singular() {
         report.termination,
         TerminationReason::NoImprovementPossible("gtol")
     );
-    assert_relative_eq!(report.objective_function, 1.5185402226754922e-88);
+    assert_relative_eq!(report.objective_function, 1.518540222675492e-88);
     assert_relative_eq!(
         problem.params,
         Vector4::<f64>::new(
@@ -604,7 +604,7 @@ fn test_powell_singular() {
         report.termination,
         TerminationReason::NoImprovementPossible("gtol")
     );
-    assert_relative_eq!(report.objective_function, 1.856300369212571e-68);
+    assert_relative_eq!(report.objective_function, 2.715670190176167e-70);
     assert_relative_eq!(
         problem.params,
         Vector4::<f64>::new(
@@ -613,5 +613,95 @@ fn test_powell_singular() {
             5.1628674880262125e-19,
             5.1628674880262125e-19
         )
+    );
+}
+
+#[test]
+fn test_freudenstein_roth() {
+    #[derive(Clone)]
+    struct FreudensteinRoth {
+        params: VectorN<f64, U2>,
+    }
+    impl LeastSquaresProblem<f64, U2, U2> for FreudensteinRoth {
+        type ParameterStorage = Owned<f64, U2>;
+        type ResidualStorage = Owned<f64, U2>;
+        type JacobianStorage = Owned<f64, U2, U2>;
+
+        fn set_params(&mut self, params: &VectorN<f64, U2>) {
+            self.params.copy_from(params);
+        }
+
+        #[rustfmt::skip]
+        fn residuals(&self) -> Option<VectorN<f64, U2>> {
+            let p = &self.params;
+            Some(Vector2::new(
+                -13. + p[0] + ((5. - p[1]) * p[1] - 2.) * p[1],
+                -29. + p[0] + ((1. + p[1]) * p[1] - 14.) * p[1]
+            ))
+        }
+
+        #[rustfmt::skip]
+        fn jacobian(&self) -> Option<MatrixMN<f64, U2, U2>> {
+            let p = &self.params;
+            Some(Matrix2::new(
+                1. , p[1] * (10. - 3. * p[1]) - 2.,
+                1.,  p[1] * (2. + 3. * p[1]) - 14.,
+            ))
+        }
+    }
+    let initial = Vector2::<f64>::new(0.5, -2.);
+    let mut problem = FreudensteinRoth {
+        params: Vector2::<f64>::zeros(),
+    };
+    let jac_num = differentiate_numerically(Vector2::<f64>::new_random(), &mut problem).unwrap();
+    let jac_trait = problem.jacobian().unwrap();
+    assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-9);
+
+    let (problem, report) = LevenbergMarquardt::new()
+        .with_tol(TOL)
+        .minimize(initial.clone(), problem.clone());
+    assert_eq!(
+        report.termination,
+        TerminationReason::Converged {
+            ftol: true,
+            xtol: false
+        }
+    );
+    assert_relative_eq!(report.objective_function, 24.492126863534953);
+    assert_relative_eq!(
+        problem.params,
+        Vector2::<f64>::new(11.412484465499368, -0.8968279137315035)
+    );
+
+    let (problem, report) = LevenbergMarquardt::new()
+        .with_tol(TOL)
+        .minimize(initial.map(|x| x * 10.), problem.clone());
+    assert_eq!(
+        report.termination,
+        TerminationReason::Converged {
+            ftol: true,
+            xtol: false
+        }
+    );
+    assert_relative_eq!(report.objective_function, 24.492126854042752);
+    assert_relative_eq!(
+        problem.params,
+        Vector2::<f64>::new(11.413004661474561, -0.8967960386859591)
+    );
+
+    let (problem, report) = LevenbergMarquardt::new()
+        .with_tol(TOL)
+        .minimize(initial.map(|x| x * 100.), problem.clone());
+    assert_eq!(
+        report.termination,
+        TerminationReason::Converged {
+            ftol: true,
+            xtol: false
+        }
+    );
+    assert_relative_eq!(report.objective_function, 24.49212683962172);
+    assert_relative_eq!(
+        problem.params,
+        Vector2::<f64>::new(11.412781785788198, -0.8968051074920677)
     );
 }
