@@ -60,7 +60,7 @@ where
     S: ContiguousStorageMut<F, M, N>,
     DefaultAllocator: Allocator<F, N> + Allocator<usize, N>,
 {
-    const REL_ERR: f64 = 0.1;
+    const P1: f64 = 0.1;
     debug_assert!(delta.is_positive());
     debug_assert!(initial_lambda >= F::zero());
     debug_assert!(!diag.iter().any(F::is_zero));
@@ -70,7 +70,7 @@ where
     let mut diag_p = p.component_mul(&diag);
     let mut diag_p_norm = enorm(&diag_p);
     let mut fp = diag_p_norm - delta;
-    if fp <= delta * convert(REL_ERR) {
+    if fp <= delta * convert(P1) {
         // we have a feasible p with lambda = 0
         return LMParameter {
             step: p,
@@ -105,7 +105,7 @@ where
         gnorm = enorm(&p);
         let upper = gnorm / delta;
         if upper.is_zero() {
-            dwarf::<F>() / Float::min(delta, convert(REL_ERR))
+            dwarf::<F>() / Float::min(delta, convert(P1))
         } else {
             upper
         }
@@ -116,7 +116,7 @@ where
         lambda = gnorm / diag_p_norm;
     }
 
-    for iteration in 0.. {
+    for iteration in 1.. {
         if lambda.is_zero() {
             lambda = Float::max(dwarf(), lambda_upper * convert(0.001));
         }
@@ -131,7 +131,7 @@ where
         }
         let fp_old = fp;
         fp = diag_p_norm - delta;
-        if Float::abs(fp) <= delta * convert(REL_ERR)
+        if Float::abs(fp) <= delta * convert(P1)
             || (lambda_lower.is_zero() && fp <= fp_old && fp_old.is_negative())
         {
             break;

@@ -376,11 +376,10 @@ where
         self.work.rows_range_mut(rank..).fill(F::zero());
         l.slice_range(..rank, ..rank)
             .solve_upper_triangular_mut(&mut self.work.rows_range_mut(..rank));
-        let x = VectorN::<F, N>::from_iterator_generic(
-            n,
-            U1,
-            (0..n.value()).map(|j| self.work[self.permutation[j]]),
-        );
+        let mut x = VectorN::<F, N>::zeros_generic(n, U1);
+        for j in 0..n.value() {
+            x[self.permutation[j]] = self.work[j];
+        }
         let chol = CholeskyFactor {
             permutation: &self.permutation,
             l,

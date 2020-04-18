@@ -560,17 +560,58 @@ fn test_powell_singular() {
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-9);
 
     let initial = Vector4::<f64>::new(3., -1., 0., 1.);
+
     let (problem, report) = LevenbergMarquardt::new()
         .with_tol(TOL)
         .minimize(initial.clone(), problem.clone());
-    assert_relative_eq!(report.objective_function, 8.471646549140117e-05);
+    assert_eq!(
+        report.termination,
+        TerminationReason::NoImprovementPossible("gtol")
+    );
+    assert_relative_eq!(report.objective_function, 1.1986096828735036e-66);
     assert_relative_eq!(
         problem.params,
         Vector4::<f64>::new(
-            -0.06855356984524384,
-            0.0068364433418022855,
-            -0.052849865701564004,
-            -0.05415991486934729
+            1.6521175961683935e-17,
+            -1.6521175961683934e-18,
+            2.6433881538694683e-18,
+            2.6433881538694683e-18
+        )
+    );
+
+    let (problem, report) = LevenbergMarquardt::new()
+        .with_tol(TOL)
+        .minimize(initial.map(|x| x * 10.), problem.clone());
+    assert_eq!(
+        report.termination,
+        TerminationReason::NoImprovementPossible("gtol")
+    );
+    assert_relative_eq!(report.objective_function, 1.5185402226754922e-88);
+    assert_relative_eq!(
+        problem.params,
+        Vector4::<f64>::new(
+            1.0890568734571656e-22,
+            -1.0890568734571657e-23,
+            3.8699037166581656e-23,
+            3.8699037166581656e-23
+        )
+    );
+
+    let (problem, report) = LevenbergMarquardt::new()
+        .with_tol(TOL)
+        .minimize(initial.map(|x| x * 10.), problem.clone());
+    assert_eq!(
+        report.termination,
+        TerminationReason::NoImprovementPossible("gtol")
+    );
+    assert_relative_eq!(report.objective_function, 1.856300369212571e-68);
+    assert_relative_eq!(
+        problem.params,
+        Vector4::<f64>::new(
+            3.2267921800163781e-18,
+            -3.2267921800163780e-19,
+            5.1628674880262125e-19,
+            5.1628674880262125e-19
         )
     );
 }

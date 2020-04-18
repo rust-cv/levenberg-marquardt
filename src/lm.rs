@@ -217,7 +217,10 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
         Self { stepbound, ..self }
     }
 
-    /// Set the maximal number of function evaluations.
+    /// Set factor for the maximal number of function evaluations.
+    ///
+    /// The maximal number of function evaluations is set to
+    /// `$\texttt{patience}\cdot(n + 1)$`.
     ///
     /// # Panics
     ///
@@ -316,6 +319,7 @@ where
     first_trust_region_iteration: bool,
     /// Flag to check if it is the first diagonal update
     first_update: bool,
+    max_fev: usize,
 }
 
 impl<'a, F, N, M, O> LM<'a, F, N, M, O>
@@ -410,6 +414,7 @@ where
                 residuals_norm,
                 first_trust_region_iteration: true,
                 first_update: true,
+                max_fev: config.patience * (n.value() + 1),
             },
             residuals,
         ))
@@ -603,7 +608,7 @@ where
         }
 
         // termination tests
-        if self.report.number_of_evaluations >= self.config.patience {
+        if self.report.number_of_evaluations >= self.max_fev {
             self.reset_params_if(!update_considered_good);
             return Err(TerminationReason::LostPatience);
         }

@@ -133,14 +133,18 @@ def powell_singular():
 
     def jac(params, jac=np.zeros((4,4))):
         jac.fill(0)
-        jac[0,0] = 1
-        jac[0,3] = 2 * np.sqrt(10) * (params[0] - params[3])
-        jac[1,0] = 10
-        jac[1,2] = 2 * (params[1] - 2 * params[2])
-        jac[2,1] = np.sqrt(5)
-        jac[2,2] = -2 * jac[2,1]
-        jac[3,1] = -np.sqrt(5)
-        jac[3,3] = -jac[3,0]
+        f = np.sqrt(5)
+        t = np.sqrt(10)
+        tmp1 = params[1] - 2 * params[2]
+        tmp2 = params[0] - params[3]
+        jac[0,0] = 1.
+        jac[0,3] = 2. * t * tmp2
+        jac[1,0] = 10.
+        jac[1,2] = 2. * tmp1
+        jac[2,1] = f
+        jac[2,2] = -4. * tmp1
+        jac[3,1] = -f
+        jac[3,3] = -2. * t * tmp2
         return jac.T
 
     return func, jac, np.asfarray([3, -1, 0, 1])
