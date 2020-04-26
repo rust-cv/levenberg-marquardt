@@ -13,7 +13,7 @@ const STEP_RATIO: f64 = 2.;
 ///
 /// The algorithm is based on the Python package `numdifftools`. The approach
 /// used is:
-/// 
+///
 /// - Use a heuristic to compute an initial step size `h`
 /// - Compute a second order central finite difference approximation of the derivative
 ///   with the step size. Half the step size and repeat for a fixed amount of steps.

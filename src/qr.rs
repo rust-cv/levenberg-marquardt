@@ -263,7 +263,15 @@ where
                 );
             }
         } else {
-            self.l.tr_solve_upper_triangular_mut(self.work);
+            for (j, col) in self.l.column_iter().enumerate() {
+                let sum = if j == 0 {
+                    F::zero()
+                } else {
+                    dot(&self.work.rows_range(..j), &col.rows_range(..j))
+                };
+                let x = unsafe { self.work.vget_unchecked_mut(j) };
+                *x = (*x - sum) / *unsafe { col.vget_unchecked(j) };
+            }
         }
         core::mem::swap(self.work, &mut rhs);
         rhs
