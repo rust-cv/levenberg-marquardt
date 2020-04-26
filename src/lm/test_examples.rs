@@ -196,7 +196,12 @@ fn test_linear_rank1() {
             xtol: false
         }
     );
-    assert_relative_eq!(report.objective_function, 6.064356435643563);
+    let eps = if cfg!(feature = "minpack-compat") {
+        ::core::f64::EPSILON
+    } else {
+        1e-10
+    };
+    assert_relative_eq!(report.objective_function, 6.064356435643563, epsilon = eps);
     assert_relative_eq!(
         problem.params,
         VectorN::<f64, U5>::from_column_slice(&[
@@ -205,7 +210,8 @@ fn test_linear_rank1() {
             -165.2451975264496,
             -4.324999750056676,
             110.53305851006517
-        ])
+        ]),
+        epsilon = eps
     );
 }
 
@@ -465,31 +471,19 @@ fn test_helical_valley() {
     let jac_trait = problem.jacobian().unwrap();
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-8);
 
+    let termination_reason = TerminationReason::Converged {
+        ftol: false,
+        xtol: true,
+    };
     let (problem, report) = LevenbergMarquardt::new()
         .with_tol(TOL)
         .minimize(initial.clone(), problem.clone());
-    assert_eq!(
-        report.termination,
-        TerminationReason::Converged {
-            ftol: false,
-            xtol: true
-        }
-    );
+    assert_eq!(report.termination, termination_reason);
     assert_relative_eq!(report.objective_function, 4.936724569245567e-33);
     assert_relative_eq!(
         problem.params,
         Vector3::<f64>::new(1., -6.243301596789443e-18, 0.)
     );
-
-    // MINPACK gives xtol, but have an exta residuals check in our code
-    let termination_reason = if cfg!(feature = "minpack-compat") {
-        TerminationReason::Converged {
-            ftol: false,
-            xtol: true,
-        }
-    } else {
-        TerminationReason::ResidualsZero
-    };
 
     let (problem, report) = LevenbergMarquardt::new()
         .with_tol(TOL)
