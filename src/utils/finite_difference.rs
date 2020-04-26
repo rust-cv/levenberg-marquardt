@@ -11,62 +11,24 @@ const STEP_RATIO: f64 = 2.;
 
 /// Compute the derivative using an adaptive central difference quotient.
 ///
-/// The algorithm is based on
-///
-/// > R. S. Stepleman and N. D. Winarsky. Adaptive Numerical Differentiation.
-/// > Mathematics of Computation, Vol. 33, No. 148 (Oct., 1979), pp. 1257-1264.
-///
-/// Additionally added:
-///
-/// - A Richardson extrapolation
-/// - Wynn extrapolation with some outlier correction
-///
+/// The algorithm is based on the Python package `numdifftools`. The approach
+/// used is:
+/// 
+/// - Use a heuristic to compute an initial step size `h`
+/// - Compute a second order central finite difference approximation of the derivative
+///   with the step size. Half the step size and repeat for a fixed amount of steps.
+/// - Compute the Richardson extrapolation and perform Wynn's epsilon algorithm.
+/// - Compute an error estimate and return the approximation with minimal error.
 pub fn derivative<F: Float + RealField>(x: F, f: impl Fn(F) -> Option<F>) -> Option<F> {
-    let p_cbrt = Float::cbrt(F::default_epsilon());
+    const STEPS: usize = 15;
     let step_ratio: F = convert(STEP_RATIO);
-
-    // find initial h which is large enough
-    let mut h = Float::max(
-        Float::max(Float::ln(F::one() + Float::abs(x)), F::one()),
-        step_ratio * p_cbrt * if x.is_zero() { convert(0.01) } else { x },
-    );
-    let mut f1 = f(x + h)?;
-    let mut f2 = f(x - h)?;
-    let mut changed = false;
-    if f1 * f2 > F::zero() && f1 != f2 {
-        let fx = match f(x)? {
-            x if x.is_zero() => F::one(),
-            x => x,
-        };
-        let delta_h0 = Float::abs((f1 - f2) / fx);
-        if !delta_h0.is_zero() {
-            let mut n_h0 = -Float::ln(delta_h0);
-            while n_h0 > -Float::ln(p_cbrt * step_ratio) {
-                h *= step_ratio;
-                n_h0 -= Float::ln(step_ratio);
-                changed = true;
-            }
-        }
-    }
-    if changed {
-        f1 = f(x + h)?;
-        f2 = f(x - h)?;
-    }
-    h /= step_ratio;
+    let mut quotients = Vec::with_capacity(STEPS);
+    let mut h = Float::max(Float::ln(F::one() + Float::abs(x)), F::one());
     let two: F = convert(2.);
-    let mut quotients = vec![(f1 - f2) / (h * two), (f(x + h)? - f(x - h)?) / (h * two)];
-    for i in 1.. {
+    for _ in 0..STEPS {
+        let quot = (f(x + h)? - f(x - h)?) / (h * two);
+        quotients.push(quot);
         h /= step_ratio;
-        if x + h == x || h < F::epsilon() {
-            break;
-        }
-        let quot1 = quotients[quotients.len() - 2];
-        let quot2 = quotients[quotients.len() - 1];
-        let quot_new = (f(x + h)? - f(x - h)?) / (h * two);
-        if i >= 4 && Float::abs(quot_new - quot2) > Float::abs(quot2 - quot1) * convert(10.) {
-            break;
-        }
-        quotients.push(quot_new);
     }
     extrapolate(quotients)
 }
@@ -228,7 +190,7 @@ fn test_standard_functions() {
     assert_relative_eq!(
         derivative(0., |x| Some(x.exp())).unwrap(),
         1.,
-        epsilon = 1e-14
+        epsilon = 5e-14
     );
     assert_relative_eq!(
         derivative(-1.2, |x| Some(x.exp())).unwrap(),
@@ -269,11 +231,19 @@ fn test_polynomial() {
     assert_relative_eq!(
         derivative(3., |x| Some(x * x)).unwrap(),
         6.,
-        epsilon = 1e-12
+        epsilon = 5e-14
     );
     assert_relative_eq!(
         derivative(2., |x| Some(4. * x * x - 2. * x)).unwrap(),
         14.,
-        epsilon = 1e-12
+        epsilon = 5e-14
     );
+}
+
+#[test]
+fn test_multiscale() {
+    let f = |x: f64| Some(0.34 * (0.62 / (55. + x)).exp() - 2.861e4);
+    let f_prime = |x: f64| -0.34 * (0.62 / (55. + x)).exp() * (0.62 / (55. + x).powi(2));
+    let x0 = 0.03;
+    assert_relative_eq!(derivative(x0, f).unwrap(), f_prime(x0), epsilon = 5e-11,);
 }
