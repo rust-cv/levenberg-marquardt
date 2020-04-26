@@ -1,6 +1,6 @@
 # levenberg-marquardt
 
-[![Discord][dci]][dcl] [![Crates.io][ci]][cl] ![MIT/Apache][li] [![docs.rs][di]][dl] ![Tests][btl] ![Lints][bll] ![no_std][bnl]
+[![Discord][dci]][dcl] [![Crates.io][ci]][cl] ![MIT/Apache][li] [![docs.rs][di]][dl] ![LoC][lo] ![Tests][btl] ![Lints][bll] ![no_std][bnl]
 
 [ci]: https://img.shields.io/crates/v/levenberg-marquardt.svg
 [cl]: https://crates.io/crates/levenberg-marquardt/
@@ -9,6 +9,8 @@
 
 [di]: https://docs.rs/levenberg-marquardt/badge.svg
 [dl]: https://docs.rs/levenberg-marquardt/
+
+[lo]: https://tokei.rs/b1/github/rust-cv/levenberg-marquardt?category=code
 
 [dci]: https://img.shields.io/discord/550706294311485440.svg?logo=discord&colorB=7289DA
 [dcl]: https://discord.gg/d32jaam
@@ -20,7 +22,7 @@
 Solver for non-linear least-squares problems.
 
 The implementation is a port of the classic MINPACK implementation of the
-Levenberg-Marquardt (LM) algorithm. The version implemnted is sometimes referred
+Levenberg-Marquardt (LM) algorithm. This version of the algorithm is sometimes referred
 to as _exact_ LM.
 
 All current unit tests indicate that we achieved _identical_ output (on a floating-point level)
