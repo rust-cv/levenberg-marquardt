@@ -43,7 +43,7 @@ fn extrapolate<F: RealField + Float>(evaluations: Vec<F>) -> Option<F> {
     outlier_aware_minimum(derivatives)
 }
 
-fn outlier_aware_minimum<F: std::fmt::Debug + Float>(mut values: Vec<(F, F)>) -> Option<F> {
+fn outlier_aware_minimum<F: Float>(mut values: Vec<(F, F)>) -> Option<F> {
     let num = values.len();
     let mut not_nan = num;
     // move NaN to the end
@@ -99,7 +99,7 @@ fn outlier_aware_minimum<F: std::fmt::Debug + Float>(mut values: Vec<(F, F)>) ->
 }
 
 // Wynn's epsilon algorithm
-fn wynn_extrapolate<F: std::fmt::Debug + Float>(estimates: Vec<F>) -> Option<Vec<(F, F)>> {
+fn wynn_extrapolate<F: Float>(estimates: Vec<F>) -> Option<Vec<(F, F)>> {
     let num = estimates.len();
     let e0 = &estimates[..num - 2];
     let e1 = &estimates[1..num - 1];

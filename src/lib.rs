@@ -54,28 +54,28 @@
 //! # use levenberg_marquardt::{LeastSquaresProblem, LevenbergMarquardt};
 //! struct ExampleProblem {
 //!     // holds current value of the n parameters
-//!     p: Vector2<f32>,
+//!     p: Vector2<f64>,
 //! }
 //!
 //! // We implement a trait for every problem we want to solve
-//! impl LeastSquaresProblem<f32, U2, U2> for ExampleProblem {
-//!     type ParameterStorage = Owned<f32, U2>;
-//!     type ResidualStorage = Owned<f32, U2>;
-//!     type JacobianStorage = Owned<f32, U2, U2>;
+//! impl LeastSquaresProblem<f64, U2, U2> for ExampleProblem {
+//!     type ParameterStorage = Owned<f64, U2>;
+//!     type ResidualStorage = Owned<f64, U2>;
+//!     type JacobianStorage = Owned<f64, U2, U2>;
 //!     
-//!     fn set_params(&mut self, p: &VectorN<f32, U2>) {
+//!     fn set_params(&mut self, p: &VectorN<f64, U2>) {
 //!         self.p.copy_from(p);
 //!         // do common calculations for residuals and the Jacobian here
 //!     }
 //!     
-//!     fn residuals(&self) -> Option<Vector2<f32>> {
+//!     fn residuals(&self) -> Option<Vector2<f64>> {
 //!         Some(Vector2::new(
 //!             self.p.x * self.p.x + self.p.y - 11.0,
 //!             self.p.x + self.p.y * self.p.y - 7.0,
 //!         ))
 //!     }
 //!     
-//!     fn jacobian(&self) -> Option<Matrix2<f32>> {
+//!     fn jacobian(&self) -> Option<Matrix2<f64>> {
 //!         Some(Matrix2::new(
 //!             2.0 * self.p.x, 1.0,
 //!             1.0, 2.0 * self.p.y,

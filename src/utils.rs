@@ -1,4 +1,5 @@
 use crate::LeastSquaresProblem;
+use alloc::{format, string::String};
 use core::cell::RefCell;
 use nalgebra::{
     allocator::Allocator, convert, storage::Storage, Complex, ComplexField, DefaultAllocator, Dim,
@@ -355,7 +356,7 @@ where
 
 #[allow(dead_code)]
 /// Debug helper to inspect the binary representation of  a `f64` or `f32`.
-pub(crate) fn float_repr<F: Float>(f: F) -> String {
+pub(crate) fn float_repr<F: Float>(f: F) -> alloc::string::String {
     assert!(F::one() / (F::one() + F::one()) != F::zero());
     let bytes = core::mem::size_of::<F>();
     let mut out;
