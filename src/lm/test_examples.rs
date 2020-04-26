@@ -14,6 +14,23 @@ pub struct LinearFullRank {
     pub m: usize,
 }
 
+cfg_if::cfg_if! {
+    if #[cfg(feature = "minpack-compat")] {
+        // in "minpack-compat" mode we want real equality
+        macro_rules! assert_fp_eq {
+            ($given:expr, $expected:expr) => {
+                assert_eq!($given, $expected)
+            };
+        }
+    } else {
+        macro_rules! assert_fp_eq {
+            ($given:expr, $expected:expr) => {
+                assert_relative_eq!($given, $expected, epsilon = 1e-12)
+            };
+        }
+    }
+}
+
 /// TOL value used by SciPy
 const TOL: f64 = 1.49012e-08;
 
@@ -79,8 +96,9 @@ fn test_linear_full_rank() {
             xtol: true
         }
     );
-    assert_relative_eq!(report.objective_function, 2.5000000000000004);
-    assert_relative_eq!(
+    assert_eq!(report.number_of_evaluations, 3);
+    assert_fp_eq!(report.objective_function, 2.5000000000000004);
+    assert_fp_eq!(
         problem.params,
         Vector5::<f64>::new(-1., -1.0000000000000004, -1., -1.0000000000000004, -1.)
     );
@@ -96,8 +114,9 @@ fn test_linear_full_rank() {
             xtol: true
         }
     );
-    assert_relative_eq!(report.objective_function, 22.500000000000004);
-    assert_relative_eq!(
+    assert_eq!(report.number_of_evaluations, 3);
+    assert_fp_eq!(report.objective_function, 22.500000000000004);
+    assert_fp_eq!(
         problem.params,
         Vector5::<f64>::new(
             -0.9999999999999953,
@@ -173,8 +192,9 @@ fn test_linear_rank1() {
             xtol: false
         }
     );
-    assert_relative_eq!(report.objective_function, 1.0714285714285714);
-    assert_relative_eq!(
+    assert_eq!(report.number_of_evaluations, 3);
+    assert_fp_eq!(report.objective_function, 1.0714285714285714);
+    assert_fp_eq!(
         problem.params,
         VectorN::<f64, U5>::from_column_slice(&[
             -167.79681802396928,
@@ -196,13 +216,9 @@ fn test_linear_rank1() {
             xtol: false
         }
     );
-    let eps = if cfg!(feature = "minpack-compat") {
-        ::core::f64::EPSILON
-    } else {
-        1e-10
-    };
-    assert_relative_eq!(report.objective_function, 6.064356435643563, epsilon = eps);
-    assert_relative_eq!(
+    assert_eq!(report.number_of_evaluations, 3);
+    assert_fp_eq!(report.objective_function, 6.064356435643563);
+    assert_fp_eq!(
         problem.params,
         VectorN::<f64, U5>::from_column_slice(&[
             -20.29999900022674,
@@ -210,8 +226,7 @@ fn test_linear_rank1() {
             -165.2451975264496,
             -4.324999750056676,
             110.53305851006517
-        ]),
-        epsilon = eps
+        ])
     );
 }
 
@@ -294,8 +309,9 @@ fn test_linear_rank1_zero() {
             xtol: false
         }
     );
-    assert_relative_eq!(report.objective_function, 1.8235294117647063,);
-    assert_relative_eq!(
+    assert_eq!(report.number_of_evaluations, 3);
+    assert_fp_eq!(report.objective_function, 1.8235294117647063);
+    assert_fp_eq!(
         problem.params,
         VectorN::<f64, U5>::from_column_slice(&[
             1.,
@@ -310,7 +326,8 @@ fn test_linear_rank1_zero() {
     let (problem, report) = LevenbergMarquardt::new()
         .with_tol(TOL)
         .minimize(initial, problem);
-    assert_relative_eq!(report.objective_function, 6.814432989690721);
+    assert_eq!(report.number_of_evaluations, 3);
+    assert_fp_eq!(report.objective_function, 6.814432989690721);
     assert_eq!(
         report.termination,
         TerminationReason::Converged {
@@ -318,7 +335,7 @@ fn test_linear_rank1_zero() {
             xtol: false
         }
     );
-    assert_relative_eq!(
+    assert_fp_eq!(
         problem.params,
         VectorN::<f64, U5>::from_column_slice(&[
             1.,
@@ -369,18 +386,18 @@ fn test_rosenbruck() {
         .with_tol(TOL)
         .minimize(guess, problem.clone());
     if cfg!(feature = "minpack-compat") {
-        // MINPACK gives "Orthogonal" but this is because
+        // MINPACK gives "Orthogonal" but this is because the
         // residual is identical zero which gives NaN in the `gnorm`
-        // computation. Long story short, this will make the gnorm
-        // termination test pass in MINPACK.
+        // computation in MINPACK.
         assert_eq!(report.termination, TerminationReason::Orthogonal);
     } else {
         assert_eq!(report.termination, TerminationReason::ResidualsZero);
     }
-    assert_relative_eq!(report.objective_function, 0.);
-    assert_relative_eq!(problem.params, Vector2::<f64>::from_element(1.));
+    assert_eq!(report.number_of_evaluations, 21);
+    assert_fp_eq!(report.objective_function, 0.);
+    assert_fp_eq!(problem.params, Vector2::<f64>::from_element(1.));
 
-    let guess = initial.map(|x| x + 10.);
+    let guess = initial.map(|x| x * 10.);
     let (problem, report) = LevenbergMarquardt::new()
         .with_tol(TOL)
         .minimize(guess, problem.clone());
@@ -395,10 +412,11 @@ fn test_rosenbruck() {
     } else {
         assert_eq!(report.termination, TerminationReason::ResidualsZero);
     }
-    assert_relative_eq!(report.objective_function, 0.);
-    assert_relative_eq!(problem.params, Vector2::<f64>::from_element(1.));
+    assert_eq!(report.number_of_evaluations, 8);
+    assert_fp_eq!(report.objective_function, 0.);
+    assert_fp_eq!(problem.params, Vector2::<f64>::from_element(1.));
 
-    let guess = initial.map(|x| x + 100.);
+    let guess = initial.map(|x| x * 100.);
     let (problem, report) = LevenbergMarquardt::new()
         .with_tol(TOL)
         .minimize(guess, problem.clone());
@@ -413,8 +431,9 @@ fn test_rosenbruck() {
     } else {
         assert_eq!(report.termination, TerminationReason::ResidualsZero);
     }
-    assert_relative_eq!(report.objective_function, 0.);
-    assert_relative_eq!(problem.params, Vector2::<f64>::from_element(1.));
+    assert_eq!(report.number_of_evaluations, 6); // TODO
+    assert_fp_eq!(report.objective_function, 0.);
+    assert_fp_eq!(problem.params, Vector2::<f64>::from_element(1.));
 }
 
 #[test]
@@ -479,8 +498,9 @@ fn test_helical_valley() {
         .with_tol(TOL)
         .minimize(initial.clone(), problem.clone());
     assert_eq!(report.termination, termination_reason);
-    assert_relative_eq!(report.objective_function, 4.936724569245567e-33);
-    assert_relative_eq!(
+    assert_eq!(report.number_of_evaluations, 11);
+    assert_fp_eq!(report.objective_function, 4.936724569245567e-33);
+    assert_fp_eq!(
         problem.params,
         Vector3::<f64>::new(1., -6.243301596789443e-18, 0.)
     );
@@ -489,8 +509,9 @@ fn test_helical_valley() {
         .with_tol(TOL)
         .minimize(initial.map(|x| x * 10.), problem.clone());
     assert_eq!(report.termination, termination_reason);
-    assert_relative_eq!(report.objective_function, 5.456769505027268e-39);
-    assert_relative_eq!(
+    assert_eq!(report.number_of_evaluations, 20);
+    assert_fp_eq!(report.objective_function, 5.456769505027268e-39);
+    assert_fp_eq!(
         problem.params,
         Vector3::<f64>::new(1., 6.563910805155555e-21, 0.)
     );
@@ -499,8 +520,9 @@ fn test_helical_valley() {
         .with_tol(TOL)
         .minimize(initial.map(|x| x * 100.), problem.clone());
     assert_eq!(report.termination, termination_reason);
-    assert_relative_eq!(report.objective_function, 4.9259630763847064e-58);
-    assert_relative_eq!(
+    assert_eq!(report.number_of_evaluations, 19);
+    assert_fp_eq!(report.objective_function, 4.9259630763847064e-58);
+    assert_fp_eq!(
         problem.params,
         Vector3::<f64>::new(1., -1.9721522630525295e-30, 0.)
     );
@@ -562,8 +584,9 @@ fn test_powell_singular() {
         report.termination,
         TerminationReason::NoImprovementPossible("gtol")
     );
-    assert_relative_eq!(report.objective_function, 1.866194344564614e-67);
-    assert_relative_eq!(
+    assert_eq!(report.number_of_evaluations, 59);
+    assert_fp_eq!(report.objective_function, 1.866194344564614e-67);
+    assert_fp_eq!(
         problem.params,
         Vector4::<f64>::new(
             1.6521175961683935e-17,
@@ -580,26 +603,28 @@ fn test_powell_singular() {
         report.termination,
         TerminationReason::NoImprovementPossible("gtol")
     );
-    assert_relative_eq!(report.objective_function, 1.518540222675492e-88);
-    assert_relative_eq!(
+    assert_eq!(report.number_of_evaluations, 72);
+    assert_fp_eq!(report.objective_function, 4.14378385952174e-79);
+    assert_fp_eq!(
         problem.params,
         Vector4::<f64>::new(
-            1.0890568734571656e-22,
-            -1.0890568734571657e-23,
-            3.8699037166581656e-23,
-            3.8699037166581656e-23
+            2.0167451125102287e-20,
+            -2.0167451125102287e-21,
+            3.2267921800163004e-21,
+            3.2267921800163004e-21
         )
     );
 
     let (problem, report) = LevenbergMarquardt::new()
         .with_tol(TOL)
-        .minimize(initial.map(|x| x * 10.), problem.clone());
+        .minimize(initial.map(|x| x * 100.), problem.clone());
     assert_eq!(
         report.termination,
         TerminationReason::NoImprovementPossible("gtol")
     );
-    assert_relative_eq!(report.objective_function, 2.715670190176167e-70);
-    assert_relative_eq!(
+    assert_eq!(report.number_of_evaluations, 68);
+    assert_fp_eq!(report.objective_function, 2.715670190176167e-70);
+    assert_fp_eq!(
         problem.params,
         Vector4::<f64>::new(
             3.2267921800163781e-18,
@@ -661,8 +686,9 @@ fn test_freudenstein_roth() {
             xtol: false
         }
     );
-    assert_relative_eq!(report.objective_function, 24.492126863534953);
-    assert_relative_eq!(
+    assert_eq!(report.number_of_evaluations, 14);
+    assert_fp_eq!(report.objective_function, 24.492126863534953);
+    assert_fp_eq!(
         problem.params,
         Vector2::<f64>::new(11.412484465499368, -0.8968279137315035)
     );
@@ -677,8 +703,9 @@ fn test_freudenstein_roth() {
             xtol: false
         }
     );
-    assert_relative_eq!(report.objective_function, 24.492126854042752);
-    assert_relative_eq!(
+    assert_eq!(report.number_of_evaluations, 19);
+    assert_fp_eq!(report.objective_function, 24.492126854042752);
+    assert_fp_eq!(
         problem.params,
         Vector2::<f64>::new(11.413004661474561, -0.8967960386859591)
     );
@@ -693,8 +720,9 @@ fn test_freudenstein_roth() {
             xtol: false
         }
     );
-    assert_relative_eq!(report.objective_function, 24.49212683962172);
-    assert_relative_eq!(
+    assert_eq!(report.number_of_evaluations, 24);
+    assert_fp_eq!(report.objective_function, 24.49212683962172);
+    assert_fp_eq!(
         problem.params,
         Vector2::<f64>::new(11.412781785788198, -0.8968051074920677)
     );
@@ -764,8 +792,9 @@ fn test_bard() {
         .with_tol(TOL)
         .minimize(initial.clone(), problem.clone());
     assert_eq!(report.termination, reason);
-    assert_relative_eq!(report.objective_function, 0.00410743865329062);
-    assert_relative_eq!(
+    assert_eq!(report.number_of_evaluations, 6);
+    assert_fp_eq!(report.objective_function, 0.00410743865329062);
+    assert_fp_eq!(
         problem.params,
         Vector3::<f64>::new(0.0824105765758334, 1.1330366534715044, 2.343694638941154)
     );
@@ -774,8 +803,9 @@ fn test_bard() {
         .with_tol(TOL)
         .minimize(initial.map(|x| x * 10.), problem.clone());
     assert_eq!(report.termination, reason);
-    assert_relative_eq!(report.objective_function, 8.71434685503351);
-    assert_relative_eq!(
+    assert_eq!(report.number_of_evaluations, 37);
+    assert_fp_eq!(report.objective_function, 8.71434685503351);
+    assert_fp_eq!(
         problem.params,
         Vector3::<f64>::new(
             8.4066667381832927e-01,
@@ -788,8 +818,9 @@ fn test_bard() {
         .with_tol(TOL)
         .minimize(initial.map(|x| x * 100.), problem.clone());
     assert_eq!(report.termination, reason);
-    assert_relative_eq!(report.objective_function, 8.714346854926243);
-    assert_relative_eq!(
+    assert_eq!(report.number_of_evaluations, 14);
+    assert_fp_eq!(report.objective_function, 8.714346854926243);
+    assert_fp_eq!(
         problem.params,
         Vector3::<f64>::new(
             8.4066667386764549e-01,
@@ -864,8 +895,9 @@ fn test_kowalik_osborne() {
         .with_tol(TOL)
         .minimize(initial.clone(), problem.clone());
     assert_eq!(report.termination, reason);
-    assert_relative_eq!(report.objective_function, 0.00015375280229088455);
-    assert_relative_eq!(
+    assert_eq!(report.number_of_evaluations, 18);
+    assert_fp_eq!(report.objective_function, 0.00015375280229088455);
+    assert_fp_eq!(
         problem.params,
         Vector4::<f64>::new(
             0.19280781047624931,
@@ -877,11 +909,28 @@ fn test_kowalik_osborne() {
 
     let (problem, report) = LevenbergMarquardt::new()
         .with_tol(TOL)
+        .minimize(initial.map(|x| x * 10.), problem.clone());
+    assert_eq!(report.termination, reason);
+    assert_eq!(report.number_of_evaluations, 78);
+    assert_fp_eq!(report.objective_function, 0.000513671535424324);
+    assert_fp_eq!(
+        problem.params,
+        Vector4::<f64>::new(
+            7.2867547376865975e+05,
+            -1.4075880312939264e+01,
+            -3.2977797784196608e+07,
+            -2.0571594197801702e+07,
+        )
+    );
+
+    let (problem, report) = LevenbergMarquardt::new()
+        .with_tol(TOL)
         .with_patience(100)
         .minimize(initial.map(|x| x * 100.), problem.clone());
     assert_eq!(report.termination, TerminationReason::LostPatience);
-    assert_relative_eq!(report.objective_function, 0.00015375283657222266);
-    assert_relative_eq!(
+    assert_eq!(report.number_of_evaluations, 500);
+    assert_fp_eq!(report.objective_function, 0.00015375283657222266);
+    assert_fp_eq!(
         problem.params,
         Vector4::<f64>::new(
             0.19279840638465487,
@@ -957,8 +1006,9 @@ fn test_meyer() {
         .with_tol(TOL)
         .minimize(initial.clone(), problem.clone());
     assert_eq!(report.termination, reason);
-    assert_relative_eq!(report.objective_function, 43.972927585339875);
-    assert_relative_eq!(
+    assert_eq!(report.number_of_evaluations, 126);
+    assert_fp_eq!(report.objective_function, 43.972927585339875);
+    assert_fp_eq!(
         problem.params,
         Vector3::<f64>::new(
             5.609636471027749e-03,
@@ -972,8 +1022,9 @@ fn test_meyer() {
         .with_patience(100)
         .minimize(initial.map(|x| x * 10.), problem.clone());
     assert_eq!(report.termination, TerminationReason::LostPatience);
-    assert_relative_eq!(report.objective_function, 324272.8973474361);
-    assert_relative_eq!(
+    assert_eq!(report.number_of_evaluations, 400);
+    assert_fp_eq!(report.objective_function, 324272.8973474361);
+    assert_fp_eq!(
         problem.params,
         Vector3::<f64>::new(
             6.825630280624222e-12,
@@ -1082,8 +1133,8 @@ fn test_watson() {
         .minimize(initial.clone(), problem.clone());
     assert_eq!(report.termination, reason_f);
     assert_eq!(report.number_of_evaluations, 8);
-    assert_relative_eq!(report.objective_function, 0.001143835026786261);
-    assert_relative_eq!(
+    assert_fp_eq!(report.objective_function, 0.001143835026786261);
+    assert_fp_eq!(
         problem.params,
         Vector6::<f64>::new(
             -0.01572496150837828,
@@ -1100,8 +1151,8 @@ fn test_watson() {
         .minimize(initial.map(|x| x + 10.), problem.clone());
     assert_eq!(report.termination, reason_f);
     assert_eq!(report.number_of_evaluations, 14);
-    assert_relative_eq!(report.objective_function, 0.0011438350267831846);
-    assert_relative_eq!(
+    assert_fp_eq!(report.objective_function, 0.0011438350267831846);
+    assert_fp_eq!(
         problem.params,
         Vector6::<f64>::new(
             -0.015725190138667525,
@@ -1118,8 +1169,8 @@ fn test_watson() {
         .minimize(initial.map(|x| x + 100.), problem.clone());
     assert_eq!(report.termination, reason_f);
     assert_eq!(report.number_of_evaluations, 15);
-    assert_relative_eq!(report.objective_function, 0.0011438350268716062);
-    assert_relative_eq!(
+    assert_fp_eq!(report.objective_function, 0.0011438350268716062);
+    assert_fp_eq!(
         problem.params,
         Vector6::<f64>::new(
             -0.01572470197125869,
@@ -1149,8 +1200,8 @@ fn test_watson() {
         .minimize(initial.clone(), problem.clone());
     assert_eq!(report.termination, reason_fg);
     assert_eq!(report.number_of_evaluations, 8);
-    assert_relative_eq!(report.objective_function, 6.998800690506343e-07);
-    assert_relative_eq!(
+    assert_fp_eq!(report.objective_function, 6.998800690506343e-07);
+    assert_fp_eq!(
         problem.params,
         VectorN::<f64, U9>::from_column_slice(&[
             -1.5307064416628804e-05,
@@ -1170,8 +1221,8 @@ fn test_watson() {
         .minimize(initial.map(|x| x + 10.), problem.clone());
     assert_eq!(report.termination, reason_fg);
     assert_eq!(report.number_of_evaluations, 20);
-    assert_relative_eq!(report.objective_function, 6.998800690471173e-07);
-    assert_relative_eq!(
+    assert_fp_eq!(report.objective_function, 6.998800690471173e-07);
+    assert_fp_eq!(
         problem.params,
         VectorN::<f64, U9>::from_column_slice(&[
             -1.5307036495997912e-05,
@@ -1191,8 +1242,8 @@ fn test_watson() {
         .minimize(initial.map(|x| x + 100.), problem.clone());
     assert_eq!(report.termination, reason_f);
     assert_eq!(report.number_of_evaluations, 18);
-    assert_relative_eq!(report.objective_function, 6.998800690486009e-07);
-    assert_relative_eq!(
+    assert_fp_eq!(report.objective_function, 6.998800690486009e-07);
+    assert_fp_eq!(
         problem.params,
         VectorN::<f64, U9>::from_column_slice(&[
             -1.5306952335212645e-05,
@@ -1221,8 +1272,8 @@ fn test_watson() {
         .minimize(initial.clone(), problem.clone());
     assert_eq!(report.termination, reason_fg);
     assert_eq!(report.number_of_evaluations, 10);
-    assert_relative_eq!(report.objective_function, 2.3611905506971735e-10);
-    assert_relative_eq!(
+    assert_fp_eq!(report.objective_function, 2.3611905506971735e-10);
+    assert_fp_eq!(
         problem.params,
         VectorN::<f64, U12>::from_column_slice(&[
             -6.6380604677589803e-09,
@@ -1249,8 +1300,8 @@ fn test_watson() {
         .minimize(initial.map(|x| x + 10.), problem.clone());
     assert_eq!(report.termination, reason_x);
     assert_eq!(report.number_of_evaluations, 13);
-    assert_relative_eq!(report.objective_function, 2.361190552167311e-10);
-    assert_relative_eq!(
+    assert_fp_eq!(report.objective_function, 2.361190552167311e-10);
+    assert_fp_eq!(
         problem.params,
         VectorN::<f64, U12>::from_column_slice(&[
             -6.6380604668544608e-09,
@@ -1273,8 +1324,8 @@ fn test_watson() {
         .minimize(initial.map(|x| x + 100.), problem.clone());
     assert_eq!(report.termination, reason_x);
     assert_eq!(report.number_of_evaluations, 34);
-    assert_relative_eq!(report.objective_function, 2.361190551562772e-10);
-    assert_relative_eq!(
+    assert_fp_eq!(report.objective_function, 2.361190551562772e-10);
+    assert_fp_eq!(
         problem.params,
         VectorN::<f64, U12>::from_column_slice(&[
             -6.6380604636792693e-09,

@@ -4,6 +4,10 @@ from scipy.optimize import leastsq
 
 np.set_printoptions(precision=20)
 
+def sq(x):
+    # We use this because x ** 2 != x * x
+    return x * x
+
 
 def enorm(v):
     rdwarf = 3.834e-20
@@ -15,21 +19,23 @@ def enorm(v):
     for i in range(v.size):
         xabs = abs(v[i])
 
-        if xabs > rdwarf and xabs < agiant:
-            s2 += xabs**2
-        elif xabs <= rdwarf:
-            if xabs <= x3max:
-                if xabs != 0.:
-                    s3 += (xabs / x3max)**2
+        if xabs >= agiant or xabs <= rdwarf:
+            if xabs > rdwarf:
+                # sum for large components
+                if xabs > x1max:
+                    s1 = 1. + s1 * sq(x1max / xabs)
+                    x1max = xabs;
+                else:
+                    s1 += sq(xabs / x1max)
             else:
-                s3 = 1 + s3 * (x3max / xabs)**2
-                x3max = xabs
+                # sum for small components
+                if xabs > x3max:
+                    s3 = 1. + s3 * sq(x3max / xabs)
+                    x3max = xabs;
+                elif xabs != 0.:
+                    s3 += sq(xabs / x3max)
         else:
-            if xabs <= x1max:
-                s1 += (xabs / x1max)**2
-            else:
-                s1 = 1. + s1 * (x1max / xabs)**2
-                x1max = xabs
+            s2 += xabs * xabs
 
     if s1 != 0.:
         return x1max * np.sqrt(s1 + (s2 / x1max) / x1max)
@@ -44,7 +50,6 @@ def enorm(v):
 
 
 def report(f, out):
-    reason = out[3]
     if out[4] == 1:
         reason = "ftol"
     elif out[4] == 2:
@@ -53,10 +58,15 @@ def report(f, out):
         reason = "ftol, xtol"
     elif out[4] == 4:
         reason = "gtol"
+    elif out[4] == 8:
+        reason = 'NoImprovementPossible("gtol")'
+    else:
+        print("code: {}".format(out[4]))
+        reason = out[3]
     print("assert_eq!(report.termination, {});".format(reason))
     print("assert_eq!(report.number_of_evaluations, {});".format(out[2]['nfev']))
-    fvec = out[2]['fvec']
-    print("assert_relative_eq!(report.objective_function, {});".format((enorm(fvec) ** 2) * 0.5))
+    fvec = f(out[0])
+    print("assert_relative_eq!(report.objective_function, {});".format(sq(enorm(fvec)) * 0.5))
     params = re.sub(r'(?<=\d)([\n \]]+)', ', ', str(out[0]))[1:]
     print("params = {}".format(params))
 
@@ -134,7 +144,7 @@ def rosenbruck():
     print("rosenbruck")
     print("=" * 80)
     def func(params, vec=np.zeros(2)):
-        vec[0] = 10 * (params[1] - params[0]**2)
+        vec[0] = 10 * (params[1] - sq(params[0]))
         vec[1] = 1 - params[0]
         return vec
 
@@ -162,7 +172,7 @@ def helical_valley():
         else:
             tmp1 = np.arctan(params[1] / params[0]) / tpi + 0.5
 
-        tmp2 = np.sqrt(params[0]**2 + params[1]**2)
+        tmp2 = np.sqrt(sq(params[0]) + sq(params[1]))
 
         vec[0] = 10 * (params[2] - 10 * tmp1)
         vec[1] = 10 * (tmp2 - 1)
@@ -170,7 +180,7 @@ def helical_valley():
         return vec
 
     def jac(params, jac=np.zeros((3,3))):
-        temp = params[0]**2 + params[1]**2
+        temp = sq(params[0]) + sq(params[1])
         tmp1 = tpi * temp
         tmp2 = np.sqrt(temp)
         jac[0,0] = 100 * params[1] / tmp1
@@ -196,8 +206,8 @@ def powell_singular():
     def func(params, vec=np.zeros(4)):
         vec[0] = params[0] + 10 * params[1]
         vec[1] = np.sqrt(5) * (params[2] - params[3])
-        vec[2] = (params[1] - 2 * params[2])**2
-        vec[3] = np.sqrt(10) * (params[0] - params[3])**2
+        vec[2] = sq(params[1] - 2 * params[2])
+        vec[3] = np.sqrt(10) * sq(params[0] - params[3])
         return vec
 
     def jac(params, jac=np.zeros((4,4))):
@@ -268,7 +278,7 @@ def bard():
             else:
                 tmp3 = i + 1
 
-            tmp4 = (params[1] * tmp2 + params[2] * tmp3)**2
+            tmp4 = sq(params[1] * tmp2 + params[2] * tmp3)
             jac[0,i] = -1
             jac[1,i] = (i + 1) * tmp2 / tmp4
             jac[2,i] = (i + 1) * tmp3 / tmp4
@@ -350,9 +360,9 @@ def watson(n_params):
             dx *= div
 
         vec = np.zeros(31)
-        vec[:29] = (s1 - s2**2) - 1
+        vec[:29] = (s1 - sq(s2)) - 1
         vec[29] = params[0]
-        vec[30] = params[1] - params[0]**2 - 1
+        vec[30] = params[1] - sq(params[0]) - 1
         return vec
 
     def jac(params):
