@@ -20,9 +20,17 @@
 Solver for non-linear least-squares problems.
 
 The implementation is a port of the classic MINPACK implementation of the
-Levenberg-Marquardt (LM) algorithm. This versions is sometimes referred to as _exact_ LM.
+Levenberg-Marquardt (LM) algorithm. The version implemnted is sometimes referred
+to as _exact_ LM.
 
-We tried to achieve an floating point result _identical_ to the one of MINPACK, even (or especially) for rank deficient unstable problems. The Fortran algorithm was extended with `NaN` and `inf` handling, similar to what [lmfit][lmfit] does.
+All current unit tests indicate that we achieved _identical_ output (on a floating-point level)
+to the MINPACK implementation, especially for rank deficient unstable problems.
+This was mainly useful for testing.
+The Fortran algorithm was extended with `NaN` and `inf` handling, similar to what [lmfit][lmfit] does.
+
+The crate offers a feature called `minpack-compat` which sets floating-point constants
+to the ones used by MINPACK and removes the termination criterion of "zero residuals".
+This is necessary for identical output to MINPACK but generally not recommend.
 
 # Usage
 
@@ -34,7 +42,7 @@ impl LeastSquaresProblem<f64> for Problem {
 }
 let problem = Problem::new();
 let (problem, report) = LevenbergMarquardt::new().minimize(initial_params, problem);
-assert!(report.termination.was_succes());
+assert!(report.termination.was_successful());
 ```
 
 # References

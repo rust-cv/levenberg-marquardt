@@ -33,9 +33,12 @@ cfg_if::cfg_if! {
 /// [`LeastSquaresProblem`](trait.LeastSquaresProblem.html) with this.
 ///
 /// Computing the derivatives numerically is unstable: You can construct
-/// functions where the computed result is catastrophically wrong. If you
+/// functions where the computed result is far off. If you
 /// observe large differences between the derivative computed by this function
 /// and your implementation the reason _might_ be due to instabilty.
+///
+/// The residuals function is called approximately `$30nm$` times which
+/// can make it slow in debug builds and larger problems.
 ///
 /// The achieved precision by this function
 /// is lower than the floating point precision in general. So the error is bigger
