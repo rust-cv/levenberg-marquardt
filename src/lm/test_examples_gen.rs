@@ -107,17 +107,29 @@ fn test_rosenbruck() {
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-5);
 
     let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
-    assert_eq!(report.termination, TerminationReason::Orthogonal);
+    if cfg!(feature="minpack_compat") {
+        assert_eq!(report.termination, TerminationReason::Orthogonal);
+    } else {
+        assert_eq!(report.termination, TerminationReason::ResidualsZero);
+    }
     assert_eq!(report.number_of_evaluations, 21);
     assert_fp_eq!(report.objective_function, 0.0);
     assert_fp_eq!(problem.params, VectorN::<f64, U2>::from_column_slice(&[1., 1.]));
     let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x * 10.), problem.clone());
-    assert_eq!(report.termination, TerminationReason::Converged { ftol: false, xtol: true });
+    if cfg!(feature="minpack_compat") {
+        assert_eq!(report.termination, TerminationReason::Converged { ftol: false, xtol: true });
+    } else {
+        assert_eq!(report.termination, TerminationReason::ResidualsZero);
+    }
     assert_eq!(report.number_of_evaluations, 8);
     assert_fp_eq!(report.objective_function, 0.0);
     assert_fp_eq!(problem.params, VectorN::<f64, U2>::from_column_slice(&[1., 1.]));
     let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x * 100.), problem.clone());
-    assert_eq!(report.termination, TerminationReason::Converged { ftol: false, xtol: true });
+    if cfg!(feature="minpack_compat") {
+        assert_eq!(report.termination, TerminationReason::Converged { ftol: false, xtol: true });
+    } else {
+        assert_eq!(report.termination, TerminationReason::ResidualsZero);
+    }
     assert_eq!(report.number_of_evaluations, 6);
     assert_fp_eq!(report.objective_function, 0.0);
     assert_fp_eq!(problem.params, VectorN::<f64, U2>::from_column_slice(&[1., 1.]));
