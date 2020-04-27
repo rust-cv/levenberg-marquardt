@@ -268,16 +268,30 @@ fn test_meyer() {
     let jac_trait = problem.jacobian().unwrap();
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-5);
 
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
-    assert_eq!(report.termination, TerminationReason::Converged { ftol: false, xtol: true });
-    assert_eq!(report.number_of_evaluations, 126);
-    assert_fp_eq!(report.objective_function, 43.972927585339875);
-    assert_fp_eq!(problem.params, VectorN::<f64, U3>::from_column_slice(&[5.609636471027749e-03, 6.181346346286417e+03, 3.452236346241380e+02]));
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x * 10.), problem.clone());
-    assert_eq!(report.termination, TerminationReason::LostPatience);
-    assert_eq!(report.number_of_evaluations, 400);
-    assert_fp_eq!(report.objective_function, 324272.8973474361);
-    assert_fp_eq!(problem.params, VectorN::<f64, U3>::from_column_slice(&[6.825630280624222e-12, 3.514598925134810e+04, 9.220430560142615e+02]));
+    // Apple's exp function produces a different approximation
+    if cfg!(target_os="macos") {
+        let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
+        assert_eq!(report.termination, TerminationReason::Converged { ftol: false, xtol: true });
+        assert_eq!(report.number_of_evaluations, 126);
+        assert_fp_eq!(report.objective_function, 43.972927585339875);
+        assert_fp_eq!(problem.params, VectorN::<f64, U3>::from_column_slice(&[5.609636471027749e-03, 6.181346346286417e+03, 3.452236346241380e+02]));
+        let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x * 10.), problem.clone());
+        assert_eq!(report.termination, TerminationReason::LostPatience);
+        assert_eq!(report.number_of_evaluations, 400);
+        assert_fp_eq!(report.objective_function, 324272.8973474361);
+        assert_fp_eq!(problem.params, VectorN::<f64, U3>::from_column_slice(&[6.825630280624222e-12, 3.514598925134810e+04, 9.220430560142615e+02]));
+    } else {
+        let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
+        assert_eq!(report.termination, TerminationReason::Converged { ftol: false, xtol: true });
+        assert_eq!(report.number_of_evaluations, 126);
+        assert_fp_eq!(report.objective_function, 43.972927585355414);
+        assert_fp_eq!(problem.params, VectorN::<f64, U3>::from_column_slice(&[5.6096364710271603e-03, 6.1813463462865056e+03, 3.4522363462414097e+02]));
+        let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x * 10.), problem.clone());
+        assert_eq!(report.termination, TerminationReason::LostPatience);
+        assert_eq!(report.number_of_evaluations, 400);
+        assert_fp_eq!(report.objective_function, 324272.94195590157);
+        assert_fp_eq!(problem.params, VectorN::<f64, U3>::from_column_slice(&[6.825607045203072e-12, 3.514599603833739e+04, 9.220431522058431e+02]));
+    }
 }
 
 #[test]
