@@ -18,14 +18,14 @@ cfg_if::cfg_if! {
     if #[cfg(feature = "minpack-compat")] {
         // in "minpack-compat" mode we want real equality
         macro_rules! assert_fp_eq {
-            ($given:expr, $expected:expr $(, epsilon = $epsilon:expr)?) => {
+            ($given:expr, $expected:expr) => {
                 assert_eq!($given, $expected)
             };
         }
     } else {
         macro_rules! assert_fp_eq {
-            ($given:expr, $expected:expr $(, epsilon = $epsilon:expr)?) => {
-                assert_relative_eq!($given, $expected $(, epsilon = $epsilon)?)
+            ($given:expr, $expected:expr) => {
+                assert_relative_eq!($given, $expected, epsilon = 1e-12)
             };
         }
     }
@@ -217,7 +217,7 @@ fn test_linear_rank1() {
         }
     );
     assert_eq!(report.number_of_evaluations, 3);
-    assert_fp_eq!(report.objective_function, 6.064356435643563, epsilon = 1e-9);
+    assert_fp_eq!(report.objective_function, 6.064356435643563);
     assert_fp_eq!(
         problem.params,
         VectorN::<f64, U5>::from_column_slice(&[
@@ -226,8 +226,7 @@ fn test_linear_rank1() {
             -165.2451975264496,
             -4.324999750056676,
             110.53305851006517
-        ]),
-        epsilon = 1e-9
+        ])
     );
 }
 
@@ -1008,19 +1007,14 @@ fn test_meyer() {
         .minimize(initial.clone(), problem.clone());
     assert_eq!(report.termination, reason);
     assert_eq!(report.number_of_evaluations, 126);
-    assert_fp_eq!(
-        report.objective_function,
-        43.972927585339875,
-        epsilon = 1e-9
-    );
+    assert_fp_eq!(report.objective_function, 43.972927585339875);
     assert_fp_eq!(
         problem.params,
         Vector3::<f64>::new(
             5.609636471027749e-03,
             6.181346346286417e+03,
             3.452236346241380e+02
-        ),
-        epsilon = 1e-9
+        )
     );
 
     let (problem, report) = LevenbergMarquardt::new()
@@ -1029,15 +1023,14 @@ fn test_meyer() {
         .minimize(initial.map(|x| x * 10.), problem.clone());
     assert_eq!(report.termination, TerminationReason::LostPatience);
     assert_eq!(report.number_of_evaluations, 400);
-    assert_fp_eq!(report.objective_function, 324272.8973474361, epsilon = 1.0);
+    assert_fp_eq!(report.objective_function, 324272.8973474361);
     assert_fp_eq!(
         problem.params,
         Vector3::<f64>::new(
             6.825630280624222e-12,
             3.514598925134810e+04,
             9.220430560142615e+02,
-        ),
-        epsilon = 1.0
+        )
     );
 }
 
