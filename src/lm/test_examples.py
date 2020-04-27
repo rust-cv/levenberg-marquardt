@@ -4,6 +4,7 @@ from scipy.optimize import leastsq
 
 np.set_printoptions(precision=20)
 
+
 def sq(x):
     # We use this because x ** 2 != x * x
     return x * x
