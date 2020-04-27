@@ -12,7 +12,7 @@ mod finite_difference;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "RUSTC_IS_NIGHTLY")] {
-        pub use std::intrinsics::{likely, unlikely};
+        pub use core::intrinsics::{likely, unlikely};
     } else {
         #[inline]
         pub fn likely(b: bool) -> bool {
