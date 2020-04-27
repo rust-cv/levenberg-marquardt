@@ -1008,7 +1008,6 @@ fn test_meyer() {
         .minimize(initial.clone(), problem.clone());
     assert_eq!(report.termination, reason);
     assert_eq!(report.number_of_evaluations, 126);
-    // TODO: This isn't exactly EQ in Minpack compat mode on all CPUs, just certain ones.
     assert_fp_eq!(
         report.objective_function,
         43.972927585339875,
