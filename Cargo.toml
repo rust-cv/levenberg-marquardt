@@ -32,8 +32,8 @@ approx = "0.3.2"
 rustc_version = "0.2.3"
 
 [profile.test]
-# This is necessary so we can test as many estimations as possible.
-opt-level = 3
+# The line fitting test case needs this to run in reasonable amount of time
+opt-level = 2
 
 [package.metadata.docs.rs]
 # To build locally use
