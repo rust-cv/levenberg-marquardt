@@ -28,6 +28,9 @@ cfg_if::cfg_if! {
 
 /// Compute a numerical approximation of the Jacobian.
 ///
+/// The residuals function is called approximately `$30\cdot nm$` times which
+/// can make this slow in debug builds and for larger problems.
+///
 /// The function is intended to be used for debugging or testing.
 /// You can try to check your derivative implementation of an
 /// [`LeastSquaresProblem`](trait.LeastSquaresProblem.html) with this.
@@ -36,9 +39,6 @@ cfg_if::cfg_if! {
 /// functions where the computed result is far off. If you
 /// observe large differences between the derivative computed by this function
 /// and your implementation the reason _might_ be due to instabilty.
-///
-/// The residuals function is called approximately `$30nm$` times which
-/// can make it slow in debug builds and larger problems.
 ///
 /// The achieved precision by this function
 /// is lower than the floating point precision in general. So the error is bigger
@@ -90,13 +90,12 @@ cfg_if::cfg_if! {
 /// #         ))
 /// #     }
 /// # }
-/// // Parameters for which we want to check your derivative
+/// // Parameters for which we want to check the derivative
 /// let x = Vector2::new(6., -10.);
 /// // Let `problem` be an instance of `LeastSquaresProblem`
 /// # let mut problem = ExampleProblem::<f64> { p: Vector2::zeros(), };
-/// problem.set_params(&x);
-/// let jacobian_trait = problem.jacobian().unwrap();
 /// let jacobian_numerical = differentiate_numerically(x, &mut problem).unwrap();
+/// let jacobian_trait = problem.jacobian().unwrap();
 /// assert_relative_eq!(jacobian_numerical, jacobian_trait, epsilon = 1e-13);
 /// ```
 ///
