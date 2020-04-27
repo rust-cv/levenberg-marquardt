@@ -49,32 +49,7 @@ def enorm(v):
     return np.sqrt(x3max * ((s2 / x3max) + (x3max * s3)))
 
 
-def report(f, out):
-    if out[4] == 1:
-        reason = "ftol"
-    elif out[4] == 2:
-        reason = "xtol"
-    elif out[4] == 3:
-        reason = "ftol, xtol"
-    elif out[4] == 4:
-        reason = "gtol"
-    elif out[4] == 8:
-        reason = 'NoImprovementPossible("gtol")'
-    else:
-        print("code: {}".format(out[4]))
-        reason = out[3]
-    print("assert_eq!(report.termination, {});".format(reason))
-    print("assert_eq!(report.number_of_evaluations, {});".format(out[2]['nfev']))
-    fvec = f(out[0])
-    print("assert_relative_eq!(report.objective_function, {});".format(sq(enorm(fvec)) * 0.5))
-    params = re.sub(r'(?<=\d)([\n \]]+)', ', ', str(out[0]))[1:]
-    print("params = {}".format(params))
-
-
-def linear_full_rank(n, m, factor=1.):
-    print("\n" + "=" * 80)
-    print("linear_full_rank {} {}".format(n, m))
-    print("=" * 80)
+def linear_full_rank(m, n=5, factor=1.):
     def func(params):
         s = params.sum()
         temp = 2. * s / m + 1
@@ -93,10 +68,7 @@ def linear_full_rank(n, m, factor=1.):
     return func, jac, np.ones(n) * factor
 
 
-def linear_rank1(n, m, factor=1.):
-    print("\n" + "=" * 80)
-    print("linear_rank1 {} {}".format(n, m))
-    print("=" * 80)
+def linear_rank1(m, n=5, factor=1.):
     def func(params):
         vec = np.zeros(m)
         s = 0
@@ -116,10 +88,7 @@ def linear_rank1(n, m, factor=1.):
     return func, jac, np.ones(n) * factor
 
 
-def linear_rank1_zero(n, m, factor=1.):
-    print("\n" + "=" * 80)
-    print("linear_rank1_zero {} {}".format(n, m))
-    print("=" * 80)
+def linear_rank1_zero_columns(m, n=5, factor=1.):
     def func(params, vec=np.zeros(m)):
         s = 0
         for j in range(1, n - 1):
@@ -140,9 +109,6 @@ def linear_rank1_zero(n, m, factor=1.):
 
 
 def rosenbruck():
-    print("\n" + "=" * 80)
-    print("rosenbruck")
-    print("=" * 80)
     def func(params, vec=np.zeros(2)):
         vec[0] = 10 * (params[1] - sq(params[0]))
         vec[1] = 1 - params[0]
@@ -159,9 +125,6 @@ def rosenbruck():
 
 
 def helical_valley():
-    print("\n" + "=" * 80)
-    print("helical_valley")
-    print("=" * 80)
     tpi = 2 * np.pi
 
     def func(params, vec=np.zeros(3)):
@@ -200,9 +163,6 @@ def helical_valley():
 
 
 def powell_singular():
-    print("\n" + "=" * 80)
-    print("powell_singular")
-    print("=" * 80)
     def func(params, vec=np.zeros(4)):
         vec[0] = params[0] + 10 * params[1]
         vec[1] = np.sqrt(5) * (params[2] - params[3])
@@ -230,10 +190,6 @@ def powell_singular():
 
 
 def freudenstein_roth():
-    print("\n" + "=" * 80)
-    print("freudenstein_roth")
-    print("=" * 80)
-
     def func(params, vec=np.zeros(2)):
         vec[0] = -13 + params[0] + ((5 - params[1]) * params[1] - 2) * params[1]
         vec[1] = -29 + params[0] + ((1 + params[1]) * params[1] - 14) * params[1]
@@ -249,10 +205,6 @@ def freudenstein_roth():
 
 
 def bard():
-    print("\n" + "=" * 80)
-    print("bard")
-    print("=" * 80)
-
     y1 = np.asfarray([0.14, 0.18, 0.22, 0.25, 0.29,
                       0.32, 0.35, 0.39, 0.37, 0.58,
                       0.73, 0.96, 1.34, 2.10, 4.39])
@@ -288,9 +240,6 @@ def bard():
 
 
 def kowalik_osborne():
-    print("\n" + "=" * 80)
-    print("kowalik_osborne")
-    print("=" * 80)
     v = np.asfarray([4, 2, 1, 0.5, 0.25, 0.167, 0.125, 0.1, 0.0833, 0.0714, 0.0625])
     y2 = np.asfarray([0.1957, 0.1947, 0.1735, 0.16, 0.0844, 0.0627, 0.0456,
                       0.0342, 0.0323, 0.0235, 0.0246])
@@ -314,9 +263,6 @@ def kowalik_osborne():
 
 
 def meyer():
-    print("\n" + "=" * 80)
-    print("meyer")
-    print("=" * 80)
     y3 = np.asarray([3.478e4, 2.861e4, 2.365e4, 1.963e4, 1.637e4, 1.372e4, 1.154e4,
                      9.744e3, 8.261e3, 7.03e3, 6.005e3, 5.147e3, 4.427e3, 3.82e3,
                      3.307e3, 2.872e3])
@@ -339,10 +285,6 @@ def meyer():
 
 
 def watson(n_params):
-    print("\n" + "=" * 80)
-    print("watson {}".format(n_params))
-    print("=" * 80)
-
     def func(params):
         div = (np.arange(29) + 1.) / 29
         s1 = 0
@@ -390,76 +332,91 @@ def watson(n_params):
     return func, jac, np.zeros(n_params)
 
 
-tol = 1.49012e-08
+def generate_test_case(problem_function, arg_sets=[()], offsets=[('')]):
+    TOL = 1.49012e-08
+    struct_name = re.sub(r'(?:^|_)([a-z])', lambda x: x[1].upper(), problem_function.__name__)
 
-f, jac, x0 = linear_full_rank(5, 10)
-report(f, leastsq(f, x0, Dfun=jac, ftol=tol, xtol=tol, gtol=0., full_output=True))
-f, jac, x0 = linear_full_rank(5, 50)
-report(f, leastsq(f, x0, Dfun=jac, ftol=tol, xtol=tol, gtol=0., full_output=True))
+    code = '#[test]\nfn test_{}() {{\n'.format(problem_function.__name__)
 
-f, jac, x0 = linear_rank1(5, 10)
-report(f, leastsq(f, x0, Dfun=jac, ftol=tol, xtol=tol, gtol=0., full_output=True))
-f, jac, x0 = linear_rank1(5, 50)
-report(f, leastsq(f, x0, Dfun=jac, ftol=tol, xtol=tol, gtol=0., full_output=True))
+    def format_np(arr):
+        arr = re.sub(r'^\[\s*', '[', str(arr))
+        arr = re.sub(r'e[-+]?0+(?=[^\d])', '', arr)
+        return re.sub(r'(?<!\[)(e[+-]?\d+)?(0*[\n \]]+)', r'\1, ', arr)[:-2] + ']'
 
-f, jac, x0 = linear_rank1_zero(5, 10)
-report(f, leastsq(f, x0, Dfun=jac, ftol=tol, xtol=tol, gtol=0., full_output=True))
-f, jac, x0 = linear_rank1_zero(5, 50)
-report(f, leastsq(f, x0, Dfun=jac, ftol=tol, xtol=tol, gtol=0., full_output=True))
+    nm = None
+    for arg_set in arg_sets:
+        f, jac, x0 = problem_function(*arg_set)
+        n = len(x0)
+        m = len(f(x0))
+        for offset in offsets:
+            start = eval('x0 ' + offset)
+            minpack_output = leastsq(f, start, Dfun=jac, ftol=TOL, xtol=TOL, gtol=0., full_output=True)
+            first = nm is None
+            n_vec = 'VectorN::<f64, U{}>::from_column_slice(&{{}})'.format(len(start))
+            if first or nm != (n, m):
+                nm = (n, m)
+                if not first:
+                    code += '\n'
+                code += '    let {}problem = {}'.format('mut ' if first else '', struct_name)
+                v = 'VectorN::<f64, U{}>::zeros()'.format(n)
+                if arg_set:
+                    code += '::new(\n        {},\n'.format(v)
+                    code += ',\n'.join(' ' * 8 + str(arg) for arg in arg_set)
+                    code += ',\n'
+                    code += '    );\n'
+                else:
+                    code += ' { params: ' + v + ' };\n'
 
-f, jac, x0 = rosenbruck()
-for scale in (1., 10., 100.):
-    print("initial: {}".format(x0))
-    print("SCALE = {}".format(scale))
-    report(f, leastsq(f, x0 * scale, Dfun=jac, ftol=tol, xtol=tol, gtol=0., full_output=True))
+                initial = n_vec.format(format_np(x0))
+                code += '    let initial = {};\n\n'.format(initial)
+            
+            if first:
+                # create unit test for Jacobian using finite differences
+                params = n_vec.format(format_np(np.random.rand(n)))
+                code += '    // check derivative implementation\n'
+                code += '    let jac_num = differentiate_numerically({}, &mut problem).unwrap();\n'.format(params)
+                code += '    let jac_trait = problem.jacobian().unwrap();\n'
+                code += '    assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-5);\n\n'
 
-f, jac, x0 = helical_valley()
-for scale in (1., 10., 100.):
-    print("initial: {}".format(x0))
-    print("SCALE = {}".format(scale))
-    report(f, leastsq(f, x0 * scale, Dfun=jac, ftol=tol, xtol=tol, gtol=0., full_output=True))
+            x0_code = 'initial.map(|x| x {})'.format(offset) if offset else 'initial.clone()'
+            code += '    let (problem, report) = LevenbergMarquardt::new()' + \
+                '.with_tol(TOL).minimize({}, problem.clone());\n'.format(x0_code)
 
-f, jac, x0 = powell_singular()
-for scale in (1., 10., 100.):
-    print("initial: {}".format(x0))
-    print("SCALE = {}".format(scale))
-    report(f, leastsq(f, x0 * scale, Dfun=jac, ftol=tol, xtol=tol, gtol=0., full_output=True))
+            if minpack_output[4] == 1:
+                reason = 'Converged { ftol: true, xtol: false }'
+            elif minpack_output[4] == 2:
+                reason = 'Converged { ftol: false, xtol: true }'
+            elif minpack_output[4] == 3:
+                reason = 'Converged { ftol: true, xtol: true }'
+            elif minpack_output[4] == 4:
+                reason = 'Orthogonal'
+            elif minpack_output[4] == 5:
+                reason = 'LostPatience'
+            elif minpack_output[4] == 8:
+                reason = 'NoImprovementPossible("gtol")'
+            else:
+                raise ValueError('unknown termination reason {}'.format(minpack_output[4]))
+            code += '    assert_eq!(report.termination, TerminationReason::{});\n'.format(reason)
+            code += '    assert_eq!(report.number_of_evaluations, {});\n'.format(minpack_output[2]['nfev'])
+            objective_function = sq(enorm(f(minpack_output[0]))) * 0.5
+            code += '    assert_fp_eq!(report.objective_function, {});\n'.format(objective_function)
+            params = format_np(minpack_output[0])
+            code += '    assert_fp_eq!(problem.params, {});\n'.format(n_vec.format(params))
+    code += '}\n'
+    return code
 
-f, jac, x0 = freudenstein_roth()
-for scale in (1., 10., 100.):
-    print("initial: {}".format(x0))
-    print("SCALE = {}".format(scale))
-    report(f, leastsq(f, x0 * scale, Dfun=jac, ftol=tol, xtol=tol, gtol=0., full_output=True))
 
-f, jac, x0 = bard()
-for scale in (1., 10., 100.):
-    print("initial: {}".format(x0))
-    print("SCALE = {}".format(scale))
-    report(f, leastsq(f, x0 * scale, Dfun=jac, ftol=tol, xtol=tol, gtol=0., full_output=True))
-
-f, jac, x0 = kowalik_osborne()
-for scale in (1., 10., 100.):
-    print("initial: {}".format(x0))
-    print("SCALE = {}".format(scale))
-    report(f, leastsq(f, x0 * scale, Dfun=jac, ftol=tol, xtol=tol, gtol=0., full_output=True))
-
-f, jac, x0 = meyer()
-for scale in (1., 10.):
-    print("initial: {}".format(x0))
-    print("SCALE = {}".format(scale))
-    report(f, leastsq(f, x0 * scale, Dfun=jac, ftol=tol, xtol=tol, gtol=0., full_output=True))
-
-f, jac, x0 = watson(6)
-for offset in (0., 10., 100.):
-    print("\nOFFSET: {}".format(offset))
-    report(f, leastsq(f, x0 + offset, Dfun=jac, ftol=tol, xtol=tol, gtol=0., full_output=True))
-
-f, jac, x0 = watson(9)
-for offset in (0., 10., 100.):
-    print("\nOFFSET: {}".format(offset))
-    report(f, leastsq(f, x0 + offset, Dfun=jac, ftol=tol, xtol=tol, gtol=0., full_output=True))
-
-f, jac, x0 = watson(12)
-for offset in (0., 10., 100.):
-    print("\nOFFSET: {}".format(offset))
-    report(f, leastsq(f, x0 + offset, Dfun=jac, ftol=tol, xtol=tol, gtol=0., full_output=True))
+if __name__ == '__main__':
+    np.random.seed(0)
+    print('// This was file was generated by test_examples.py\n')
+    print(generate_test_case(linear_full_rank, [(10,), (50,)]))
+    print(generate_test_case(linear_rank1, [(10,), (50,)]))
+    print(generate_test_case(linear_rank1_zero_columns, [(10,), (50,)]))
+    print(generate_test_case(rosenbruck, offsets=['', '* 10.', '* 100.']))
+    print(generate_test_case(helical_valley, offsets=['', '* 10.', '* 100.']))
+    print(generate_test_case(powell_singular, offsets=['', '* 10.', '* 100.']))
+    print(generate_test_case(freudenstein_roth, offsets=['', '* 10.', '* 100.']))
+    print(generate_test_case(bard, offsets=['', '* 10.', '* 100.']))
+    print(generate_test_case(kowalik_osborne, offsets=['', '* 10.', '* 100.']))
+    print(generate_test_case(meyer, offsets=['', '* 10.']))
+    print(generate_test_case(watson, [(6,), (9,), (12,)], offsets=['', '+ 10.', '+ 100.']), end='')
