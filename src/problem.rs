@@ -1,5 +1,4 @@
 use nalgebra::{storage::ContiguousStorageMut, ComplexField, Dim, Matrix, Vector};
-use num_traits::FromPrimitive;
 
 /// A least squares minimization problem.
 ///
@@ -8,7 +7,7 @@ use num_traits::FromPrimitive;
 /// for a usage example.
 pub trait LeastSquaresProblem<F, N, M>
 where
-    F: ComplexField + FromPrimitive,
+    F: ComplexField,
     N: Dim,
     M: Dim,
 {
