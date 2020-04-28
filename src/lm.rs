@@ -45,6 +45,8 @@ pub enum TerminationReason {
     NoParameters,
     /// Indicates that `$m < n$`, which is not allowed.
     NotEnoughResiduals,
+    /// The shape of the computed residuals or Jacobian is not correct.
+    WrongDimensions(&'static str),
 }
 
 impl TerminationReason {
@@ -70,7 +72,8 @@ impl TerminationReason {
         match self {
             TerminationReason::NotEnoughResiduals
             | TerminationReason::NoParameters
-            | TerminationReason::NoImprovementPossible(_) => true,
+            | TerminationReason::NoImprovementPossible(_)
+            | TerminationReason::WrongDimensions(_) => true,
             _ => false,
         }
     }
@@ -252,6 +255,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
             + Allocator<usize, N>,
         ShapeConstraint: DimEq<DimMinimum<N, M>, N> + DimEq<DimMinimum<M, N>, N>,
     {
+        let n = initial_x.nrows();
         let (mut lm, mut residuals) = match LM::new(self, initial_x, target) {
             Err(report) => return report,
             Ok(res) => res,
@@ -263,6 +267,10 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
                     Err(reason) => return lm.into_report(reason),
                     Ok(jacobian) => jacobian,
                 };
+                if jacobian.ncols() != n || jacobian.nrows() != lm.m {
+                    return lm.into_report(TerminationReason::WrongDimensions("jacobian"));
+                }
+
                 let qr = PivotedQR::new(jacobian).ok().unwrap();
                 qr.into_least_squares_diagonal_problem(residuals)
             };
@@ -320,6 +328,7 @@ where
     /// Flag to check if it is the first diagonal update
     first_update: bool,
     max_fev: usize,
+    m: usize,
 }
 
 impl<'a, F, N, M, O> LM<'a, F, N, M, O>
@@ -374,7 +383,8 @@ where
         }
 
         // Check m >= n
-        if diag.nrows() > residuals.nrows() {
+        let m = residuals.nrows();
+        if m < n.value() {
             return Err((
                 target,
                 MinimizationReport {
@@ -415,6 +425,7 @@ where
                 first_trust_region_iteration: true,
                 first_update: true,
                 max_fev: config.patience * (n.value() + 1),
+                m,
             },
             residuals,
         ))
@@ -537,6 +548,9 @@ where
         self.report.number_of_evaluations += 1;
         let new_objective_function;
         let (residuals, new_residuals_norm) = if let Some(residuals) = self.target.residuals() {
+            if residuals.nrows() != self.m {
+                return Err(TerminationReason::WrongDimensions("residuals"));
+            }
             let norm = enorm(&residuals);
             new_objective_function = norm * norm * convert(0.5);
             (residuals, norm)

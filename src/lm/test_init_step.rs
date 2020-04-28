@@ -3,7 +3,7 @@ use approx::assert_relative_eq;
 #[cfg(not(feature = "minpack-compat"))]
 use core::f64::{INFINITY, MIN_POSITIVE, NAN};
 
-use nalgebra::{Vector2, Vector3, VectorN, U0, U2, U3};
+use nalgebra::{Dim, Dynamic, MatrixMN, Vector2, Vector3, VectorN, U0, U1, U2, U3};
 
 use super::test_helpers::{MockCall, MockProblem};
 use super::{LevenbergMarquardt, TerminationReason, LM};
@@ -116,6 +116,38 @@ fn too_few_residuals() {
     assert_eq!(
         problem.calls(),
         [MockCall::SetParams, MockCall::Residuals].as_ref()
+    );
+}
+
+#[test]
+fn wrong_dimensions() {
+    // first return m=4 residuals, then m=5
+    let m1 = Dynamic::from_usize(4);
+    let m2 = Dynamic::from_usize(5);
+    let n = U2;
+    let mut problem = MockProblem::<U2, Dynamic>::new(vec![
+        Some(VectorN::from_element_generic(m1, U1, 223.)),
+        Some(VectorN::from_element_generic(m2, U1, 223.)),
+    ]);
+    problem.jacobians = vec![
+        Some(MatrixMN::from_element_generic(m1, n, 100.)),
+        Some(MatrixMN::from_element_generic(m2, n, 100.)),
+    ];
+    let (_problem, report) =
+        LevenbergMarquardt::new().minimize(VectorN::zeros_generic(n, U1), problem);
+    assert_eq!(
+        report.termination,
+        TerminationReason::WrongDimensions("residuals")
+    );
+
+    let mut problem =
+        MockProblem::<U2, Dynamic>::new(vec![Some(VectorN::from_element_generic(m1, U1, 223.))]);
+    problem.jacobians = vec![Some(MatrixMN::from_element_generic(m2, n, 100.))];
+    let (_problem, report) =
+        LevenbergMarquardt::new().minimize(VectorN::zeros_generic(n, U1), problem);
+    assert_eq!(
+        report.termination,
+        TerminationReason::WrongDimensions("jacobian")
     );
 }
 

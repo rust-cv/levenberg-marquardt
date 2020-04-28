@@ -1,9 +1,7 @@
 use alloc::{vec, vec::Vec};
 use core::cell::RefCell;
 
-use nalgebra::{
-    allocator::Allocator, storage::Owned, DefaultAllocator, DimName, MatrixMN, VectorN,
-};
+use nalgebra::{allocator::Allocator, storage::Owned, DefaultAllocator, Dim, MatrixMN, VectorN};
 
 use crate::LeastSquaresProblem;
 
@@ -15,7 +13,7 @@ pub enum MockCall {
 }
 
 #[derive(Clone)]
-pub struct MockProblem<N: DimName, M: DimName>
+pub struct MockProblem<N: Dim, M: Dim>
 where
     DefaultAllocator: Allocator<f64, N> + Allocator<f64, M> + Allocator<f64, M, N>,
 {
@@ -23,11 +21,11 @@ where
     params: Vec<VectorN<f64, N>>,
     residuals: Vec<Option<VectorN<f64, M>>>,
     residuals_index: RefCell<usize>,
-    jacobians: Vec<Option<MatrixMN<f64, M, N>>>,
+    pub jacobians: Vec<Option<MatrixMN<f64, M, N>>>,
     jacobians_index: RefCell<usize>,
 }
 
-impl<N: DimName, M: DimName> MockProblem<N, M>
+impl<N: Dim, M: Dim> MockProblem<N, M>
 where
     DefaultAllocator: Allocator<f64, N> + Allocator<f64, M> + Allocator<f64, M, N>,
 {
@@ -47,7 +45,7 @@ where
     }
 }
 
-impl<N: DimName, M: DimName> LeastSquaresProblem<f64, N, M> for MockProblem<N, M>
+impl<N: Dim, M: Dim> LeastSquaresProblem<f64, N, M> for MockProblem<N, M>
 where
     DefaultAllocator: Allocator<f64, N> + Allocator<f64, M> + Allocator<f64, M, N>,
 {
