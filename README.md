@@ -19,7 +19,7 @@
 [bll]: https://github.com/rust-cv/levenberg-marquardt/workflows/lints/badge.svg
 [bnl]: https://github.com/rust-cv/levenberg-marquardt/workflows/no-std/badge.svg
 
-Solver for non-linear least-squares problems.
+Solver for nonlinear least squares problems.
 
 The implementation is a port of the classic MINPACK implementation of the
 Levenberg-Marquardt (LM) algorithm. This version of the algorithm is sometimes referred
@@ -32,7 +32,7 @@ The Fortran algorithm was extended with `NaN` and `inf` handling, similar to wha
 
 The crate offers a feature called `minpack-compat` which sets floating-point constants
 to the ones used by MINPACK and removes the termination criterion of "zero residuals".
-This is necessary for identical output to MINPACK but generally not recommend.
+This is necessary for identical output to MINPACK but generally not recommended.
 
 # Usage
 
