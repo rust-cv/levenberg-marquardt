@@ -227,6 +227,7 @@ where
         U1,
         params.iter().map(|x| Complex::<F>::from_real(*x)),
     );
+    problem.set_params(&params);
     let m = problem.residuals()?.data.shape().0;
     let mut jacobian = MatrixMN::<F, M, N>::zeros_generic(m, n);
     for i in 0..n.value() {
