@@ -333,6 +333,29 @@ def watson(n_params):
     return func, jac, np.zeros(n_params)
 
 
+def beale():
+    def func(params):
+        x = params[0]
+        y = params[1]
+        return np.array([
+            sq(1.5 - x + x*y) + sq(2.25 - x + x * sq(y)),
+            0.,
+        ]);
+
+    def jac(params):
+        x = params[0]
+        y = params[1]
+        y3 = y * y * y
+        dx = 0.5 * (-1 + y) * (15 + 9 * y + 4 * x * (-2 + y * y + y3))
+        dy = x * (3 + 9 * y + x * (-2 - 2 * y + 4 * y3))
+        return np.array([
+            [dx, dy],
+            [0., 0.],
+        ])
+
+    return func, jac, np.array([2.5, 1.])
+
+
 def generate_test_case(problem_function, arg_sets=[()], offsets=[('')]):
     TOL = 1.49012e-08
     struct_name = re.sub(r'(?:^|_)([a-z])', lambda x: x[1].upper(), problem_function.__name__)
@@ -420,4 +443,5 @@ if __name__ == '__main__':
     print(generate_test_case(bard, offsets=['', '* 10.', '* 100.']))
     print(generate_test_case(kowalik_osborne, offsets=['', '* 10.', '* 100.']))
     print(generate_test_case(meyer, offsets=['', '* 10.']))
-    print(generate_test_case(watson, [(6,), (9,), (12,)], offsets=['', '+ 10.', '+ 100.']), end='')
+    print(generate_test_case(watson, [(6,), (9,), (12,)], offsets=['', '+ 10.', '+ 100.']))
+    print(generate_test_case(beale, offsets=['', '- 0.5']), end='')

@@ -544,4 +544,36 @@ where
     }
 }
 
+#[derive(Clone)]
+struct Beale {
+    params: VectorN<f64, U2>,
+}
+
+impl LeastSquaresProblem<f64, U2, U1> for Beale {
+    type ParameterStorage = Owned<f64, U2>;
+    type ResidualStorage = Owned<f64, U1>;
+    type JacobianStorage = Owned<f64, U1, U2>;
+
+    fn set_params(&mut self, params: &VectorN<f64, U2>) {
+        self.params.copy_from(params);
+    }
+
+    fn residuals(&self) -> Option<VectorN<f64, U1>> {
+        let p = self.params;
+        Some(Vector1::new(
+            (1.5 - p[0] + p[0] * p[1]).powi(2) + (2.25 - p[0] + p[0] * (p[1] * p[1])).powi(2),
+        ))
+    }
+
+    #[rustfmt::skip]
+    fn jacobian(&self) -> Option<MatrixMN<f64, U1, U2>> {
+        let x = self.params[0];
+        let y = self.params[1];
+        let y3 = y * y * y;
+        let dx = 0.5 * (-1. + y) * (15. + 9. * y + 4. * x * (-2. + y * y + y3));
+        let dy = x * (3. + 9. * y + x * (-2. - 2. * y + 4. * y3));
+        Some(Matrix1x2::new(dx, dy))
+    }
+}
+
 include!("test_examples_gen.rs");

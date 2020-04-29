@@ -379,3 +379,25 @@ fn test_watson() {
     assert_fp_eq!(report.objective_function, 2.361190551562772e-10);
     assert_fp_eq!(problem.params, VectorN::<f64, U12>::from_column_slice(&[-6.6380604636792693e-09, 1.0000016441178616, -5.6393221027197340e-04, 3.4782054050235750e-01, -1.5673150407932457e-01, 1.0528151771168239, -3.2472711531707001, 7.2884348973610109, -1.0271848240595697e+01, 9.0741136465161336, -4.5413754664517798, 1.0120118885084435]));
 }
+
+#[test]
+fn test_beale() {
+    let mut problem = Beale { params: VectorN::<f64, U2>::zeros() };
+    let initial = VectorN::<f64, U2>::from_column_slice(&[2.5, 1.]);
+
+    // check derivative implementation
+    let jac_num = differentiate_numerically(VectorN::<f64, U2>::from_column_slice(&[0.6976311959272649, 0.06022547162926983]), &mut problem).unwrap();
+    let jac_trait = problem.jacobian().unwrap();
+    assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-5);
+
+    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
+    assert_eq!(report.termination, TerminationReason::LostPatience);
+    assert_eq!(report.number_of_evaluations, 300);
+    assert_fp_eq!(report.objective_function, 6.982085570779134e-07);
+    assert_fp_eq!(problem.params, VectorN::<f64, U2>::from_column_slice(&[2.8252463853580405, 0.4595596246635109]));
+    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x - 0.5), problem.clone());
+    assert_eq!(report.termination, TerminationReason::LostPatience);
+    assert_eq!(report.number_of_evaluations, 300);
+    assert_fp_eq!(report.objective_function, 5.355422879172696e-16);
+    assert_fp_eq!(problem.params, VectorN::<f64, U2>::from_column_slice(&[2.9989956785046323, 0.4997826037201959]));
+}

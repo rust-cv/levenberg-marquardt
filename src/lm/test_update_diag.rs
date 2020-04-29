@@ -19,10 +19,7 @@ fn gnorm_and_gtol() {
     let (mut lm, residuals) = LM::new(&config, initial_x.clone(), problem.clone())
         .ok()
         .unwrap();
-    let mut lls = PivotedQR::new(jacobian.clone())
-        .ok()
-        .unwrap()
-        .into_least_squares_diagonal_problem(residuals);
+    let mut lls = PivotedQR::new(jacobian.clone()).into_least_squares_diagonal_problem(residuals);
     assert_eq!(lm.update_diag(&mut lls), Err(TerminationReason::Orthogonal));
     assert_eq!(
         lm.target.calls(),
@@ -33,10 +30,7 @@ fn gnorm_and_gtol() {
     let (mut lm, residuals) = LM::new(&config, initial_x.clone(), problem.clone())
         .ok()
         .unwrap();
-    let mut lls = PivotedQR::new(jacobian.clone())
-        .ok()
-        .unwrap()
-        .into_least_squares_diagonal_problem(residuals);
+    let mut lls = PivotedQR::new(jacobian.clone()).into_least_squares_diagonal_problem(residuals);
     assert_ne!(lm.update_diag(&mut lls), Err(TerminationReason::Orthogonal));
     assert_eq!(
         lm.target.calls(),
@@ -54,10 +48,7 @@ fn diag_init_and_second_call() {
         .ok()
         .unwrap();
 
-    let mut lls = PivotedQR::new(jacobian.clone())
-        .ok()
-        .unwrap()
-        .into_least_squares_diagonal_problem(residuals);
+    let mut lls = PivotedQR::new(jacobian.clone()).into_least_squares_diagonal_problem(residuals);
     assert!(lm.update_diag(&mut lls).is_ok());
     assert_eq!(
         lm.target.calls(),
@@ -73,10 +64,7 @@ fn diag_init_and_second_call() {
     // change column norms of J
     jacobian[(0, 0)] = 100.;
     jacobian[(0, 1)] = 0.;
-    let mut lls = PivotedQR::new(jacobian.clone())
-        .ok()
-        .unwrap()
-        .into_least_squares_diagonal_problem(residuals);
+    let mut lls = PivotedQR::new(jacobian.clone()).into_least_squares_diagonal_problem(residuals);
 
     lm.xnorm = 123.;
     assert!(lm.update_diag(&mut lls).is_ok());
@@ -100,10 +88,7 @@ fn nan_inf_xnorm() {
         let problem = MockProblem::<U2, U3>::new(vec![Some(Vector3::new(1., 2., 0.5))]);
         let config = LevenbergMarquardt::new();
         let (mut lm, residuals) = LM::new(&config, x, problem).ok().unwrap();
-        let mut lls = PivotedQR::new(jacobian)
-            .ok()
-            .unwrap()
-            .into_least_squares_diagonal_problem(residuals);
+        let mut lls = PivotedQR::new(jacobian).into_least_squares_diagonal_problem(residuals);
         let res = lm.update_diag(&mut lls).err().unwrap();
         assert_eq!(
             lm.target.calls(),
@@ -148,10 +133,7 @@ fn zero_x() {
     let (mut lm, residuals) = LM::new(&config, initial_x.clone(), problem.clone())
         .ok()
         .unwrap();
-    let mut lls = PivotedQR::new(jacobian.clone())
-        .ok()
-        .unwrap()
-        .into_least_squares_diagonal_problem(residuals);
+    let mut lls = PivotedQR::new(jacobian.clone()).into_least_squares_diagonal_problem(residuals);
     assert!(lm.update_diag(&mut lls).is_ok());
     assert_eq!(lm.xnorm, 0.);
     assert_eq!(lm.delta, 900.);
@@ -172,10 +154,7 @@ fn no_scale_diag() {
     let (mut lm, residuals) = LM::new(&config, initial_x.clone(), problem.clone())
         .ok()
         .unwrap();
-    let mut lls = PivotedQR::new(jacobian.clone())
-        .ok()
-        .unwrap()
-        .into_least_squares_diagonal_problem(residuals);
+    let mut lls = PivotedQR::new(jacobian.clone()).into_least_squares_diagonal_problem(residuals);
     assert!(lm.update_diag(&mut lls).is_ok());
     assert_eq!(
         lm.target.calls(),
@@ -190,10 +169,7 @@ fn no_scale_diag() {
     // change column norms of J
     jacobian[(0, 0)] = 100.;
     jacobian[(0, 1)] = 0.;
-    let mut lls = PivotedQR::new(jacobian.clone())
-        .ok()
-        .unwrap()
-        .into_least_squares_diagonal_problem(residuals);
+    let mut lls = PivotedQR::new(jacobian.clone()).into_least_squares_diagonal_problem(residuals);
 
     lm.xnorm = 123.;
     assert!(lm.update_diag(&mut lls).is_ok());

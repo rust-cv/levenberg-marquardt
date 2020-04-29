@@ -2,7 +2,7 @@
 use crate::qr::LinearLeastSquaresDiagonalProblem;
 use crate::utils::{dwarf, enorm};
 use nalgebra::{
-    allocator::Allocator, convert, storage::ContiguousStorageMut, DefaultAllocator, Dim, RealField,
+    allocator::Allocator, convert, DefaultAllocator, Dim, DimMax, DimMaximum, DimMin, RealField,
     VectorN,
 };
 use num_traits::Float;
@@ -47,25 +47,24 @@ where
 ///
 /// Chapter 4.3 of "Numerical Optimization" by Nocedal and Wright also contains
 /// information about this algorithm but it misses a few details.
-pub fn determine_lambda_and_parameter_update<F, M, N, S>(
-    lls: &mut LinearLeastSquaresDiagonalProblem<F, M, N, S>,
+pub fn determine_lambda_and_parameter_update<F, M, N>(
+    lls: &mut LinearLeastSquaresDiagonalProblem<F, M, N>,
     diag: &VectorN<F, N>,
     delta: F,
     initial_lambda: F,
 ) -> LMParameter<F, N>
 where
     F: RealField + Float,
-    M: Dim,
     N: Dim,
-    S: ContiguousStorageMut<F, M, N>,
-    DefaultAllocator: Allocator<F, N> + Allocator<usize, N>,
+    M: Dim + DimMin<N> + DimMax<N>,
+    DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N> + Allocator<usize, N>,
 {
     const P1: f64 = 0.1;
     debug_assert!(delta.is_positive());
     debug_assert!(initial_lambda >= F::zero());
     debug_assert!(!diag.iter().any(F::is_zero));
 
-    let has_full_rank = lls.has_full_rank();
+    let is_non_singular = lls.is_non_singular();
     let (mut p, mut l) = lls.solve_with_zero_diagonal();
     let mut diag_p = p.component_mul(&diag);
     let mut diag_p_norm = enorm(&diag_p);
@@ -82,7 +81,7 @@ where
     // we now look for lambda > 0 with ||D p|| = delta
     // by using an approximate Newton iteration.
 
-    let mut lambda_lower = if has_full_rank {
+    let mut lambda_lower = if is_non_singular {
         p.copy_from(&diag_p);
         p /= diag_p_norm;
         for (p, d) in p.iter_mut().zip(diag.iter()) {
@@ -177,7 +176,7 @@ mod tests {
         ]);
         let residual = Vector4::new(7., -1., 0., -1.);
 
-        let qr = PivotedQR::new(j).ok().unwrap();
+        let qr = PivotedQR::new(j);
         let mut lls = qr.into_least_squares_diagonal_problem(residual);
         let diag = Vector3::new(18.2, 18.2, 3.2);
         let param = determine_lambda_and_parameter_update(&mut lls, &diag, 0.5, 0.2);
@@ -194,7 +193,7 @@ mod tests {
         ]);
         let residual = Vector4::new(-7., -8., -8., -10.);
 
-        let qr = PivotedQR::new(j).ok().unwrap();
+        let qr = PivotedQR::new(j);
         let mut lls = qr.into_least_squares_diagonal_problem(residual);
         let diag = Vector3::new(10.2, 13.2, 1.2);
         let param = determine_lambda_and_parameter_update(&mut lls, &diag, 0.5, 0.2);
@@ -211,7 +210,7 @@ mod tests {
         ]);
         let residual = Vector4::new(1., -5., 2., 7.);
 
-        let qr = PivotedQR::new(j).ok().unwrap();
+        let qr = PivotedQR::new(j);
         let mut lls = qr.into_least_squares_diagonal_problem(residual);
         let diag = Vector3::new(4.2, 8.2, 11.2);
         let param = determine_lambda_and_parameter_update(&mut lls, &diag, 0.5, 0.2);
@@ -228,7 +227,7 @@ mod tests {
         ]);
         let residual = Vector4::new(-5., 3., -2., 7.);
 
-        let qr = PivotedQR::new(j).ok().unwrap();
+        let qr = PivotedQR::new(j);
         let mut lls = qr.into_least_squares_diagonal_problem(residual);
         let diag = Vector3::new(6.2, 1.2, 0.2);
         let param = determine_lambda_and_parameter_update(&mut lls, &diag, 0.5, 0.2);

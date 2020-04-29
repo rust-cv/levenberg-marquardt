@@ -106,20 +106,6 @@ fn no_params() {
 }
 
 #[test]
-fn too_few_residuals() {
-    let problem = MockProblem::<U3, U2>::new(vec![Some(Vector2::from_element(1.))]);
-    let (mut problem, err) = LM::new(&LevenbergMarquardt::new(), Vector3::zeros(), problem)
-        .err()
-        .unwrap();
-    assert_eq!(err.termination, TerminationReason::NotEnoughResiduals);
-    assert_eq!(err.number_of_evaluations, 1);
-    assert_eq!(
-        problem.calls(),
-        [MockCall::SetParams, MockCall::Residuals].as_ref()
-    );
-}
-
-#[test]
 fn wrong_dimensions() {
     // first return m=4 residuals, then m=5
     let m1 = Dynamic::from_usize(4);

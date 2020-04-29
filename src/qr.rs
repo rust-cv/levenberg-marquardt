@@ -5,28 +5,23 @@
 //! solved in the LM algorithm.
 #[cfg(test)]
 use approx::assert_relative_eq;
+use core::iter::repeat;
 use nalgebra::{
-    allocator::Allocator,
-    constraint::{DimEq, ShapeConstraint},
+    allocator::{Allocator, Reallocator},
     convert,
     storage::{ContiguousStorageMut, Storage},
-    DefaultAllocator, Dim, DimMin, DimMinimum, Matrix, MatrixSlice, Vector, VectorN, U1,
+    DefaultAllocator, Dim, DimMax, DimMaximum, DimMin, Matrix, MatrixMN, Vector, VectorN, U1,
 };
 use num_traits::Float;
 
 use crate::utils::{dot, enorm, epsmch};
 
-/// Erros which can occur using the pivoted QR factorization or the solver.
-pub enum Error {
-    ShapeConstraintFailed,
-}
-
 /// Pivoted QR decomposition.
 ///
-/// Let `$\mathbf{A}\in\R^{m\times n}$` with `$m\geq n$`.
-/// Then this algorithm computes a permutation matrix `$\mathbf{P}$`,
-/// a matrix `$\mathbf{Q}\in\R^{m\times n}$` with orthonormal columns
-/// and an upper triangular matrix `$\mathbf{R}\in\R^{n\times n}$` such that
+/// Let `$\mathbf{A}\in\R^{m\times n}$`,
+/// then this algorithm computes a permutation matrix `$\mathbf{P}$`,
+/// a matrix `$\mathbf{Q}\in\R^{m\times \min\{n,m\}}$` with orthonormal columns
+/// and an upper triangular matrix `$\mathbf{R}\in\R^{\min\{n,m\}\times n}$` such that
 /// ```math
 /// \mathbf{P}^\top \mathbf{A} \mathbf{P} = \mathbf{Q}\mathbf{R}.
 /// ```
@@ -54,38 +49,28 @@ where
 impl<F, M, N, S> PivotedQR<F, M, N, S>
 where
     F: nalgebra::RealField + Float,
-    M: Dim + DimMin<N>,
+    M: Dim + DimMin<N> + DimMax<N>,
     N: Dim,
     S: ContiguousStorageMut<F, M, N>,
-    DefaultAllocator: Allocator<F, N> + Allocator<F, N> + Allocator<usize, N>,
+    DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N> + Allocator<usize, N>,
 {
-    /// Create a pivoted QR decomposition of a matrix `$\mathbf{A}\in\R^{m\times n}$`
-    /// with `$m \geq n$`.
-    ///
-    /// # Errors
-    ///
-    /// Only returns `Err` when `$m < n$`.
-    pub fn new(mut a: Matrix<F, M, N, S>) -> Result<Self, Error> {
+    /// Create a pivoted QR decomposition of a matrix `$\mathbf{A}\in\R^{m\times n}$`.
+    pub fn new(mut a: Matrix<F, M, N, S>) -> Self {
         // The implementation is based more or less on LAPACK's "xGEQPF"
-        let n = a.data.shape().1;
-        if a.nrows() < n.value() {
-            return Err(Error::ShapeConstraintFailed);
-        }
+        let (m, n) = a.data.shape();
         let column_norms =
             VectorN::<F, N>::from_iterator_generic(n, U1, a.column_iter().map(|c| enorm(&c)));
         let mut r_diag = column_norms.clone();
         let mut work = column_norms.clone();
         let mut permutation = VectorN::<usize, N>::from_iterator_generic(n, U1, 0..);
-        for j in 0..n.value() {
+        for j in 0..m.min(n).value() {
             // pivot
-            {
-                let kmax = r_diag.slice_range(j.., ..).imax() + j;
-                if kmax != j {
-                    a.swap_columns(j, kmax);
-                    permutation.swap_rows(j, kmax);
-                    r_diag[kmax] = r_diag[j];
-                    work[kmax] = work[j];
-                }
+            let kmax = r_diag.slice_range(j.., ..).imax() + j;
+            if kmax != j {
+                a.swap_columns(j, kmax);
+                permutation.swap_rows(j, kmax);
+                r_diag[kmax] = r_diag[j];
+                work[kmax] = work[j];
             }
             // compute Householder reflection vector w_j to
             // reduce the j-th column
@@ -127,13 +112,13 @@ where
                 }
             }
         }
-        Ok(Self {
+        Self {
             column_norms,
             qr: a,
             permutation,
             r_diag,
             work,
-        })
+        }
     }
 
     /// Consume the QR-decomposition and transform it into
@@ -144,15 +129,19 @@ where
     pub fn into_least_squares_diagonal_problem<QS>(
         mut self,
         mut b: Vector<F, M, QS>,
-    ) -> LinearLeastSquaresDiagonalProblem<F, M, N, S>
+    ) -> LinearLeastSquaresDiagonalProblem<F, M, N>
     where
         QS: ContiguousStorageMut<F, M>,
-        ShapeConstraint: DimEq<DimMinimum<M, N>, N>,
+        DefaultAllocator: Reallocator<F, M, N, DimMaximum<M, N>, N>,
     {
         // compute first n-entries of Q^T * b
-        let n = self.qr.data.shape().1;
-        let mut qt_b = VectorN::<F, N>::from_column_slice_generic(n, U1, b.as_slice());
-        for j in 0..n.value() {
+        let (m, n) = self.qr.data.shape();
+        let mut qt_b = VectorN::<F, N>::from_iterator_generic(
+            n,
+            U1,
+            b.as_slice().iter().copied().chain(repeat(F::zero())),
+        );
+        for j in 0..m.min(n).value() {
             let axis = self.qr.slice_range(j.., j);
             if !axis[0].is_zero() {
                 let temp = -dot(&b.rows_range(j..), &axis) / axis[0];
@@ -160,14 +149,17 @@ where
             }
             qt_b[j] = b[j];
         }
-        self.qr.set_diagonal(&self.r_diag);
+        self.qr.set_diagonal(&self.r_diag.rows_generic(0, m.min(n)));
         LinearLeastSquaresDiagonalProblem {
             qt_b,
             column_norms: self.column_norms,
-            upper_r: self.qr,
+            upper_r: self.qr.resize_generic(m.max(n), n, F::zero()),
+            // l_diag is a working array, the actual content does not
+            // mather at this point.
             l_diag: self.r_diag,
             permutation: self.permutation,
             work: self.work,
+            m,
         }
     }
 }
@@ -198,18 +190,17 @@ where
 /// You must create an instance of this by first computing a pivotized
 /// QR decomposition of `$\mathbf{A}$`, then use
 /// [`into_least_squares_diagonal_problem`](struct.PivotedQR.html#into_least_squares_diagonal_problem).
-pub struct LinearLeastSquaresDiagonalProblem<F, M, N, S>
+pub struct LinearLeastSquaresDiagonalProblem<F, M, N>
 where
     F: nalgebra::RealField + Float,
-    M: Dim,
+    M: Dim + DimMax<N>,
     N: Dim,
-    S: ContiguousStorageMut<F, M, N>,
-    DefaultAllocator: Allocator<F, N> + Allocator<usize, N>,
+    DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N> + Allocator<usize, N>,
 {
     /// The first `$n$` entries of `$\mathbf{Q}^\top \vec{b}$`.
     qt_b: VectorN<F, N>,
     /// Upper part of `$\mathbf{R}$`, also used to store strictly lower part of `$\mathbf{L}$`.
-    upper_r: Matrix<F, M, N, S>,
+    upper_r: MatrixMN<F, DimMaximum<M, N>, N>,
     /// Diagonal entries of `$\mathbf{L}$`.
     l_diag: VectorN<F, N>,
     /// Permution matrix. Entry `$i$` specifies which column of the identity
@@ -217,40 +208,40 @@ where
     permutation: VectorN<usize, N>,
     pub(crate) column_norms: VectorN<F, N>,
     work: VectorN<F, N>,
+    m: M,
 }
 
-pub struct CholeskyFactor<'a, F, M, N, S>
+pub struct CholeskyFactor<'a, F, M, N>
 where
     F: nalgebra::RealField,
-    M: Dim,
+    M: Dim + DimMax<N>,
     N: Dim,
-    S: ContiguousStorageMut<F, M, N>,
-    DefaultAllocator: Allocator<F, N> + Allocator<usize, N>,
+    DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N> + Allocator<usize, N>,
 {
     pub permutation: &'a VectorN<usize, N>,
-    l: MatrixSlice<'a, F, N, N, S::RStride, S::CStride>,
+    l: &'a MatrixMN<F, DimMaximum<M, N>, N>,
     work: &'a mut VectorN<F, N>,
     qt_b: &'a VectorN<F, N>,
     lower: bool,
     l_diag: &'a VectorN<F, N>,
 }
 
-impl<'a, F, M, N, S> CholeskyFactor<'a, F, M, N, S>
+impl<'a, F, M, N> CholeskyFactor<'a, F, M, N>
 where
     F: nalgebra::RealField,
-    M: Dim,
+    M: Dim + DimMin<N> + DimMax<N>,
     N: Dim,
-    S: ContiguousStorageMut<F, M, N>,
-    DefaultAllocator: Allocator<F, N> + Allocator<usize, N>,
+    DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N> + Allocator<usize, N>,
 {
     /// Solve the equation `$\mathbf{L}\vec{x} = \mathbf{P}^\top \vec{b}$`.
     pub fn solve(&mut self, mut rhs: VectorN<F, N>) -> VectorN<F, N> {
         for i in 0..self.work.nrows() {
             self.work[i] = rhs[self.permutation[i]];
         }
+        let (n, _) = self.work.data.shape();
+        let l = self.l.rows_generic(0, n);
         if self.lower {
-            let n = self.work.nrows();
-            for j in 0..n {
+            for j in 0..n.value() {
                 let x = unsafe {
                     let x = self.work.vget_unchecked_mut(j);
                     *x /= *self.l_diag.vget_unchecked(j);
@@ -258,17 +249,13 @@ where
                 };
                 self.work.slice_range_mut(j + 1.., 0).axpy(
                     -x,
-                    &self.l.slice_range(j + 1.., j),
+                    &l.slice_range(j + 1.., j),
                     F::one(),
                 );
             }
         } else {
-            for (j, col) in self.l.column_iter().enumerate() {
-                let sum = if j == 0 {
-                    F::zero()
-                } else {
-                    dot(&self.work.rows_range(..j), &col.rows_range(..j))
-                };
+            for (j, col) in l.column_iter().enumerate() {
+                let sum = dot(&self.work.rows_range(..j), &col.rows_range(..j));
                 let x = unsafe { self.work.vget_unchecked_mut(j) };
                 *x = (*x - sum) / *unsafe { col.vget_unchecked(j) };
             }
@@ -280,14 +267,16 @@ where
     /// Computes `$\mathbf{L}\mathbf{Q}^\top\vec{b}$`.
     pub fn mul_qt_b(&mut self, mut out: VectorN<F, N>) -> VectorN<F, N> {
         out.fill(F::zero());
+        let (n, _) = self.work.data.shape();
+        let l = self.l.rows_generic(0, n);
         if self.lower {
-            for (i, col) in self.l.column_iter().enumerate() {
+            for (i, col) in l.column_iter().enumerate() {
                 out.rows_range_mut(i + 1..)
                     .axpy(self.qt_b[i], &col.rows_range(i + 1..), F::one());
                 out[i] += self.qt_b[i] * self.l_diag[i];
             }
         } else {
-            for (i, col) in self.l.column_iter().enumerate() {
+            for (i, col) in l.column_iter().enumerate() {
                 out[i] = dot(&self.qt_b.rows_range(..i + 1), &col.rows_range(..i + 1));
             }
         }
@@ -295,13 +284,12 @@ where
     }
 }
 
-impl<F, M, N, S> LinearLeastSquaresDiagonalProblem<F, M, N, S>
+impl<F, M, N> LinearLeastSquaresDiagonalProblem<F, M, N>
 where
     F: nalgebra::RealField + Float,
-    M: Dim,
+    M: Dim + DimMin<N> + DimMax<N>,
     N: Dim,
-    S: ContiguousStorageMut<F, M, N>,
-    DefaultAllocator: Allocator<F, N> + Allocator<usize, N>,
+    DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N> + Allocator<usize, N>,
 {
     /// Compute scaled maximum of dot products between `$\vec{b}$` and the columns of `$\mathbf{A}$`.
     ///
@@ -368,17 +356,17 @@ where
         &mut self,
         diag: &VectorN<F, N>,
         mut out: VectorN<F, N>,
-    ) -> (VectorN<F, N>, CholeskyFactor<F, M, N, S>) {
+    ) -> (VectorN<F, N>, CholeskyFactor<F, M, N>) {
         out.copy_from(&self.qt_b);
-        let mut rhs = self.eliminate_diag(diag, out /* rhs */);
+        let mut rhs = self.eliminate_diag(diag, out /* will be filled and returnd */);
         core::mem::swap(&mut self.work, &mut rhs);
         self.solve_after_elimination(rhs)
     }
 
     /// Solve the least squares problem with a zero diagonal.
-    pub fn solve_with_zero_diagonal(&mut self) -> (VectorN<F, N>, CholeskyFactor<F, M, N, S>) {
-        let n = self.upper_r.data.shape().1;
-        let l = self.upper_r.generic_slice((0, 0), (n, n));
+    pub fn solve_with_zero_diagonal(&mut self) -> (VectorN<F, N>, CholeskyFactor<F, M, N>) {
+        let (_m, n) = self.upper_r.data.shape();
+        let l = self.upper_r.rows_generic(0, n);
         self.work.copy_from(&self.qt_b);
         let rank = self.r_rank();
         self.work.rows_range_mut(rank..).fill(F::zero());
@@ -390,7 +378,7 @@ where
         }
         let chol = CholeskyFactor {
             permutation: &self.permutation,
-            l,
+            l: &self.upper_r,
             work: &mut self.work,
             qt_b: &self.qt_b,
             lower: false,
@@ -399,17 +387,20 @@ where
         (x, chol)
     }
 
-    pub fn has_full_rank(&self) -> bool {
-        let n = self.upper_r.ncols();
-        !(0..n).any(|j| self.upper_r[(j, j)].is_zero())
+    /// Compute if the matrix A has rank `$n$`.
+    pub fn is_non_singular(&self) -> bool {
+        let (_m, n) = self.upper_r.data.shape();
+        self.m.min(n).value() == n.value()
+            && !(0..n.value()).any(|j| unsafe { self.upper_r.get_unchecked((j, j)) }.is_zero())
     }
 
     fn r_rank(&self) -> usize {
-        let n = self.l_diag.nrows();
-        (0..n)
+        let (_m, n) = self.upper_r.data.shape();
+        let max_rank = self.m.min(n).value();
+        (0..max_rank)
             .map(|i| unsafe { self.upper_r.get_unchecked((i, i)) })
             .position(F::is_zero)
-            .unwrap_or(n)
+            .unwrap_or(max_rank)
     }
 
     fn rank(&self) -> usize {
@@ -422,12 +413,12 @@ where
     fn solve_after_elimination(
         &mut self,
         mut x: VectorN<F, N>,
-    ) -> (VectorN<F, N>, CholeskyFactor<F, M, N, S>) {
+    ) -> (VectorN<F, N>, CholeskyFactor<F, M, N>) {
         let rank = self.rank();
         let rhs = &mut self.work;
         rhs.rows_range_mut(rank..).fill(F::zero());
 
-        let n = self.upper_r.data.shape().1;
+        let (_m, n) = self.upper_r.data.shape();
         let l = self.upper_r.generic_slice((0, 0), (n, n));
 
         // solve L^T * x = rhs
@@ -447,7 +438,7 @@ where
             x[self.permutation[j]] = rhs[j];
         }
         let cholesky_factor = CholeskyFactor {
-            l,
+            l: &self.upper_r,
             work: &mut self.work,
             permutation: &self.permutation,
             qt_b: &self.qt_b,
@@ -465,14 +456,14 @@ where
     where
         DS: Storage<F, N>,
     {
-        // only lower triangular part is used which was filled with R^T by
-        // `copy_r_down`. This part is then iteratively overwritten with L.
-        let n = self.upper_r.data.shape().1;
+        let (_m, n) = self.upper_r.data.shape();
+        // only lower triangular part of self.upper_r is used in this function
+        // we fill it now with R^T which is then iteratively overwritten with L.
         let mut r_and_l = self.upper_r.generic_slice_mut((0, 0), (n, n));
         r_and_l.fill_lower_triangle_with_upper_triangle();
-        let n = diag.nrows();
-        for j in 0..n {
-            // Safe diagonal of R.
+        let mut r_and_l = self.upper_r.rows_generic_mut(0, n);
+        // save diagonal of R so we can restore it later.
+        for j in 0..n.value() {
             unsafe {
                 *self.work.vget_unchecked_mut(j) = *r_and_l.get_unchecked((j, j));
             };
@@ -480,14 +471,14 @@ where
         // eliminate the diagonal entries from D using Givens rotations
         let p5: F = convert(0.5);
         let p25: F = convert(0.25);
-        for j in 0..n {
+        for j in 0..n.value() {
             let diag_entry = unsafe { *diag.vget_unchecked(*self.permutation.vget_unchecked(j)) };
             if !diag_entry.is_zero() {
                 self.l_diag[j] = diag_entry;
                 self.l_diag.rows_range_mut(j + 1..).fill(F::zero());
 
                 let mut qtbpj = F::zero();
-                for k in j..n {
+                for k in j..n.value() {
                     if self.l_diag[k].is_zero() {
                         continue;
                     }
@@ -510,7 +501,7 @@ where
                     *rhs_k = temp;
 
                     // accumulate the transformation in the row of L
-                    for i in k + 1..n {
+                    for i in k + 1..n.value() {
                         let r_ik = unsafe { r_and_l.get_unchecked_mut((i, k)) };
                         let temp = cos * (*r_ik) + sin * self.l_diag[i];
                         self.l_diag[i] = -sin * (*r_ik) + cos * self.l_diag[i];
@@ -535,7 +526,7 @@ fn test_pivoted_qr() {
         0.0,  4.,  0.5,
         1.0,  0.,   0.,
     );
-    let qr = PivotedQR::new(a).ok().unwrap();
+    let qr = PivotedQR::new(a);
 
     assert_eq!(qr.permutation, nalgebra::Vector3::new(1, 2, 0));
 
@@ -556,6 +547,60 @@ fn test_pivoted_qr() {
 }
 
 #[test]
+/// Test that for a wide matrix the QR is identical to the case
+/// where the matrix is extended with zero rows.
+fn test_wide_matrix() {
+    use nalgebra::{Matrix2x4, Matrix4, Vector2, Vector4};
+    #[rustfmt::skip]
+    let a1 = Matrix2x4::new(
+        6., 4., 9., 8.,
+        4., 0., 8., 7.,
+    );
+    #[rustfmt::skip]
+    let a2 = Matrix4::new(
+        6., 4., 9., 8.,
+        4., 0., 8., 7.,
+        0., 0., 0., 0.,
+        0., 0., 0., 0.,
+    );
+    let qr1 = PivotedQR::new(a1);
+    let qr2 = PivotedQR::new(a2);
+    assert_eq!(qr1.permutation, qr2.permutation);
+    assert_relative_eq!(qr1.column_norms, qr2.column_norms);
+    assert_relative_eq!(qr1.r_diag, qr2.r_diag);
+    let qr_ref = qr2.qr.remove_rows(2, 2);
+    assert_relative_eq!(qr1.qr.as_slice(), qr_ref.as_slice());
+
+    let lls1 = qr1.into_least_squares_diagonal_problem(Vector2::new(7., -5.));
+    let lls2 = qr2.into_least_squares_diagonal_problem(Vector4::new(7., -5., 0., 0.));
+    assert_relative_eq!(lls1.qt_b, lls2.qt_b);
+
+    #[rustfmt::skip]
+    let a1 = Matrix2x4::new(
+        6., 0., 0., 0.,
+        4., 0., 0., 0.,
+    );
+    #[rustfmt::skip]
+    let a2 = Matrix4::new(
+        6., 0., 0., 0.,
+        4., 0., 0., 0.,
+        0., 0., 0., 0.,
+        0., 0., 0., 0.,
+    );
+    let qr1 = PivotedQR::new(a1);
+    let qr2 = PivotedQR::new(a2);
+    assert_eq!(qr1.permutation, qr2.permutation);
+    assert_relative_eq!(qr1.column_norms, qr2.column_norms);
+    assert_relative_eq!(qr1.r_diag, qr2.r_diag);
+    let qr_ref = qr2.qr.remove_rows(2, 2);
+    assert_relative_eq!(qr1.qr.as_slice(), qr_ref.as_slice());
+
+    let lls1 = qr1.into_least_squares_diagonal_problem(Vector2::new(7., -5.));
+    let lls2 = qr2.into_least_squares_diagonal_problem(Vector4::new(7., -5., 0., 0.));
+    assert_relative_eq!(lls1.qt_b, lls2.qt_b);
+}
+
+#[test]
 fn test_pivoted_qr_more_branches() {
     // This test case was crafted to hit all three
     // branches of the partial column norms
@@ -567,7 +612,7 @@ fn test_pivoted_qr_more_branches() {
         .iter()
         .map(|x| *x),
     );
-    let qr = PivotedQR::new(a).ok().unwrap();
+    let qr = PivotedQR::new(a);
     let r_diag = Vector3::new(-67.683085036070864, -55.250741178610944, 0.00000000000001);
     assert_relative_eq!(qr.r_diag, r_diag, epsilon = 1e-14);
 }
@@ -577,7 +622,7 @@ fn test_pivoted_qr_big_rank1() {
     // This test case was generated directly from MINPACK's QRFAC
     use nalgebra::{MatrixMN, Vector5, U10, U5};
     let a = MatrixMN::<f64, U10, U5>::from_fn(|i, j| ((i + 1) * (j + 1)) as f64);
-    let qr = PivotedQR::new(a).ok().unwrap();
+    let qr = PivotedQR::new(a);
     let r_diag = Vector5::<f64>::new(-98.107084351742913, -3.9720546451956370E-015, 0., 0., 0.);
     assert_relative_eq!(qr.r_diag, r_diag);
     #[rustfmt::skip]
@@ -603,14 +648,7 @@ fn test_pivoted_qr_big_rank1() {
 }
 
 #[cfg(test)]
-fn default_lls(
-    case: usize,
-) -> LinearLeastSquaresDiagonalProblem<
-    f64,
-    nalgebra::U4,
-    nalgebra::U3,
-    nalgebra::storage::Owned<f64, nalgebra::U4, nalgebra::U3>,
-> {
+fn default_lls(case: usize) -> LinearLeastSquaresDiagonalProblem<f64, nalgebra::U4, nalgebra::U3> {
     use nalgebra::{Matrix4x3, Vector4};
     let a = match case {
         1 => Matrix4x3::<f64>::from_iterator((0..).map(|i| i as f64)),
@@ -622,7 +660,7 @@ fn default_lls(
         3 => Matrix4x3::new(1., 2., -1., 0., 1., 4., 0., 0., 0.5, 0., 0., 0.),
         _ => unimplemented!(),
     };
-    let qr = PivotedQR::new(a).ok().unwrap();
+    let qr = PivotedQR::new(a);
     qr.into_least_squares_diagonal_problem(Vector4::new(1.0, 2.0, 5.0, 4.0))
 }
 
@@ -637,7 +675,7 @@ fn test_into_lls() {
         0.0,  4.,  0.5,
         1.0,  0.,   0.,
     );
-    let qr = PivotedQR::new(a).ok().unwrap();
+    let qr = PivotedQR::new(a);
     let lls = qr.into_least_squares_diagonal_problem(Vector4::new(1.0, 2.0, 5.0, 4.0));
     let qt_b = Vector3::new(-3.790451340872398, 1.4266308163005572, 2.334839404175348);
     assert_relative_eq!(lls.qt_b, qt_b, epsilon = 1e-14);
@@ -686,7 +724,7 @@ fn test_lls_x_2() {
     let a = Matrix4x3::from_column_slice(&[
         14., -12., 20., -11., 19., 38., -4., -11., -14., 12., -20., 11.,
     ]);
-    let qr = PivotedQR::new(a).ok().unwrap();
+    let qr = PivotedQR::new(a);
     let mut lls = qr.into_least_squares_diagonal_problem(Vector4::new(-5., 3., -2., 7.));
 
     let rdiag_exp = Vector3::new(-44.068129073061407, 29.147349299100057, 0.);
@@ -706,10 +744,63 @@ fn test_lls_x_2() {
 }
 
 #[test]
+fn test_lls_wide_matrix() {
+    use nalgebra::{Matrix2x4, Matrix4, Vector2, Vector4};
+    #[rustfmt::skip]
+    let a1 = Matrix2x4::new(
+        6., 4., 9., 8.,
+        4., 0., 8., 7.,
+    );
+    #[rustfmt::skip]
+    let a2 = Matrix4::new(
+        6., 4., 9., 8.,
+        4., 0., 8., 7.,
+        0., 0., 0., 0.,
+        0., 0., 0., 0.,
+    );
+    let mut lls1 = PivotedQR::new(a1).into_least_squares_diagonal_problem(Vector2::new(23., -1.));
+    let mut lls2 =
+        PivotedQR::new(a2).into_least_squares_diagonal_problem(Vector4::new(23., -1., 0., 0.));
+
+    let diag = Vector4::new(1., 2., 8., 0.5);
+    let b = Vector4::new(0.6301, 0.1611, 0.9104, 0.8998);
+    let (x1, mut chol1) = lls1.solve_with_diagonal(&diag, Vector4::zeros());
+    let (x2, mut chol2) = lls2.solve_with_diagonal(&diag, Vector4::zeros());
+    assert_relative_eq!(chol1.solve(b.clone()), chol2.solve(b));
+    assert_relative_eq!(
+        chol1.mul_qt_b(Vector4::zeros()),
+        chol2.mul_qt_b(Vector4::zeros())
+    );
+    assert_relative_eq!(lls1.upper_r, lls2.upper_r);
+    assert_relative_eq!(x1, x2);
+
+    let diag = Vector4::new(0.1, 20., 8.2, 1.5);
+    let b = Vector4::new(0.851, 0.21, 0.629, 0.714);
+    let (x1, mut chol1) = lls1.solve_with_diagonal(&diag, Vector4::zeros());
+    let (x2, mut chol2) = lls2.solve_with_diagonal(&diag, Vector4::zeros());
+    assert_relative_eq!(chol1.solve(b.clone()), chol2.solve(b));
+    assert_relative_eq!(
+        chol1.mul_qt_b(Vector4::zeros()),
+        chol2.mul_qt_b(Vector4::zeros())
+    );
+    assert_relative_eq!(lls1.upper_r, lls2.upper_r);
+    assert_relative_eq!(x1, x2);
+
+    let (x1, mut chol1) = lls1.solve_with_zero_diagonal();
+    let (x2, mut chol2) = lls2.solve_with_zero_diagonal();
+    assert_relative_eq!(
+        chol1.mul_qt_b(Vector4::zeros()),
+        chol2.mul_qt_b(Vector4::zeros())
+    );
+    assert_relative_eq!(lls1.upper_r, lls2.upper_r);
+    assert_relative_eq!(x1, x2);
+}
+
+#[test]
 fn test_lls_zero_diagonal() {
     use nalgebra::Vector3;
     let mut lls = default_lls(3);
-    assert!(lls.has_full_rank());
+    assert!(lls.is_non_singular());
     let (x_out, _l) = lls.solve_with_zero_diagonal();
     let x_ref = Vector3::new(87., -38., 10.);
     assert_relative_eq!(x_out, x_ref);
@@ -717,11 +808,10 @@ fn test_lls_zero_diagonal() {
 
 #[test]
 fn test_cholesky_lower() {
-    use nalgebra::{storage::Owned, Matrix3, Vector3, U3};
+    use nalgebra::{Matrix3, Vector3, U3};
     let l = Matrix3::new(-1.0e10, 100., -1., 1., 1.0e8, 0.5, 1., 0.5, 100.);
-    let slice = l.slice_range(.., ..);
-    let mut chol = CholeskyFactor::<f64, U3, _, Owned<f64, U3, U3>> {
-        l: slice,
+    let mut chol = CholeskyFactor::<f64, U3, _> {
+        l: &l,
         l_diag: &Vector3::new(2., 1.5, 0.1),
         lower: true,
         work: &mut Vector3::zeros(),
@@ -740,11 +830,10 @@ fn test_cholesky_lower() {
 
 #[test]
 fn test_cholesky_upper() {
-    use nalgebra::{storage::Owned, Matrix3, Vector3, U3};
+    use nalgebra::{Matrix3, Vector3, U3};
     let l = Matrix3::new(4., 7., 1., 123., 6., 8., 34., 34455., 9.);
-    let slice = l.slice_range(.., ..);
-    let mut chol = CholeskyFactor::<f64, U3, _, Owned<f64, U3, U3>> {
-        l: slice,
+    let mut chol = CholeskyFactor::<f64, U3, _> {
+        l: &l,
         l_diag: &Vector3::new(1234.0, -1.5, -1e120),
         lower: false,
         work: &mut Vector3::zeros(),
@@ -768,7 +857,7 @@ fn test_column_max_norm() {
     let a = Matrix4x3::from_column_slice(&[
         14., -12., 20., -11., 19., 38., -4., -11., -14., 12., -20., 11.,
     ]);
-    let qr = PivotedQR::new(a).ok().unwrap();
+    let qr = PivotedQR::new(a);
     let b = Vector4::new(1., 2., 3., 4.);
     let max_at_b = qr
         .into_least_squares_diagonal_problem(b)
@@ -778,7 +867,7 @@ fn test_column_max_norm() {
     let a = Matrix4x3::from_column_slice(&[
         NAN, -12., 20., -11., 19., 38., -4., -11., -14., 12., -20., 11.,
     ]);
-    let qr = PivotedQR::new(a).ok().unwrap();
+    let qr = PivotedQR::new(a);
     let b = Vector4::new(1., 2., 3., 4.);
     let max_at_b = qr
         .into_least_squares_diagonal_problem(b)
@@ -786,7 +875,7 @@ fn test_column_max_norm() {
     assert_eq!(max_at_b, None);
 
     let a = Matrix4x3::zeros();
-    let qr = PivotedQR::new(a).ok().unwrap();
+    let qr = PivotedQR::new(a);
     let b = Vector4::new(1., 2., 3., 4.);
     let max_at_b = qr
         .into_least_squares_diagonal_problem(b)
@@ -798,7 +887,7 @@ fn test_column_max_norm() {
 fn test_a_x_norm() {
     use nalgebra::*;
     let a = Matrix4x3::new(3., 6., 2., 7., 4., 3., 2., 0., 4., 5., 1., 6.);
-    let qr = PivotedQR::new(a).ok().unwrap();
+    let qr = PivotedQR::new(a);
     let mut lls = qr.into_least_squares_diagonal_problem(Vector4::zeros());
     let result = lls.a_x_norm(&Vector3::new(1., 8., 3.));
     assert_relative_eq!(result, Float::sqrt(6710.));

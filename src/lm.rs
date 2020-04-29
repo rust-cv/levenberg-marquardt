@@ -3,11 +3,10 @@ use crate::trust_region::{determine_lambda_and_parameter_update, LMParameter};
 use crate::utils::{enorm, epsmch};
 use crate::LeastSquaresProblem;
 use nalgebra::{
-    allocator::Allocator,
-    constraint::{DimEq, ShapeConstraint},
+    allocator::{Allocator, Reallocator},
     convert,
     storage::Storage,
-    DefaultAllocator, DimMin, DimMinimum, Matrix, RealField, Vector, VectorN, U1,
+    DefaultAllocator, Dim, DimMax, DimMaximum, DimMin, Matrix, RealField, Vector, VectorN, U1,
 };
 use num_traits::Float;
 
@@ -43,8 +42,6 @@ pub enum TerminationReason {
     LostPatience,
     /// The number of parameters `$n$` is zero.
     NoParameters,
-    /// Indicates that `$m < n$`, which is not allowed.
-    NotEnoughResiduals,
     /// The shape of the computed residuals or Jacobian is not correct.
     WrongDimensions(&'static str),
 }
@@ -67,11 +64,10 @@ impl TerminationReason {
 
     /// A fundamental assumptions was not met.
     ///
-    /// For example `$ m \geq n > 0$` was not fulfilled.
+    /// For example if the number of residuals changed.
     pub fn was_usage_issue(&self) -> bool {
         match self {
-            TerminationReason::NotEnoughResiduals
-            | TerminationReason::NoParameters
+            TerminationReason::NoParameters
             | TerminationReason::NoImprovementPossible(_)
             | TerminationReason::WrongDimensions(_) => true,
             _ => false,
@@ -245,15 +241,11 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
         target: O,
     ) -> (O, MinimizationReport<F>)
     where
-        N: DimMin<M>,
-        M: DimMin<N>,
+        N: Dim,
+        M: DimMin<N> + DimMax<N>,
         O: LeastSquaresProblem<F, N, M>,
-        DefaultAllocator: Allocator<F, N>
-            + Allocator<F, N, N>
-            + Allocator<F, M>
-            + Allocator<F, N, Buffer = O::ParameterStorage>
-            + Allocator<usize, N>,
-        ShapeConstraint: DimEq<DimMinimum<N, M>, N> + DimEq<DimMinimum<M, N>, N>,
+        DefaultAllocator:
+            Allocator<F, N> + Reallocator<F, M, N, DimMaximum<M, N>, N> + Allocator<usize, N>,
     {
         let n = initial_x.nrows();
         let (mut lm, mut residuals) = match LM::new(self, initial_x, target) {
@@ -271,7 +263,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
                     return lm.into_report(TerminationReason::WrongDimensions("jacobian"));
                 }
 
-                let qr = PivotedQR::new(jacobian).ok().unwrap();
+                let qr = PivotedQR::new(jacobian);
                 qr.into_least_squares_diagonal_problem(residuals)
             };
 
@@ -301,10 +293,10 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
 struct LM<'a, F, N, M, O>
 where
     F: RealField,
-    N: DimMin<M>,
-    M: DimMin<N>,
+    N: Dim,
+    M: DimMin<N> + DimMax<N>,
     O: LeastSquaresProblem<F, N, M>,
-    DefaultAllocator: Allocator<F, N>,
+    DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N>,
 {
     config: &'a LevenbergMarquardt<F>,
     /// Current parameters `$\vec{x}$`
@@ -334,10 +326,10 @@ where
 impl<'a, F, N, M, O> LM<'a, F, N, M, O>
 where
     F: RealField + Float,
-    N: DimMin<M>,
-    M: DimMin<N>,
+    N: Dim,
+    M: DimMin<N> + DimMax<N>,
     O: LeastSquaresProblem<F, N, M>,
-    DefaultAllocator: Allocator<F, N>,
+    DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N>,
 {
     #[allow(clippy::type_complexity)]
     fn new(
@@ -382,18 +374,6 @@ where
             ));
         }
 
-        // Check m >= n
-        let m = residuals.nrows();
-        if m < n.value() {
-            return Err((
-                target,
-                MinimizationReport {
-                    termination: TerminationReason::NotEnoughResiduals,
-                    ..report
-                },
-            ));
-        }
-
         if !residuals_norm.is_finite() && !cfg!(feature = "minpack-compat") {
             return Err((
                 target,
@@ -425,7 +405,7 @@ where
                 first_trust_region_iteration: true,
                 first_update: true,
                 max_fev: config.patience * (n.value() + 1),
-                m,
+                m: residuals.nrows(),
             },
             residuals,
         ))
@@ -450,7 +430,7 @@ where
 
     fn update_diag(
         &mut self,
-        lls: &mut LinearLeastSquaresDiagonalProblem<F, M, N, O::JacobianStorage>,
+        lls: &mut LinearLeastSquaresDiagonalProblem<F, M, N>,
     ) -> Result<(), TerminationReason>
     where
         DefaultAllocator: Allocator<usize, N>,
@@ -504,7 +484,7 @@ where
     #[allow(clippy::type_complexity)]
     fn trust_region_iteration(
         &mut self,
-        lls: &mut LinearLeastSquaresDiagonalProblem<F, M, N, O::JacobianStorage>,
+        lls: &mut LinearLeastSquaresDiagonalProblem<F, M, N>,
         param: LMParameter<F, N>,
     ) -> Result<Option<Vector<F, M, O::ResidualStorage>>, TerminationReason>
     where

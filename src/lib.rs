@@ -12,7 +12,7 @@
 //!
 //! # Inputs
 //!
-//! The problem has `$n$` parameters `$\vec{x}\in\R^n$` and `$m\geq n$` residual
+//! The problem has `$n$` parameters `$\vec{x}\in\R^n$` and `$m$` residual
 //! functions `$r_i\!:\R^n\to\R$`.
 //!
 //! You must provide an implementation of
