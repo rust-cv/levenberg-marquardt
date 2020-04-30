@@ -19,7 +19,7 @@
 [bll]: https://github.com/rust-cv/levenberg-marquardt/workflows/lints/badge.svg
 [bnl]: https://github.com/rust-cv/levenberg-marquardt/workflows/no-std/badge.svg
 
-Solver for nonlinear least squares problems.
+Solver for nonlinear least squares problems
 
 The implementation is a port of the classic MINPACK implementation of the
 Levenberg-Marquardt (LM) algorithm. This version of the algorithm is sometimes referred
