@@ -42,8 +42,8 @@ See the [docs](https://docs.rs/levenberg-marquardt/) for detailed information.
 impl LeastSquaresProblem<f64> for Problem {
     // define this trait for the problem you want to solve
 }
-let problem = Problem::new();
-let (problem, report) = LevenbergMarquardt::new().minimize(initial_params, problem);
+let problem = Problem::new(initial_params);
+let (problem, report) = LevenbergMarquardt::new().minimize(problem);
 assert!(report.termination.was_successful());
 ```
 

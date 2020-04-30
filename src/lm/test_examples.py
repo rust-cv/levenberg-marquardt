@@ -372,7 +372,7 @@ def generate_test_case(problem_function, arg_sets=[()], offsets=[('')]):
         f, jac, x0 = problem_function(*arg_set)
         n = len(x0)
         m = len(f(x0))
-        for offset in offsets:
+        for i, offset in enumerate(offsets):
             start = eval('x0 ' + offset)
             minpack_output = leastsq(f, start, Dfun=jac, ftol=TOL, xtol=TOL, gtol=0., full_output=True)
             first = nm is None
@@ -381,7 +381,7 @@ def generate_test_case(problem_function, arg_sets=[()], offsets=[('')]):
                 nm = (n, m)
                 if not first:
                     code += '\n'
-                code += '    let {}problem = {}'.format('mut ' if first else '', struct_name)
+                code += '    let mut problem = {}'.format(struct_name)
                 v = 'VectorN::<f64, U{}>::zeros()'.format(n)
                 if arg_set:
                     code += '::new(\n        {},\n'.format(v)
@@ -398,13 +398,16 @@ def generate_test_case(problem_function, arg_sets=[()], offsets=[('')]):
                 # create unit test for Jacobian using finite differences
                 params = n_vec.format(format_np(np.random.rand(n)))
                 code += '    // check derivative implementation\n'
-                code += '    let jac_num = differentiate_numerically({}, &mut problem).unwrap();\n'.format(params)
+                code += '    problem.set_params(&{});\n'.format(params);
+                code += '    let jac_num = differentiate_numerically(&mut problem).unwrap();\n'
                 code += '    let jac_trait = problem.jacobian().unwrap();\n'
                 code += '    assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-5);\n\n'
 
             x0_code = 'initial.map(|x| x {})'.format(offset) if offset else 'initial.clone()'
-            code += '    let (problem, report) = LevenbergMarquardt::new()' + \
-                '.with_tol(TOL).minimize({}, problem.clone());\n'.format(x0_code)
+            code += '    problem.set_params(&{});\n'.format(x0_code)
+            have_more_offsets = i < len(offsets) - 1
+            mut = 'mut ' if have_more_offsets else ''
+            code += '    let ({}problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());\n'.format(mut)
 
             if minpack_output[4] == 1:
                 reason = 'Converged { ftol: true, xtol: false }'

@@ -9,23 +9,26 @@ fn test_linear_full_rank() {
     let initial = VectorN::<f64, U5>::from_column_slice(&[1., 1., 1., 1., 1.]);
 
     // check derivative implementation
-    let jac_num = differentiate_numerically(VectorN::<f64, U5>::from_column_slice(&[0.5488135039273248, 0.7151893663724195, 0.6027633760716439, 0.5448831829968969, 0.4236547993389047]), &mut problem).unwrap();
+    problem.set_params(&VectorN::<f64, U5>::from_column_slice(&[0.5488135039273248, 0.7151893663724195, 0.6027633760716439, 0.5448831829968969, 0.4236547993389047]));
+    let jac_num = differentiate_numerically(&mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-5);
 
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
+    problem.set_params(&initial.clone());
+    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: true, xtol: true });
     assert_eq!(report.number_of_evaluations, 3);
     assert_fp_eq!(report.objective_function, 2.5000000000000004);
     assert_fp_eq!(problem.params, VectorN::<f64, U5>::from_column_slice(&[-1., -1.0000000000000004, -1., -1.0000000000000004, -1.]));
 
-    let problem = LinearFullRank::new(
+    let mut problem = LinearFullRank::new(
         VectorN::<f64, U5>::zeros(),
         50,
     );
     let initial = VectorN::<f64, U5>::from_column_slice(&[1., 1., 1., 1., 1.]);
 
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
+    problem.set_params(&initial.clone());
+    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: true, xtol: true });
     assert_eq!(report.number_of_evaluations, 3);
     assert_fp_eq!(report.objective_function, 22.500000000000004);
@@ -41,23 +44,26 @@ fn test_linear_rank1() {
     let initial = VectorN::<f64, U5>::from_column_slice(&[1., 1., 1., 1., 1.]);
 
     // check derivative implementation
-    let jac_num = differentiate_numerically(VectorN::<f64, U5>::from_column_slice(&[0.6458941130666561, 0.4375872112626925, 0.8917730007820798, 0.9636627605010293, 0.3834415188257777]), &mut problem).unwrap();
+    problem.set_params(&VectorN::<f64, U5>::from_column_slice(&[0.6458941130666561, 0.4375872112626925, 0.8917730007820798, 0.9636627605010293, 0.3834415188257777]));
+    let jac_num = differentiate_numerically(&mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-5);
 
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
+    problem.set_params(&initial.clone());
+    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: true, xtol: false });
     assert_eq!(report.number_of_evaluations, 3);
     assert_fp_eq!(report.objective_function, 1.0714285714285714);
     assert_fp_eq!(problem.params, VectorN::<f64, U5>::from_column_slice(&[-167.79681802396928, -83.39840901198468, 221.11004307957813, -41.19920450599233, -32.759363604793855]));
 
-    let problem = LinearRank1::new(
+    let mut problem = LinearRank1::new(
         VectorN::<f64, U5>::zeros(),
         50,
     );
     let initial = VectorN::<f64, U5>::from_column_slice(&[1., 1., 1., 1., 1.]);
 
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
+    problem.set_params(&initial.clone());
+    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: true, xtol: false });
     assert_eq!(report.number_of_evaluations, 3);
     assert_fp_eq!(report.objective_function, 6.064356435643563);
@@ -73,23 +79,26 @@ fn test_linear_rank1_zero_columns() {
     let initial = VectorN::<f64, U5>::from_column_slice(&[1., 1., 1., 1., 1.]);
 
     // check derivative implementation
-    let jac_num = differentiate_numerically(VectorN::<f64, U5>::from_column_slice(&[0.7917250380826646, 0.5288949197529045, 0.5680445610939323, 0.925596638292661, 0.07103605819788694]), &mut problem).unwrap();
+    problem.set_params(&VectorN::<f64, U5>::from_column_slice(&[0.7917250380826646, 0.5288949197529045, 0.5680445610939323, 0.925596638292661, 0.07103605819788694]));
+    let jac_num = differentiate_numerically(&mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-5);
 
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
+    problem.set_params(&initial.clone());
+    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: true, xtol: false });
     assert_eq!(report.number_of_evaluations, 3);
     assert_fp_eq!(report.objective_function, 1.8235294117647063);
     assert_fp_eq!(problem.params, VectorN::<f64, U5>::from_column_slice(&[1., -210.3615324224772, 32.120420811321296, 81.13456824980642, 1.]));
 
-    let problem = LinearRank1ZeroColumns::new(
+    let mut problem = LinearRank1ZeroColumns::new(
         VectorN::<f64, U5>::zeros(),
         50,
     );
     let initial = VectorN::<f64, U5>::from_column_slice(&[1., 1., 1., 1., 1.]);
 
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
+    problem.set_params(&initial.clone());
+    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: true, xtol: false });
     assert_eq!(report.number_of_evaluations, 3);
     assert_fp_eq!(report.objective_function, 6.814432989690721);
@@ -102,11 +111,13 @@ fn test_rosenbruck() {
     let initial = VectorN::<f64, U2>::from_column_slice(&[-1.2, 1.]);
 
     // check derivative implementation
-    let jac_num = differentiate_numerically(VectorN::<f64, U2>::from_column_slice(&[0.08712929970154071, 0.02021839744032572]), &mut problem).unwrap();
+    problem.set_params(&VectorN::<f64, U2>::from_column_slice(&[0.08712929970154071, 0.02021839744032572]));
+    let jac_num = differentiate_numerically(&mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-5);
 
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
+    problem.set_params(&initial.clone());
+    let (mut problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     if cfg!(feature = "minpack-compat") {
         assert_eq!(report.termination, TerminationReason::Orthogonal);
     } else {
@@ -115,7 +126,8 @@ fn test_rosenbruck() {
     assert_eq!(report.number_of_evaluations, 21);
     assert_fp_eq!(report.objective_function, 0.0);
     assert_fp_eq!(problem.params, VectorN::<f64, U2>::from_column_slice(&[1., 1.]));
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x * 10.), problem.clone());
+    problem.set_params(&initial.map(|x| x * 10.));
+    let (mut problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     if cfg!(feature = "minpack-compat") {
         assert_eq!(report.termination, TerminationReason::Converged { ftol: false, xtol: true });
     } else {
@@ -124,7 +136,8 @@ fn test_rosenbruck() {
     assert_eq!(report.number_of_evaluations, 8);
     assert_fp_eq!(report.objective_function, 0.0);
     assert_fp_eq!(problem.params, VectorN::<f64, U2>::from_column_slice(&[1., 1.]));
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x * 100.), problem.clone());
+    problem.set_params(&initial.map(|x| x * 100.));
+    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     if cfg!(feature = "minpack-compat") {
         assert_eq!(report.termination, TerminationReason::Converged { ftol: false, xtol: true });
     } else {
@@ -141,21 +154,25 @@ fn test_helical_valley() {
     let initial = VectorN::<f64, U3>::from_column_slice(&[-1., 0., 0.]);
 
     // check derivative implementation
-    let jac_num = differentiate_numerically(VectorN::<f64, U3>::from_column_slice(&[0.832619845547938, 0.7781567509498505, 0.8700121482468192]), &mut problem).unwrap();
+    problem.set_params(&VectorN::<f64, U3>::from_column_slice(&[0.832619845547938, 0.7781567509498505, 0.8700121482468192]));
+    let jac_num = differentiate_numerically(&mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-5);
 
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
+    problem.set_params(&initial.clone());
+    let (mut problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: false, xtol: true });
     assert_eq!(report.number_of_evaluations, 11);
     assert_fp_eq!(report.objective_function, 4.936724569245567e-33);
     assert_fp_eq!(problem.params, VectorN::<f64, U3>::from_column_slice(&[1., -6.243301596789443e-18, 0.]));
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x * 10.), problem.clone());
+    problem.set_params(&initial.map(|x| x * 10.));
+    let (mut problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: false, xtol: true });
     assert_eq!(report.number_of_evaluations, 20);
     assert_fp_eq!(report.objective_function, 5.456769505027268e-39);
     assert_fp_eq!(problem.params, VectorN::<f64, U3>::from_column_slice(&[1., 6.563910805155555e-21, 0.]));
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x * 100.), problem.clone());
+    problem.set_params(&initial.map(|x| x * 100.));
+    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: false, xtol: true });
     assert_eq!(report.number_of_evaluations, 19);
     assert_fp_eq!(report.objective_function, 4.9259630763847064e-58);
@@ -168,21 +185,25 @@ fn test_powell_singular() {
     let initial = VectorN::<f64, U4>::from_column_slice(&[3., -1., 0., 1.]);
 
     // check derivative implementation
-    let jac_num = differentiate_numerically(VectorN::<f64, U4>::from_column_slice(&[0.978618342232764, 0.7991585642167236, 0.46147936225293185, 0.7805291762864555]), &mut problem).unwrap();
+    problem.set_params(&VectorN::<f64, U4>::from_column_slice(&[0.978618342232764, 0.7991585642167236, 0.46147936225293185, 0.7805291762864555]));
+    let jac_num = differentiate_numerically(&mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-5);
 
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
+    problem.set_params(&initial.clone());
+    let (mut problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::NoImprovementPossible("gtol"));
     assert_eq!(report.number_of_evaluations, 59);
     assert_fp_eq!(report.objective_function, 1.866194344564614e-67);
     assert_fp_eq!(problem.params, VectorN::<f64, U4>::from_column_slice(&[1.6521175961683935e-17, -1.6521175961683934e-18, 2.6433881538694683e-18, 2.6433881538694683e-18]));
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x * 10.), problem.clone());
+    problem.set_params(&initial.map(|x| x * 10.));
+    let (mut problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::NoImprovementPossible("gtol"));
     assert_eq!(report.number_of_evaluations, 72);
     assert_fp_eq!(report.objective_function, 4.14378385952174e-79);
     assert_fp_eq!(problem.params, VectorN::<f64, U4>::from_column_slice(&[2.0167451125102287e-20, -2.0167451125102287e-21, 3.2267921800163004e-21, 3.2267921800163004e-21]));
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x * 100.), problem.clone());
+    problem.set_params(&initial.map(|x| x * 100.));
+    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::NoImprovementPossible("gtol"));
     assert_eq!(report.number_of_evaluations, 68);
     assert_fp_eq!(report.objective_function, 2.715670190176167e-70);
@@ -195,21 +216,25 @@ fn test_freudenstein_roth() {
     let initial = VectorN::<f64, U2>::from_column_slice(&[0.5, -2.]);
 
     // check derivative implementation
-    let jac_num = differentiate_numerically(VectorN::<f64, U2>::from_column_slice(&[0.11827442586893322, 0.6399210213275238]), &mut problem).unwrap();
+    problem.set_params(&VectorN::<f64, U2>::from_column_slice(&[0.11827442586893322, 0.6399210213275238]));
+    let jac_num = differentiate_numerically(&mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-5);
 
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
+    problem.set_params(&initial.clone());
+    let (mut problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: true, xtol: false });
     assert_eq!(report.number_of_evaluations, 14);
     assert_fp_eq!(report.objective_function, 24.492126863534953);
     assert_fp_eq!(problem.params, VectorN::<f64, U2>::from_column_slice(&[11.412484465499368, -0.8968279137315035]));
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x * 10.), problem.clone());
+    problem.set_params(&initial.map(|x| x * 10.));
+    let (mut problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: true, xtol: false });
     assert_eq!(report.number_of_evaluations, 19);
     assert_fp_eq!(report.objective_function, 24.492126854042752);
     assert_fp_eq!(problem.params, VectorN::<f64, U2>::from_column_slice(&[11.413004661474561, -0.8967960386859591]));
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x * 100.), problem.clone());
+    problem.set_params(&initial.map(|x| x * 100.));
+    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: true, xtol: false });
     assert_eq!(report.number_of_evaluations, 24);
     assert_fp_eq!(report.objective_function, 24.49212683962172);
@@ -222,21 +247,25 @@ fn test_bard() {
     let initial = VectorN::<f64, U3>::from_column_slice(&[1., 1., 1.]);
 
     // check derivative implementation
-    let jac_num = differentiate_numerically(VectorN::<f64, U3>::from_column_slice(&[0.1433532874090464, 0.9446689170495839, 0.5218483217500717]), &mut problem).unwrap();
+    problem.set_params(&VectorN::<f64, U3>::from_column_slice(&[0.1433532874090464, 0.9446689170495839, 0.5218483217500717]));
+    let jac_num = differentiate_numerically(&mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-5);
 
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
+    problem.set_params(&initial.clone());
+    let (mut problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: true, xtol: false });
     assert_eq!(report.number_of_evaluations, 6);
     assert_fp_eq!(report.objective_function, 0.00410743865329062);
     assert_fp_eq!(problem.params, VectorN::<f64, U3>::from_column_slice(&[0.0824105765758334, 1.1330366534715044, 2.343694638941154]));
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x * 10.), problem.clone());
+    problem.set_params(&initial.map(|x| x * 10.));
+    let (mut problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: true, xtol: false });
     assert_eq!(report.number_of_evaluations, 37);
     assert_fp_eq!(report.objective_function, 8.71434685503351);
     assert_fp_eq!(problem.params, VectorN::<f64, U3>::from_column_slice(&[8.4066667381832927e-01, -1.5884803325956547e+08, -1.6437867165353525e+08]));
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x * 100.), problem.clone());
+    problem.set_params(&initial.map(|x| x * 100.));
+    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: true, xtol: false });
     assert_eq!(report.number_of_evaluations, 14);
     assert_fp_eq!(report.objective_function, 8.714346854926243);
@@ -249,21 +278,25 @@ fn test_kowalik_osborne() {
     let initial = VectorN::<f64, U4>::from_column_slice(&[0.25, 0.39, 0.415, 0.39]);
 
     // check derivative implementation
-    let jac_num = differentiate_numerically(VectorN::<f64, U4>::from_column_slice(&[0.4146619399905236, 0.26455561210462697, 0.7742336894342167, 0.45615033221654855]), &mut problem).unwrap();
+    problem.set_params(&VectorN::<f64, U4>::from_column_slice(&[0.4146619399905236, 0.26455561210462697, 0.7742336894342167, 0.45615033221654855]));
+    let jac_num = differentiate_numerically(&mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-5);
 
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
+    problem.set_params(&initial.clone());
+    let (mut problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: true, xtol: false });
     assert_eq!(report.number_of_evaluations, 18);
     assert_fp_eq!(report.objective_function, 0.00015375280229088455);
     assert_fp_eq!(problem.params, VectorN::<f64, U4>::from_column_slice(&[0.19280781047624931, 0.1912626533540709, 0.12305280104693087, 0.13605322115051674]));
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x * 10.), problem.clone());
+    problem.set_params(&initial.map(|x| x * 10.));
+    let (mut problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: true, xtol: false });
     assert_eq!(report.number_of_evaluations, 78);
     assert_fp_eq!(report.objective_function, 0.000513671535424324);
     assert_fp_eq!(problem.params, VectorN::<f64, U4>::from_column_slice(&[7.2867547376865975e+05, -1.4075880312939264e+01, -3.2977797784196608e+07, -2.0571594197801702e+07]));
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x * 100.), problem.clone());
+    problem.set_params(&initial.map(|x| x * 100.));
+    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::LostPatience);
     assert_eq!(report.number_of_evaluations, 500);
     assert_fp_eq!(report.objective_function, 0.00015375283657222266);
@@ -276,29 +309,34 @@ fn test_meyer() {
     let initial = VectorN::<f64, U3>::from_column_slice(&[2.0e-02, 4.0e+03, 2.5e+02]);
 
     // check derivative implementation
-    let jac_num = differentiate_numerically(VectorN::<f64, U3>::from_column_slice(&[0.5684339488686485, 0.018789800436355142, 0.6176354970758771]), &mut problem).unwrap();
+    problem.set_params(&VectorN::<f64, U3>::from_column_slice(&[0.5684339488686485, 0.018789800436355142, 0.6176354970758771]));
+    let jac_num = differentiate_numerically(&mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-5);
 
     // Apple's exp function produces a different approximation
     if cfg!(target_os="macos") {
-        let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
+        problem.set_params(&initial.clone());
+        let (mut problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
         assert_eq!(report.termination, TerminationReason::Converged { ftol: false, xtol: true });
         assert_eq!(report.number_of_evaluations, 126);
         assert_fp_eq!(report.objective_function, 43.972927585339875);
         assert_fp_eq!(problem.params, VectorN::<f64, U3>::from_column_slice(&[5.609636471027749e-03, 6.181346346286417e+03, 3.452236346241380e+02]));
-        let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x * 10.), problem.clone());
+        problem.set_params(&initial.map(|x| x * 10.));
+        let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
         assert_eq!(report.termination, TerminationReason::LostPatience);
         assert_eq!(report.number_of_evaluations, 400);
         assert_fp_eq!(report.objective_function, 324272.8973474361);
         assert_fp_eq!(problem.params, VectorN::<f64, U3>::from_column_slice(&[6.825630280624222e-12, 3.514598925134810e+04, 9.220430560142615e+02]));
     } else {
-        let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
+        problem.set_params(&initial.clone());
+        let (mut problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
         assert_eq!(report.termination, TerminationReason::Converged { ftol: false, xtol: true });
         assert_eq!(report.number_of_evaluations, 126);
         assert_fp_eq!(report.objective_function, 43.972927585355414);
         assert_fp_eq!(problem.params, VectorN::<f64, U3>::from_column_slice(&[5.6096364710271603e-03, 6.1813463462865056e+03, 3.4522363462414097e+02]));
-        let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x * 10.), problem.clone());
+        problem.set_params(&initial.map(|x| x * 10.));
+        let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
         assert_eq!(report.termination, TerminationReason::LostPatience);
         assert_eq!(report.number_of_evaluations, 400);
         assert_fp_eq!(report.objective_function, 324272.94195590157);
@@ -315,65 +353,75 @@ fn test_watson() {
     let initial = VectorN::<f64, U6>::from_column_slice(&[0., 0., 0., 0., 0., 0.]);
 
     // check derivative implementation
-    let jac_num = differentiate_numerically(VectorN::<f64, U6>::from_column_slice(&[0.6120957227224214, 0.6169339968747569, 0.9437480785146242, 0.6818202991034834, 0.359507900573786, 0.43703195379934145]), &mut problem).unwrap();
+    problem.set_params(&VectorN::<f64, U6>::from_column_slice(&[0.6120957227224214, 0.6169339968747569, 0.9437480785146242, 0.6818202991034834, 0.359507900573786, 0.43703195379934145]));
+    let jac_num = differentiate_numerically(&mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-5);
 
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
+    problem.set_params(&initial.clone());
+    let (mut problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: true, xtol: false });
     assert_eq!(report.number_of_evaluations, 8);
     assert_fp_eq!(report.objective_function, 0.001143835026786261);
     assert_fp_eq!(problem.params, VectorN::<f64, U6>::from_column_slice(&[-0.01572496150837828, 1.0124348823296545, -0.23299172238767143, 1.260431011028177, -1.5137303139441967, 0.9929972729184159]));
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x + 10.), problem.clone());
+    problem.set_params(&initial.map(|x| x + 10.));
+    let (mut problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: true, xtol: false });
     assert_eq!(report.number_of_evaluations, 14);
     assert_fp_eq!(report.objective_function, 0.0011438350267831846);
     assert_fp_eq!(problem.params, VectorN::<f64, U6>::from_column_slice(&[-0.015725190138667525, 1.0124348586010505, -0.23299154584382673, 1.2604293208916204, -1.5137277670657403, 0.9929957342632777]));
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x + 100.), problem.clone());
+    problem.set_params(&initial.map(|x| x + 100.));
+    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: true, xtol: false });
     assert_eq!(report.number_of_evaluations, 15);
     assert_fp_eq!(report.objective_function, 0.0011438350268716062);
     assert_fp_eq!(problem.params, VectorN::<f64, U6>::from_column_slice(&[-0.01572470197125869, 1.0124349092565827, -0.2329919227616415, 1.2604329292955434, -1.513733204527061, 0.9929990192232175]));
 
-    let problem = Watson::new(
+    let mut problem = Watson::new(
         VectorN::<f64, U9>::zeros(),
         9,
     );
     let initial = VectorN::<f64, U9>::from_column_slice(&[0., 0., 0., 0., 0., 0., 0., 0., 0.]);
 
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
+    problem.set_params(&initial.clone());
+    let (mut problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: true, xtol: true });
     assert_eq!(report.number_of_evaluations, 8);
     assert_fp_eq!(report.objective_function, 6.998800690506343e-07);
     assert_fp_eq!(problem.params, VectorN::<f64, U9>::from_column_slice(&[-1.5307064416628804e-05, 9.9978970393459676e-01, 1.4763963491099890e-02, 1.4634233014597900e-01, 1.0008210945482034, -2.6177311207051202, 4.1044031394335869, -3.1436122623624456, 1.052626403787601]));
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x + 10.), problem.clone());
+    problem.set_params(&initial.map(|x| x + 10.));
+    let (mut problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: true, xtol: true });
     assert_eq!(report.number_of_evaluations, 20);
     assert_fp_eq!(report.objective_function, 6.998800690471173e-07);
     assert_fp_eq!(problem.params, VectorN::<f64, U9>::from_column_slice(&[-1.5307036495997912e-05, 9.9978970393194666e-01, 1.4763963693703627e-02, 1.4634232829808710e-01, 1.0008211030105516, -2.6177311405327139, 4.1044031644962153, -3.1436122785677023, 1.052626408013118]));
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x + 100.), problem.clone());
+    problem.set_params(&initial.map(|x| x + 100.));
+    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: true, xtol: false });
     assert_eq!(report.number_of_evaluations, 18);
     assert_fp_eq!(report.objective_function, 6.998800690486009e-07);
     assert_fp_eq!(problem.params, VectorN::<f64, U9>::from_column_slice(&[-1.5306952335212645e-05, 9.9978970395837152e-01, 1.4763962518529752e-02, 1.4634234109641628e-01, 1.0008210472912598, -2.6177310157356275, 4.1044030142719174, -3.1436121860244794, 1.0526263851676092]));
 
-    let problem = Watson::new(
+    let mut problem = Watson::new(
         VectorN::<f64, U12>::zeros(),
         12,
     );
     let initial = VectorN::<f64, U12>::from_column_slice(&[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]);
 
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
+    problem.set_params(&initial.clone());
+    let (mut problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: true, xtol: true });
     assert_eq!(report.number_of_evaluations, 10);
     assert_fp_eq!(report.objective_function, 2.3611905506971735e-10);
     assert_fp_eq!(problem.params, VectorN::<f64, U12>::from_column_slice(&[-6.6380604677589803e-09, 1.0000016441178612, -5.6393221015137217e-04, 3.4782054049969546e-01, -1.5673150405406330e-01, 1.05281517698587, -3.2472711527607245, 7.2884348965512684, -1.0271848239579612e+01, 9.0741136457303284, -4.5413754661102059, 1.0120118884445952]));
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x + 10.), problem.clone());
+    problem.set_params(&initial.map(|x| x + 10.));
+    let (mut problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: false, xtol: true });
     assert_eq!(report.number_of_evaluations, 13);
     assert_fp_eq!(report.objective_function, 2.361190552167311e-10);
     assert_fp_eq!(problem.params, VectorN::<f64, U12>::from_column_slice(&[-6.6380604668544608e-09, 1.0000016441178616, -5.6393221029791976e-04, 3.4782054050317829e-01, -1.5673150408911857e-01, 1.0528151771767233, -3.2472711533826666, 7.2884348978198767, -1.0271848241212496e+01, 9.0741136470182528, -4.5413754666784278, 1.0120118885519702]));
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x + 100.), problem.clone());
+    problem.set_params(&initial.map(|x| x + 100.));
+    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::Converged { ftol: false, xtol: true });
     assert_eq!(report.number_of_evaluations, 34);
     assert_fp_eq!(report.objective_function, 2.361190551562772e-10);
@@ -386,16 +434,19 @@ fn test_beale() {
     let initial = VectorN::<f64, U2>::from_column_slice(&[2.5, 1.]);
 
     // check derivative implementation
-    let jac_num = differentiate_numerically(VectorN::<f64, U2>::from_column_slice(&[0.6976311959272649, 0.06022547162926983]), &mut problem).unwrap();
+    problem.set_params(&VectorN::<f64, U2>::from_column_slice(&[0.6976311959272649, 0.06022547162926983]));
+    let jac_num = differentiate_numerically(&mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-5);
 
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.clone(), problem.clone());
+    problem.set_params(&initial.clone());
+    let (mut problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::LostPatience);
     assert_eq!(report.number_of_evaluations, 300);
     assert_fp_eq!(report.objective_function, 6.982085570779134e-07);
     assert_fp_eq!(problem.params, VectorN::<f64, U2>::from_column_slice(&[2.8252463853580405, 0.4595596246635109]));
-    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(initial.map(|x| x - 0.5), problem.clone());
+    problem.set_params(&initial.map(|x| x - 0.5));
+    let (problem, report) = LevenbergMarquardt::new().with_tol(TOL).minimize(problem.clone());
     assert_eq!(report.termination, TerminationReason::LostPatience);
     assert_eq!(report.number_of_evaluations, 300);
     assert_fp_eq!(report.objective_function, 5.355422879172696e-16);

@@ -68,6 +68,8 @@
 //!         // do common calculations for residuals and the Jacobian here
 //!     }
 //!     
+//!     fn params(&self) -> VectorN<f64, U2> { self.p }
+//!     
 //!     fn residuals(&self) -> Option<Vector2<f64>> {
 //!         let [x, y] = [self.p.x, self.p.y];
 //!         // vector containing residuals $r_1(\vec{x})$ and $r_2(\vec{x})$
@@ -93,10 +95,10 @@
 //! }
 //!
 //! let problem = ExampleProblem {
-//!     p: Vector2::zeros(),
+//!     // the initial guess for $\vec{x}$
+//!     p: Vector2::new(1., 1.),
 //! };
-//! let (_result, report) = LevenbergMarquardt::new()
-//!     .minimize(Vector2::new(1., 1.), problem);
+//! let (_result, report) = LevenbergMarquardt::new().minimize(problem);
 //! assert!(report.termination.was_successful());
 //! assert!(report.objective_function.abs() < 1e-10);
 //! ```

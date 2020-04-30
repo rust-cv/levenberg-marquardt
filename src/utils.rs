@@ -73,6 +73,8 @@ cfg_if::cfg_if! {
 /// #         self.p.copy_from(p);
 /// #     }
 /// #
+/// #     fn params(&self) -> VectorN<F, U2> { self.p }
+/// #
 /// #     fn residuals(&self) -> Option<Vector2<F>> {
 /// #         Some(Vector2::new(
 /// #             self.p.x * self.p.x + self.p.y - convert(11.0),
@@ -90,18 +92,15 @@ cfg_if::cfg_if! {
 /// #         ))
 /// #     }
 /// # }
-/// // Parameters for which we want to check the derivative
-/// let x = Vector2::new(6., -10.);
 /// // Let `problem` be an instance of `LeastSquaresProblem`
-/// # let mut problem = ExampleProblem::<f64> { p: Vector2::zeros(), };
-/// let jacobian_numerical = differentiate_numerically(x, &mut problem).unwrap();
+/// # let mut problem = ExampleProblem::<f64> { p: Vector2::new(6., -10.), };
+/// let jacobian_numerical = differentiate_numerically(&mut problem).unwrap();
 /// let jacobian_trait = problem.jacobian().unwrap();
 /// assert_relative_eq!(jacobian_numerical, jacobian_trait, epsilon = 1e-13);
 /// ```
 ///
 /// The `assert_relative_eq!` macro is from the `approx` crate.
 pub fn differentiate_numerically<F, N, M, O>(
-    params: Vector<F, N, O::ParameterStorage>,
     problem: &mut O,
 ) -> Option<Matrix<F, M, N, O::JacobianStorage>>
 where
@@ -112,7 +111,7 @@ where
     O::JacobianStorage: Clone,
     DefaultAllocator: Allocator<F, M, N, Buffer = O::JacobianStorage>,
 {
-    problem.set_params(&params);
+    let params = problem.params();
     let n = params.data.shape().0;
     let m = problem.residuals()?.data.shape().0;
     let params = RefCell::new(params);
@@ -131,6 +130,7 @@ where
         }
         params.borrow_mut()[j] = x;
     }
+    // reset the initial params
     problem.borrow_mut().set_params(&params.borrow());
     Some(jacobian)
 }
@@ -168,6 +168,8 @@ where
 /// #         self.p.copy_from(p);
 /// #     }
 /// #
+/// #     fn params(&self) -> VectorN<F, U2> { self.p }
+/// #
 /// #     fn residuals(&self) -> Option<Vector2<F>> {
 /// #         Some(Vector2::new(
 /// #             self.p.x * self.p.x + self.p.y - convert(11.0),
@@ -192,9 +194,8 @@ where
 /// // instantiate f64 variant to compute the derivative we want to check
 /// let jacobian_from_trait = {
 ///     let mut problem = ExampleProblem::<f64> {
-///         p: Vector2::zeros(),
+///         p: x,
 ///     };
-///     problem.set_params(&x);
 ///     problem.jacobian().unwrap()
 /// };
 ///
@@ -404,7 +405,7 @@ fn test_linear_case() {
         params: x.clone(),
         m: 6,
     };
-    let jac_num = differentiate_numerically(x, &mut problem).unwrap();
+    let jac_num = differentiate_numerically(&mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-12);
 }
@@ -426,6 +427,10 @@ fn test_reset_parameters() {
             self.params.copy_from(params);
         }
 
+        fn params(&self) -> VectorN<f64, U2> {
+            self.params
+        }
+
         fn residuals(&self) -> Option<VectorN<f64, U2>> {
             Some(Vector2::new(0.0, -100. * self.params[1].powi(2)))
         }
@@ -438,11 +443,10 @@ fn test_reset_parameters() {
             ))
         }
     }
-    let x = Vector2::<f64>::new(0., 1. / 3.);
     let mut problem = AllButOne {
-        params: Vector2::<f64>::zeros(),
+        params: Vector2::<f64>::new(0., 1. / 3.),
     };
-    let jac_num = differentiate_numerically(x, &mut problem).unwrap();
+    let jac_num = differentiate_numerically(&mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-12);
 }

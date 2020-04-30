@@ -29,12 +29,12 @@ impl<N: Dim, M: Dim> MockProblem<N, M>
 where
     DefaultAllocator: Allocator<f64, N> + Allocator<f64, M> + Allocator<f64, M, N>,
 {
-    pub fn new(residuals: Vec<Option<VectorN<f64, M>>>) -> Self {
+    pub fn new(initial: VectorN<f64, N>, residuals: Vec<Option<VectorN<f64, M>>>) -> Self {
         Self {
             residuals,
             jacobians: vec![],
             call_history: RefCell::new(vec![]),
-            params: vec![],
+            params: vec![initial],
             residuals_index: RefCell::new(0),
             jacobians_index: RefCell::new(0),
         }
@@ -56,6 +56,10 @@ where
     fn set_params(&mut self, params: &VectorN<f64, N>) {
         self.params.push(params.clone());
         self.call_history.borrow_mut().push(MockCall::SetParams);
+    }
+
+    fn params(&self) -> VectorN<f64, N> {
+        self.params.last().unwrap().clone()
     }
 
     fn residuals(&self) -> Option<VectorN<f64, M>> {

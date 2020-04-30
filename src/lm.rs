@@ -238,11 +238,10 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
     }
 
     /// Try to solve the given least squares problem.
-    pub fn minimize<N, M, O>(
-        &self,
-        initial_x: Vector<F, N, O::ParameterStorage>,
-        target: O,
-    ) -> (O, MinimizationReport<F>)
+    ///
+    /// The paramters of the problem which are set when this function is called
+    /// are used as the initial guess for `$\vec{x}$`.
+    pub fn minimize<N, M, O>(&self, target: O) -> (O, MinimizationReport<F>)
     where
         N: Dim,
         M: DimMin<N> + DimMax<N>,
@@ -250,11 +249,11 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
         DefaultAllocator:
             Allocator<F, N> + Reallocator<F, M, N, DimMaximum<M, N>, N> + Allocator<usize, N>,
     {
-        let n = initial_x.nrows();
-        let (mut lm, mut residuals) = match LM::new(self, initial_x, target) {
+        let (mut lm, mut residuals) = match LM::new(self, target) {
             Err(report) => return report,
             Ok(res) => res,
         };
+        let n = lm.x.nrows();
         loop {
             // Build linear least squaress problem used for the trust-region subproblem
             let mut lls = {
@@ -337,8 +336,7 @@ where
     #[allow(clippy::type_complexity)]
     fn new(
         config: &'a LevenbergMarquardt<F>,
-        initial_x: Vector<F, N, O::ParameterStorage>,
-        mut target: O,
+        target: O,
     ) -> Result<(Self, Vector<F, M, O::ResidualStorage>), (O, MinimizationReport<F>)> {
         let mut report = MinimizationReport {
             termination: TerminationReason::ResidualsZero,
@@ -347,8 +345,7 @@ where
         };
 
         // Evaluate at start point
-        let x = initial_x;
-        target.set_params(&x);
+        let x = target.params();
         let (residuals, residuals_norm) = if let Some(residuals) = target.residuals() {
             let norm = enorm(&residuals);
             report.objective_function = norm * norm * convert(0.5);

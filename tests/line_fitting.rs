@@ -104,6 +104,10 @@ impl<'a> LeastSquaresProblem<F, Dynamic, U2> for LineFittingOptimizationProblem<
         self.model = Line::from_vec(*p);
     }
 
+    fn params(&self) -> Vector2<F> {
+        self.model.clone().into_vec()
+    }
+
     fn residuals(&self) -> Option<Matrix<F, Dynamic, U1, Self::ResidualStorage>> {
         let residual_data = self
             .points
@@ -172,8 +176,7 @@ fn lines() {
             model: model.clone(),
             points: &points,
         };
-        let (problem, report) =
-            LevenbergMarquardt::new().minimize(model.clone().into_vec(), problem);
+        let (problem, report) = LevenbergMarquardt::new().minimize(problem);
         assert!(report.termination.was_successful());
         let real_model = Line { normal_angle, c };
         would_have_failed = would_have_failed || model.norm_cosine_distance(&real_model) >= 0.01;

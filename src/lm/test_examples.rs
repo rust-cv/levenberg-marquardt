@@ -50,6 +50,10 @@ impl LeastSquaresProblem<f64, Dynamic, U5> for LinearFullRank {
         self.params.copy_from(params);
     }
 
+    fn params(&self) -> VectorN<f64, U5> {
+        self.params
+    }
+
     fn residuals(&self) -> Option<VectorN<f64, Dynamic>> {
         let m = Dynamic::from_usize(self.m);
         let mut residuals = VectorN::<f64, Dynamic>::from_element_generic(
@@ -98,6 +102,10 @@ impl LeastSquaresProblem<f64, Dynamic, U5> for LinearRank1 {
         self.params.copy_from(params);
     }
 
+    fn params(&self) -> VectorN<f64, U5> {
+        self.params
+    }
+
     fn residuals(&self) -> Option<VectorN<f64, Dynamic>> {
         let m = Dynamic::from_usize(self.m);
         let weighted_sum: f64 = self
@@ -140,6 +148,10 @@ impl LeastSquaresProblem<f64, Dynamic, U5> for LinearRank1ZeroColumns {
 
     fn set_params(&mut self, params: &VectorN<f64, U5>) {
         self.params.copy_from(params);
+    }
+
+    fn params(&self) -> VectorN<f64, U5> {
+        self.params
     }
 
     fn residuals(&self) -> Option<VectorN<f64, Dynamic>> {
@@ -194,6 +206,10 @@ impl LeastSquaresProblem<f64, U2, U2> for Rosenbruck {
         self.params.copy_from(params);
     }
 
+    fn params(&self) -> VectorN<f64, U2> {
+        self.params
+    }
+
     fn residuals(&self) -> Option<VectorN<f64, U2>> {
         Some(Vector2::new(
             10. * (self.params[1] - self.params[0] * self.params[0]),
@@ -219,6 +235,10 @@ impl LeastSquaresProblem<f64, U3, U3> for HelicalValley {
 
     fn set_params(&mut self, params: &VectorN<f64, U3>) {
         self.params.copy_from(params);
+    }
+
+    fn params(&self) -> VectorN<f64, U3> {
+        self.params
     }
 
     fn residuals(&self) -> Option<VectorN<f64, U3>> {
@@ -265,6 +285,10 @@ impl LeastSquaresProblem<f64, U4, U4> for PowellSingular {
         self.params.copy_from(params);
     }
 
+    fn params(&self) -> VectorN<f64, U4> {
+        self.params
+    }
+
     fn residuals(&self) -> Option<VectorN<f64, U4>> {
         let p = self.params;
         Some(Vector4::new(
@@ -304,6 +328,10 @@ impl LeastSquaresProblem<f64, U2, U2> for FreudensteinRoth {
         self.params.copy_from(params);
     }
 
+    fn params(&self) -> VectorN<f64, U2> {
+        self.params
+    }
+
     #[rustfmt::skip]
     fn residuals(&self) -> Option<VectorN<f64, U2>> {
         let p = &self.params;
@@ -334,6 +362,10 @@ impl LeastSquaresProblem<f64, U15, U3> for Bard {
 
     fn set_params(&mut self, params: &VectorN<f64, U3>) {
         self.params.copy_from(params);
+    }
+
+    fn params(&self) -> VectorN<f64, U3> {
+        self.params
     }
 
     #[rustfmt::skip]
@@ -387,6 +419,10 @@ impl LeastSquaresProblem<f64, U11, U4> for KowalikOsborne {
         self.params.copy_from(params);
     }
 
+    fn params(&self) -> VectorN<f64, U4> {
+        self.params
+    }
+
     #[rustfmt::skip]
     fn residuals(&self) -> Option<VectorN<f64, U11>> {
         let p = &self.params;
@@ -432,6 +468,10 @@ impl LeastSquaresProblem<f64, U16, U3> for Meyer {
 
     fn set_params(&mut self, params: &VectorN<f64, U3>) {
         self.params.copy_from(params);
+    }
+
+    fn params(&self) -> VectorN<f64, U3> {
+        self.params
     }
 
     #[rustfmt::skip]
@@ -487,6 +527,10 @@ where
 
     fn set_params(&mut self, params: &VectorN<f64, P>) {
         self.params.copy_from(params);
+    }
+
+    fn params(&self) -> VectorN<f64, P> {
+        self.params.clone()
     }
 
     #[rustfmt::skip]
@@ -556,6 +600,10 @@ impl LeastSquaresProblem<f64, U1, U2> for Beale {
 
     fn set_params(&mut self, params: &VectorN<f64, U2>) {
         self.params.copy_from(params);
+    }
+
+    fn params(&self) -> VectorN<f64, U2> {
+        self.params
     }
 
     fn residuals(&self) -> Option<VectorN<f64, U1>> {

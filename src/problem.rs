@@ -20,6 +20,9 @@ where
     /// Set the stored parameters `$\vec{x}$`.
     fn set_params(&mut self, x: &Vector<F, N, Self::ParameterStorage>);
 
+    /// Get the current parameter vector `$\vec{x}$`.
+    fn params(&self) -> Vector<F, N, Self::ParameterStorage>;
+
     /// Compute the residual vector.
     fn residuals(&self) -> Option<Vector<F, M, Self::ResidualStorage>>;
 
