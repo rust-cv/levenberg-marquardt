@@ -19,30 +19,49 @@
 [bll]: https://github.com/rust-cv/levenberg-marquardt/workflows/lints/badge.svg
 [bnl]: https://github.com/rust-cv/levenberg-marquardt/workflows/no-std/badge.svg
 
-Provides abstractions to run Levenberg-Marquardt optimization
+Solver for nonlinear least squares problems.
 
-To add it, install `cargo-edit` (`cargo install cargo-edit`) and run `cargo add levenberg-marquardt`.
+The implementation is a port of the classic MINPACK implementation of the
+Levenberg-Marquardt (LM) algorithm. This version of the algorithm is sometimes referred
+to as _exact_ LM.
 
-Usage (see the [docs](https://docs.rs/levenberg-marquardt/) for more detailed information):
+All current unit tests indicate that we achieved _identical_ output (on a floating-point level)
+to the MINPACK implementation, especially for rank deficient unstable problems.
+This was mainly useful for testing.
+The Fortran algorithm was extended with `NaN` and `inf` handling, similar to what [lmfit][lmfit] does.
+
+The crate offers a feature called `minpack-compat` which sets floating-point constants
+to the ones used by MINPACK and removes the termination criterion of "zero residuals".
+This is necessary for identical output to MINPACK but generally not recommended.
+
+# Usage
+
+See the [docs](https://docs.rs/levenberg-marquardt/) for detailed information.
 
 ```rust
-levenberg_marquardt::optimize(
-    // The max number of iterations before terminating
-    50,
-    // The max number of times it can fail to find a better solution in a row before terminating.
-    10,
-    // A lambda parameter of `0.0` is Gauss-Newton and a high lambda is gradient descent.
-    50.0,
-    // If lambda * lambda_converge performs better than the current lambda, that solution is used.
-    0.8,
-    // If lambda and lambda * lambda_converge fail to find a better solution, lambda is multiplied by this.
-    2.0,
-    // If the average of residuals squared falls below this value, the algorithm terminates.
-    0.0,
-    // The initial model.
-    initial_model,
-    |v| // Normalize your model here if it can become degenerate (rotations, normal vectors).,
-    |v| // Compute your residuals here. Multiply these by a constant to scale the speed of convergence.,
-    |v| // Compute the Jacobian for each column of the residual matrix here.,
-)
+impl LeastSquaresProblem<f64> for Problem {
+    // define this trait for the problem you want to solve
+}
+let problem = Problem::new(initial_params);
+let (problem, report) = LevenbergMarquardt::new().minimize(problem);
+assert!(report.termination.was_successful());
 ```
+
+# References
+
+Sofware:
+
+- The [MINPACK](https://www.netlib.org/minpack/) Fortran implementation.
+- A C version/update, [lmfit][lmfit].
+- A Python implementation in [pwkit](https://github.com/pkgw/pwkit/blob/master/pwkit/lmmin.py).
+
+One original reference for the algorithm seems to be
+
+> Moré J.J. (1978) The Levenberg-Marquardt algorithm: Implementation and theory. In: Watson G.A. (eds) Numerical Analysis. Lecture Notes in Mathematics, vol 630. Springer, Berlin, Heidelberg.
+
+by one of the authors of MINPACK.
+
+The algorihm is also described in the form as
+implemented by this crate in the [book "Numerical Optimization"](https://link.springer.com/book/10.1007%2F978-0-387-40065-5) by Nocedal and Wright, chapters 4 and 10.
+
+[lmfit]: https://github.com/pkgw/pwkit/blob/master/pwkit/lmmin.py
