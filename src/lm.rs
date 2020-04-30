@@ -42,6 +42,8 @@ pub enum TerminationReason {
     LostPatience,
     /// The number of parameters `$n$` is zero.
     NoParameters,
+    /// The number of residuals `$m$` is zero.
+    NoResiduals,
     /// The shape of the computed residuals or Jacobian is not correct.
     WrongDimensions(&'static str),
 }
@@ -68,6 +70,7 @@ impl TerminationReason {
     pub fn was_usage_issue(&self) -> bool {
         match self {
             TerminationReason::NoParameters
+            | TerminationReason::NoResiduals
             | TerminationReason::NoImprovementPossible(_)
             | TerminationReason::WrongDimensions(_) => true,
             _ => false,
@@ -374,6 +377,17 @@ where
             ));
         }
 
+        let m = residuals.nrows();
+        if m == 0 {
+            return Err((
+                target,
+                MinimizationReport {
+                    termination: TerminationReason::NoResiduals,
+                    ..report
+                },
+            ));
+        }
+
         if !residuals_norm.is_finite() && !cfg!(feature = "minpack-compat") {
             return Err((
                 target,
@@ -405,7 +419,7 @@ where
                 first_trust_region_iteration: true,
                 first_update: true,
                 max_fev: config.patience * (n.value() + 1),
-                m: residuals.nrows(),
+                m,
             },
             residuals,
         ))
