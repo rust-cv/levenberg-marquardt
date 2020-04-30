@@ -69,16 +69,25 @@
 //!     }
 //!     
 //!     fn residuals(&self) -> Option<Vector2<f64>> {
-//!         Some(Vector2::new(
-//!             self.p.x * self.p.x + self.p.y - 11.0,
-//!             self.p.x + self.p.y * self.p.y - 7.0,
-//!         ))
+//!         let [x, y] = [self.p.x, self.p.y];
+//!         // vector containing residuals $r_1(\vec{x})$ and $r_2(\vec{x})$
+//!         Some(Vector2::new(x*x + y - 11., x + y*y - 7.))
 //!     }
 //!     
 //!     fn jacobian(&self) -> Option<Matrix2<f64>> {
+//!         let [x, y] = [self.p.x, self.p.y];
+//!         
+//!         // first row of Jacobian, derivatives of first residual
+//!         let d1_x = 2. * x; // $\frac{\partial}{\partial x_1}r_1(\vec{x}) = \frac{\partial}{\partial x} (x^2 + y - 11) = 2x$
+//!         let d1_y = 1.;     // $\frac{\partial}{\partial x_2}r_1(\vec{x}) = \frac{\partial}{\partial y} (x^2 + y - 11) = 1$
+//!         
+//!         // second row of Jacobian, derivatives of second residual
+//!         let d2_x = 1.;     // $\frac{\partial}{\partial x_1}r_2(\vec{x}) = \frac{\partial}{\partial x} (x + y^2 - 7) = 1$
+//!         let d2_y = 2. * y; // $\frac{\partial}{\partial x_2}r_2(\vec{x}) = \frac{\partial}{\partial y} (x + y^2 - 7) = 2y$
+//!
 //!         Some(Matrix2::new(
-//!             2.0 * self.p.x, 1.0,
-//!             1.0, 2.0 * self.p.y,
+//!             d1_x, d1_y,
+//!             d2_x, d2_y,
 //!         ))
 //!     }
 //! }
