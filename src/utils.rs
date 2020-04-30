@@ -108,7 +108,7 @@ where
     F: RealField + Float,
     N: Dim,
     M: Dim,
-    O: LeastSquaresProblem<F, N, M>,
+    O: LeastSquaresProblem<F, M, N>,
     O::JacobianStorage: Clone,
     DefaultAllocator: Allocator<F, M, N, Buffer = O::JacobianStorage>,
 {
@@ -216,7 +216,7 @@ where
     F: RealField,
     N: Dim,
     M: Dim,
-    O: LeastSquaresProblem<Complex<F>, N, M>,
+    O: LeastSquaresProblem<Complex<F>, M, N>,
     DefaultAllocator: Allocator<Complex<F>, N, Buffer = O::ParameterStorage>
         + Allocator<F, N>
         + Allocator<F, M, N>,

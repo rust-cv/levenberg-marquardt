@@ -45,7 +45,7 @@ where
     }
 }
 
-impl<N: Dim, M: Dim> LeastSquaresProblem<f64, N, M> for MockProblem<N, M>
+impl<N: Dim, M: Dim> LeastSquaresProblem<f64, M, N> for MockProblem<N, M>
 where
     DefaultAllocator: Allocator<f64, N> + Allocator<f64, M> + Allocator<f64, M, N>,
 {

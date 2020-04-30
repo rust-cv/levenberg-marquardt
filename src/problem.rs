@@ -5,7 +5,7 @@ use nalgebra::{storage::ContiguousStorageMut, ComplexField, Dim, Matrix, Vector}
 /// This is what [`LevenbergMarquardt`](struct.LevenbergMarquardt.html) needs
 /// to compute the residuals and the Jacobian. See the [module documentation](index.html)
 /// for a usage example.
-pub trait LeastSquaresProblem<F, N, M>
+pub trait LeastSquaresProblem<F, M, N>
 where
     F: ComplexField,
     N: Dim,

@@ -41,7 +41,7 @@ impl LinearFullRank {
     }
 }
 
-impl LeastSquaresProblem<f64, U5, Dynamic> for LinearFullRank {
+impl LeastSquaresProblem<f64, Dynamic, U5> for LinearFullRank {
     type ParameterStorage = Owned<f64, U5>;
     type ResidualStorage = Owned<f64, Dynamic>;
     type JacobianStorage = Owned<f64, Dynamic, U5>;
@@ -89,7 +89,7 @@ impl LinearRank1 {
     }
 }
 
-impl LeastSquaresProblem<f64, U5, Dynamic> for LinearRank1 {
+impl LeastSquaresProblem<f64, Dynamic, U5> for LinearRank1 {
     type ParameterStorage = Owned<f64, U5>;
     type ResidualStorage = Owned<f64, Dynamic>;
     type JacobianStorage = Owned<f64, Dynamic, U5>;
@@ -133,7 +133,7 @@ impl LinearRank1ZeroColumns {
     }
 }
 
-impl LeastSquaresProblem<f64, U5, Dynamic> for LinearRank1ZeroColumns {
+impl LeastSquaresProblem<f64, Dynamic, U5> for LinearRank1ZeroColumns {
     type ParameterStorage = Owned<f64, U5>;
     type ResidualStorage = Owned<f64, Dynamic>;
     type JacobianStorage = Owned<f64, Dynamic, U5>;
@@ -327,7 +327,7 @@ impl LeastSquaresProblem<f64, U2, U2> for FreudensteinRoth {
 struct Bard {
     params: VectorN<f64, U3>,
 }
-impl LeastSquaresProblem<f64, U3, U15> for Bard {
+impl LeastSquaresProblem<f64, U15, U3> for Bard {
     type ParameterStorage = Owned<f64, U3>;
     type ResidualStorage = Owned<f64, U15>;
     type JacobianStorage = Owned<f64, U15, U3>;
@@ -378,7 +378,7 @@ const V: [f64; 11] = [
 const Y2: [f64; 11] = [
     0.1957, 0.1947, 0.1735, 0.16, 0.0844, 0.0627, 0.0456, 0.0342, 0.0323, 0.0235, 0.0246,
 ];
-impl LeastSquaresProblem<f64, U4, U11> for KowalikOsborne {
+impl LeastSquaresProblem<f64, U11, U4> for KowalikOsborne {
     type ParameterStorage = Owned<f64, U4>;
     type ResidualStorage = Owned<f64, U11>;
     type JacobianStorage = Owned<f64, U11, U4>;
@@ -425,7 +425,7 @@ const Y3: [f64; 16] = [
 struct Meyer {
     params: VectorN<f64, U3>,
 }
-impl LeastSquaresProblem<f64, U3, U16> for Meyer {
+impl LeastSquaresProblem<f64, U16, U3> for Meyer {
     type ParameterStorage = Owned<f64, U3>;
     type ResidualStorage = Owned<f64, U16>;
     type JacobianStorage = Owned<f64, U16, U3>;
@@ -477,7 +477,7 @@ where
     }
 }
 
-impl<P: DimName> LeastSquaresProblem<f64, P, U31> for Watson<P>
+impl<P: DimName> LeastSquaresProblem<f64, U31, P> for Watson<P>
 where
     DefaultAllocator: Allocator<f64, P> + Allocator<f64, U31, P>,
 {
@@ -549,7 +549,7 @@ struct Beale {
     params: VectorN<f64, U2>,
 }
 
-impl LeastSquaresProblem<f64, U2, U1> for Beale {
+impl LeastSquaresProblem<f64, U1, U2> for Beale {
     type ParameterStorage = Owned<f64, U2>;
     type ResidualStorage = Owned<f64, U1>;
     type JacobianStorage = Owned<f64, U1, U2>;

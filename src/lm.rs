@@ -243,7 +243,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
     where
         N: Dim,
         M: DimMin<N> + DimMax<N>,
-        O: LeastSquaresProblem<F, N, M>,
+        O: LeastSquaresProblem<F, M, N>,
         DefaultAllocator:
             Allocator<F, N> + Reallocator<F, M, N, DimMaximum<M, N>, N> + Allocator<usize, N>,
     {
@@ -295,7 +295,7 @@ where
     F: RealField,
     N: Dim,
     M: DimMin<N> + DimMax<N>,
-    O: LeastSquaresProblem<F, N, M>,
+    O: LeastSquaresProblem<F, M, N>,
     DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N>,
 {
     config: &'a LevenbergMarquardt<F>,
@@ -328,7 +328,7 @@ where
     F: RealField + Float,
     N: Dim,
     M: DimMin<N> + DimMax<N>,
-    O: LeastSquaresProblem<F, N, M>,
+    O: LeastSquaresProblem<F, M, N>,
     DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N>,
 {
     #[allow(clippy::type_complexity)]

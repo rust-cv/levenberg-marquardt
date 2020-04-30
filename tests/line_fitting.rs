@@ -95,7 +95,7 @@ struct LineFittingOptimizationProblem<'a> {
     model: Line,
 }
 
-impl<'a> LeastSquaresProblem<F, U2, Dynamic> for LineFittingOptimizationProblem<'a> {
+impl<'a> LeastSquaresProblem<F, Dynamic, U2> for LineFittingOptimizationProblem<'a> {
     type ParameterStorage = Owned<F, U2, U1>;
     type JacobianStorage = Owned<F, Dynamic, U2>;
     type ResidualStorage = VecStorage<F, Dynamic, U1>;
