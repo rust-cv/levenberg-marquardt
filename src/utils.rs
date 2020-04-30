@@ -3,7 +3,7 @@ use alloc::{format, string::String};
 use core::cell::RefCell;
 use nalgebra::{
     allocator::Allocator, convert, storage::Storage, Complex, ComplexField, DefaultAllocator, Dim,
-    Matrix, MatrixMN, RealField, Vector, VectorN, U1,
+    Matrix, MatrixMN, RealField, Vector, U1,
 };
 use num_traits::float::Float;
 
@@ -145,45 +145,50 @@ where
 ///
 /// This method is mainly intended for testing your derivative implementation.
 ///
+/// # Panics
+///
+/// The function panics if the parameters which are set when the function is
+/// called are not real.
+///
 /// # Example
 ///
 /// ```rust
 /// # use levenberg_marquardt::{LeastSquaresProblem, differentiate_holomorphic_numerically};
 /// # use approx::assert_relative_eq;
-/// # use nalgebra::{convert, storage::Owned, Complex, Matrix2, Vector2, VectorN, U2};
-/// use nalgebra::ComplexField;
+/// # use nalgebra::{storage::Owned, Complex, Matrix2, Vector2, VectorN, U2};
+/// use nalgebra::{ComplexField, convert};
 ///
 /// struct ExampleProblem<F: ComplexField> {
-///     p: Vector2<F>,
+///     params: Vector2<F>,
 /// }
 ///
 /// // Implement LeastSquaresProblem to be usable with complex numbers
 /// impl<F: ComplexField> LeastSquaresProblem<F, U2, U2> for ExampleProblem<F> {
-///     // ...
+///     // ... omitted ...
 /// #     type ParameterStorage = Owned<F, U2>;
 /// #     type ResidualStorage = Owned<F, U2>;
 /// #     type JacobianStorage = Owned<F, U2, U2>;
 /// #
-/// #     fn set_params(&mut self, p: &VectorN<F, U2>) {
-/// #         self.p.copy_from(p);
+/// #     fn set_params(&mut self, params: &VectorN<F, U2>) {
+/// #         self.params.copy_from(params);
 /// #     }
 /// #
-/// #     fn params(&self) -> VectorN<F, U2> { self.p }
+/// #     fn params(&self) -> VectorN<F, U2> { self.params }
 /// #
 /// #     fn residuals(&self) -> Option<Vector2<F>> {
 /// #         Some(Vector2::new(
-/// #             self.p.x * self.p.x + self.p.y - convert(11.0),
-/// #             self.p.x + self.p.y * self.p.y - convert(7.0),
+/// #             self.params.x * self.params.x + self.params.y - convert(11.0),
+/// #             self.params.x + self.params.y * self.params.y - convert(7.0),
 /// #         ))
 /// #     }
 /// #
 /// #     fn jacobian(&self) -> Option<Matrix2<F>> {
 /// #         let two: F = convert(2.);
 /// #         Some(Matrix2::new(
-/// #             two * self.p.x,
+/// #             two * self.params.x,
 /// #             F::one(),
 /// #             F::one(),
-/// #             two * self.p.y,
+/// #             two * self.params.y,
 /// #         ))
 /// #     }
 /// }
@@ -192,25 +197,19 @@ where
 /// let x = Vector2::new(0.03877264483558185, -0.7734472300384164);
 ///
 /// // instantiate f64 variant to compute the derivative we want to check
-/// let jacobian_from_trait = {
-///     let mut problem = ExampleProblem::<f64> {
-///         p: x,
-///     };
-///     problem.jacobian().unwrap()
-/// };
+/// let jacobian_from_trait = (ExampleProblem::<f64> { params: x }).jacobian().unwrap();
 ///
 /// // then use Complex<f64> and compute the numerical derivative
 /// let jacobian_numerically = {
 ///     let mut problem = ExampleProblem::<Complex<f64>> {
-///         p: Vector2::zeros(),
+///         params: convert(x),
 ///     };
-///     differentiate_holomorphic_numerically(&x, &mut problem).unwrap()
+///     differentiate_holomorphic_numerically(&mut problem).unwrap()
 /// };
 ///
 /// assert_relative_eq!(jacobian_from_trait, jacobian_numerically, epsilon = 1e-15);
 /// ```
 pub fn differentiate_holomorphic_numerically<F, N, M, O>(
-    params: &VectorN<F, N>,
     problem: &mut O,
 ) -> Option<MatrixMN<F, M, N>>
 where
@@ -222,13 +221,9 @@ where
         + Allocator<F, N>
         + Allocator<F, M, N>,
 {
+    let mut params = problem.params();
+    assert!(params.iter().all(|x| x.im.is_zero()), "params must be real");
     let n = params.data.shape().0;
-    let mut params = Vector::<Complex<F>, N, O::ParameterStorage>::from_iterator_generic(
-        n,
-        U1,
-        params.iter().map(|x| Complex::<F>::from_real(*x)),
-    );
-    problem.set_params(&params);
     let m = problem.residuals()?.data.shape().0;
     let mut jacobian = MatrixMN::<F, M, N>::zeros_generic(m, n);
     for i in 0..n.value() {
@@ -243,6 +238,7 @@ where
         }
         params[i] = xi;
     }
+    problem.set_params(&params);
     Some(jacobian)
 }
 
@@ -398,7 +394,7 @@ pub(crate) fn float_repr<F: Float>(f: F) -> alloc::string::String {
 fn test_linear_case() {
     use crate::lm::test_examples::LinearFullRank;
     use approx::assert_relative_eq;
-    use nalgebra::U5;
+    use nalgebra::{VectorN, U5};
     let mut x = VectorN::<f64, U5>::from_element(1.);
     x[2] = -10.;
     let mut problem = LinearFullRank {
@@ -413,7 +409,7 @@ fn test_linear_case() {
 #[test]
 fn test_reset_parameters() {
     use approx::assert_relative_eq;
-    use nalgebra::{storage::Owned, Matrix2, Vector2, U2};
+    use nalgebra::{storage::Owned, Matrix2, Vector2, VectorN, U2};
     #[derive(Clone)]
     struct AllButOne {
         params: VectorN<f64, U2>,
