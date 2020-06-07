@@ -141,7 +141,11 @@ where
         let mut qt_b = VectorN::<F, N>::from_iterator_generic(
             n,
             U1,
-            b.as_slice().iter().copied().chain(repeat(F::zero())),
+            b.as_slice()
+                .iter()
+                .copied()
+                .chain(repeat(F::zero()))
+                .take(n.value()),
         );
         for j in 0..m.min(n).value() {
             let axis = self.qr.slice_range(j.., j);
