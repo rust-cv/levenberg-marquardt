@@ -3,6 +3,8 @@
 //! The QR factorization is used to implement an efficient solver for the
 //! linear least squares problem which is repeatedly required to be
 //! solved in the LM algorithm.
+#![allow(clippy::excessive_precision)]
+
 #[cfg(test)]
 use approx::assert_relative_eq;
 use core::iter::repeat;
@@ -610,7 +612,7 @@ fn test_pivoted_qr_more_branches() {
             30.0, 43.0, 34.0, 26.0, 30.0, 43.0, 34.0, 26.0, 24.0, 39.0, -10.0, -34.0,
         ]
         .iter()
-        .map(|x| *x),
+        .copied(),
     );
     let qr = PivotedQR::new(a);
     let r_diag = Vector3::new(-67.683085036070864, -55.250741178610944, 0.00000000000001);
@@ -655,7 +657,7 @@ fn default_lls(case: usize) -> LinearLeastSquaresDiagonalProblem<f64, nalgebra::
         2 => Matrix4x3::<f64>::from_iterator(
             [30., 43., 34., 26., 30., 43., 34., 26., 24., 39., -10., -34.]
                 .iter()
-                .map(|x| *x),
+                .copied(),
         ),
         3 => Matrix4x3::new(1., 2., -1., 0., 1., 4., 0., 0., 0.5, 0., 0., 0.),
         _ => unimplemented!(),
@@ -685,7 +687,7 @@ fn test_into_lls() {
 fn test_elimate_diag_and_l() {
     use nalgebra::{Matrix3, Vector3};
     let mut lls = default_lls(1);
-    let rhs = lls.eliminate_diag(&Vector3::new(1.0, 0.5, 0.0), lls.qt_b.clone());
+    let rhs = lls.eliminate_diag(&Vector3::new(1.0, 0.5, 0.0), lls.qt_b);
     let rhs_ref = Vector3::new(-6.272500481871799, 1.731584982206922, 0.612416936078506);
     assert_relative_eq!(rhs, rhs_ref);
 
@@ -704,7 +706,7 @@ fn test_elimate_diag_and_l() {
         0.824564277241393,
         -0.000000000000001,
     );
-    let r = Matrix3::from_iterator(lls.upper_r.slice_range(..3, ..3).iter().map(|x| *x));
+    let r = Matrix3::from_iterator(lls.upper_r.slice_range(..3, ..3).iter().copied());
     assert_relative_eq!(r, r_ref);
 }
 
@@ -728,13 +730,8 @@ fn test_lls_x_2() {
     let mut lls = qr.into_least_squares_diagonal_problem(Vector4::new(-5., 3., -2., 7.));
 
     let rdiag_exp = Vector3::new(-44.068129073061407, 29.147349299100057, 0.);
-    let rdiag_out = Vector3::from_iterator(
-        lls.upper_r
-            .slice_range(..3, ..3)
-            .diagonal()
-            .iter()
-            .map(|x| *x),
-    );
+    let rdiag_out =
+        Vector3::from_iterator(lls.upper_r.slice_range(..3, ..3).diagonal().iter().copied());
     assert_relative_eq!(rdiag_out, rdiag_exp);
 
     let diag = Vector3::new(2.772724292099739, 0.536656314599949, 0.089442719099992);
@@ -766,7 +763,7 @@ fn test_lls_wide_matrix() {
     let b = Vector4::new(0.6301, 0.1611, 0.9104, 0.8998);
     let (x1, mut chol1) = lls1.solve_with_diagonal(&diag, Vector4::zeros());
     let (x2, mut chol2) = lls2.solve_with_diagonal(&diag, Vector4::zeros());
-    assert_relative_eq!(chol1.solve(b.clone()), chol2.solve(b));
+    assert_relative_eq!(chol1.solve(b), chol2.solve(b));
     assert_relative_eq!(
         chol1.mul_qt_b(Vector4::zeros()),
         chol2.mul_qt_b(Vector4::zeros())
@@ -778,7 +775,7 @@ fn test_lls_wide_matrix() {
     let b = Vector4::new(0.851, 0.21, 0.629, 0.714);
     let (x1, mut chol1) = lls1.solve_with_diagonal(&diag, Vector4::zeros());
     let (x2, mut chol2) = lls2.solve_with_diagonal(&diag, Vector4::zeros());
-    assert_relative_eq!(chol1.solve(b.clone()), chol2.solve(b));
+    assert_relative_eq!(chol1.solve(b), chol2.solve(b));
     assert_relative_eq!(
         chol1.mul_qt_b(Vector4::zeros()),
         chol2.mul_qt_b(Vector4::zeros())

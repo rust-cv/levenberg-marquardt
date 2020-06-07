@@ -397,14 +397,12 @@ fn test_linear_case() {
     use nalgebra::{VectorN, U5};
     let mut x = VectorN::<f64, U5>::from_element(1.);
     x[2] = -10.;
-    let mut problem = LinearFullRank {
-        params: x.clone(),
-        m: 6,
-    };
+    let mut problem = LinearFullRank { params: x, m: 6 };
     let jac_num = differentiate_numerically(&mut problem).unwrap();
     let jac_trait = problem.jacobian().unwrap();
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-12);
 }
+
 
 #[test]
 fn test_reset_parameters() {

@@ -1,4 +1,6 @@
 //! Solver for the trust-region sub-problem in the LM algorithm.
+#![allow(clippy::excessive_precision)]
+
 use crate::qr::LinearLeastSquaresDiagonalProblem;
 use crate::utils::{dwarf, enorm};
 use nalgebra::{
@@ -196,9 +198,9 @@ mod tests {
         let qr = PivotedQR::new(j);
         let mut lls = qr.into_least_squares_diagonal_problem(residual);
         let diag = Vector3::new(10.2, 13.2, 1.2);
-        let param = determine_lambda_and_parameter_update(&mut lls, &diag, 0.5, 0.2);
+        let param = determine_lambda_and_parameter_update(&mut lls, &diag, 0.5, 0.2f64);
 
-        assert_eq!(param.lambda, 0.0);
+        assert_eq!(param.lambda.classify(), ::core::num::FpCategory::Zero);
         let p_r = Vector3::new(-0.048474221517806, -0.007207732068190, 0.083138659283539);
         assert_relative_eq!(param.step, p_r, epsilon = 1e-14);
     }

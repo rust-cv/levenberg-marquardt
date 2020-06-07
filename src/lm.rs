@@ -11,12 +11,18 @@ use nalgebra::{
 use num_traits::Float;
 
 #[cfg(test)]
+#[allow(
+    clippy::float_cmp,
+    clippy::excessive_precision,
+    clippy::redundant_clone
+)]
 pub(crate) mod test_examples;
 #[cfg(test)]
 mod test_helpers;
 #[cfg(test)]
 mod test_init_step;
 #[cfg(test)]
+#[allow(clippy::float_cmp, clippy::clone_on_copy, clippy::redundant_clone)]
 mod test_update_diag;
 
 #[derive(PartialEq, Eq, Debug)]
