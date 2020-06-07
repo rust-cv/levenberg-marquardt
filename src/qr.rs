@@ -62,7 +62,7 @@ where
             VectorN::<F, N>::from_iterator_generic(n, U1, a.column_iter().map(|c| enorm(&c)));
         let mut r_diag = column_norms.clone();
         let mut work = column_norms.clone();
-        let mut permutation = VectorN::<usize, N>::from_iterator_generic(n, U1, 0..);
+        let mut permutation = VectorN::<usize, N>::from_iterator_generic(n, U1, 0..n.value());
         for j in 0..m.min(n).value() {
             // pivot
             let kmax = r_diag.slice_range(j.., ..).imax() + j;
