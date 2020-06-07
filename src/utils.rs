@@ -403,7 +403,6 @@ fn test_linear_case() {
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-12);
 }
 
-
 #[test]
 fn test_reset_parameters() {
     use approx::assert_relative_eq;
