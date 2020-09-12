@@ -1,4 +1,4 @@
-use arrsac::{Arrsac, Config};
+use arrsac::Arrsac;
 use levenberg_marquardt::{LeastSquaresProblem, LevenbergMarquardt};
 use nalgebra::{
     dimension::{U1, U2},
@@ -10,10 +10,7 @@ use rand::distributions::Uniform;
 use rand::{distributions::Distribution, Rng};
 use sample_consensus::{Consensus, Estimator, Model};
 
-#[cfg(feature = "minpack-compat")]
 type F = f64;
-#[cfg(not(feature = "minpack-compat"))]
-type F = f32;
 
 const LINES_TO_ESTIMATE: usize = 1000;
 
@@ -65,8 +62,8 @@ impl Line {
 }
 
 impl Model<Vector2<F>> for Line {
-    fn residual(&self, point: &Vector2<F>) -> f32 {
-        (self.normal().dot(point) - self.c).abs() as f32
+    fn residual(&self, point: &Vector2<F>) -> f64 {
+        (self.normal().dot(point) - self.c).abs()
     }
 }
 
@@ -139,7 +136,7 @@ fn lines() {
     let mut rng = Pcg64::new_unseeded();
     // The max candidate hypotheses had to be increased dramatically to ensure all 1000 cases find a
     // good-fitting line.
-    let mut arrsac = Arrsac::new(Config::new(5.0), Pcg64::new_unseeded());
+    let mut arrsac = Arrsac::new(5.0, Pcg64::new_unseeded());
     let mut would_have_failed = false;
     for _ in 0..LINES_TO_ESTIMATE {
         // Generate <a, b> and normalize.
