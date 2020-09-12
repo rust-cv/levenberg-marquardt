@@ -17,7 +17,7 @@ minpack-compat = []
 
 [dependencies]
 nalgebra = { version = "0.22.0", default-features = false }
-num-traits = { version = "0.2.12", default-features = false }
+num-traits = { version = "0.2.12", default-features = false, features = ["libm"] }
 cfg-if = "0.1.10"
 
 [dev-dependencies]
