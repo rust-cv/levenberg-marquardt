@@ -31,7 +31,7 @@ jobs:
       matrix:
         features:
           - ""
-          - "--features minpack-compat"
+#          - "--features minpack-compat"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
