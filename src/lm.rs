@@ -62,19 +62,25 @@ impl TerminationReason {
     /// optimality conditions or check limitations due to
     /// floating point arithmetic.
     pub fn was_successful(&self) -> bool {
-        matches!(self, TerminationReason::ResidualsZero
-            | TerminationReason::Orthogonal
-            | TerminationReason::Converged { .. })
+        matches!(
+            self,
+            TerminationReason::ResidualsZero
+                | TerminationReason::Orthogonal
+                | TerminationReason::Converged { .. }
+        )
     }
 
     /// A fundamental assumptions was not met.
     ///
     /// For example if the number of residuals changed.
     pub fn was_usage_issue(&self) -> bool {
-        matches!(self, TerminationReason::NoParameters
-            | TerminationReason::NoResiduals
-            | TerminationReason::NoImprovementPossible(_)
-            | TerminationReason::WrongDimensions(_))
+        matches!(
+            self,
+            TerminationReason::NoParameters
+                | TerminationReason::NoResiduals
+                | TerminationReason::NoImprovementPossible(_)
+                | TerminationReason::WrongDimensions(_)
+        )
     }
 }
 
