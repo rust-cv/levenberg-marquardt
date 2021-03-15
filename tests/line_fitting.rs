@@ -141,15 +141,15 @@ fn lines() {
     for _ in 0..LINES_TO_ESTIMATE {
         // Generate <a, b> and normalize.
         let normal =
-            Vector2::new(rng.gen_range(-10.0, 10.0), rng.gen_range(-10.0, 10.0)).normalize();
+            Vector2::new(rng.gen_range(-10.0..10.0), rng.gen_range(-10.0..10.0)).normalize();
         let normal_angle = F::atan2(normal[1], normal[0]);
         // Get parallel ray.
         let ray = Vector2::new(normal.y, -normal.x);
         // Generate random c.
-        let c = rng.gen_range(-10.0, 10.0);
+        let c = rng.gen_range(-10.0..10.0);
 
         // Generate random number of points.
-        let num = rng.gen_range(100, 1000);
+        let num = rng.gen_range(100..1000);
         // The points should be no more than 5.0 away from the line and be evenly distributed away from the line.
         let residuals = Uniform::new(-5.0, 5.0);
         // The points must be generated along the line, but the distance should be bounded to make it more difficult.
