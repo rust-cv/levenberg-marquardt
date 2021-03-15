@@ -720,6 +720,7 @@ fn test_meyer() {
         let (mut problem, report) = LevenbergMarquardt::new()
             .with_tol(TOL)
             .minimize(problem.clone());
+        #[cfg(feature = "minpack-compat")]
         assert_eq!(
             report.termination,
             TerminationReason::Converged {
@@ -728,7 +729,9 @@ fn test_meyer() {
             }
         );
         assert_eq!(report.number_of_evaluations, 126);
+        #[cfg(feature = "minpack-compat")]
         assert_fp_eq!(report.objective_function, 43.972927585355414);
+        #[cfg(feature = "minpack-compat")]
         assert_fp_eq!(
             problem.params,
             VectorN::<f64, U3>::from_column_slice(&[
@@ -743,7 +746,9 @@ fn test_meyer() {
             .minimize(problem.clone());
         assert_eq!(report.termination, TerminationReason::LostPatience);
         assert_eq!(report.number_of_evaluations, 400);
+        #[cfg(feature = "minpack-compat")]
         assert_fp_eq!(report.objective_function, 324272.94195590157);
+        #[cfg(feature = "minpack-compat")]
         assert_fp_eq!(
             problem.params,
             VectorN::<f64, U3>::from_column_slice(&[
