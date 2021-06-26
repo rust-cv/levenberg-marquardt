@@ -68,7 +68,7 @@ where
 
     let is_non_singular = lls.is_non_singular();
     let (mut p, mut l) = lls.solve_with_zero_diagonal();
-    let mut diag_p = p.component_mul(&diag);
+    let mut diag_p = p.component_mul(diag);
     let mut diag_p_norm = enorm(&diag_p);
     let mut fp = diag_p_norm - delta;
     if fp <= delta * convert(P1) {
