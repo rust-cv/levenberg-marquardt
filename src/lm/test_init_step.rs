@@ -3,7 +3,7 @@ use approx::assert_relative_eq;
 #[cfg(not(feature = "minpack-compat"))]
 use core::f64::{INFINITY, MIN_POSITIVE, NAN};
 
-use nalgebra::{Dim, Dynamic, MatrixMN, Vector2, Vector3, VectorN, U0, U1, U2, U3};
+use nalgebra::{Dim, Dynamic, OMatrix, OVector, Vector2, Vector3, U0, U2, U3};
 
 use super::test_helpers::{MockCall, MockProblem};
 use super::{LevenbergMarquardt, TerminationReason, LM};
@@ -68,7 +68,7 @@ fn already_zero() {
 fn no_params() {
     // no parameters
     let problem = MockProblem::<U0, U3>::new(
-        VectorN::<f64, U0>::zeros(),
+        OVector::<f64, U0>::zeros(),
         vec![Some(Vector3::from_element(1.))],
     );
     let (mut problem, err) = LM::new(&LevenbergMarquardt::new(), problem).err().unwrap();
@@ -82,17 +82,18 @@ fn wrong_dimensions() {
     // first return m=4 residuals, then m=5
     let m1 = Dynamic::from_usize(4);
     let m2 = Dynamic::from_usize(5);
-    let n = U2;
+    let u1 = Dim::from_usize(1);
+    let u2 = Dim::from_usize(2);
     let mut problem = MockProblem::<U2, Dynamic>::new(
-        VectorN::zeros_generic(n, U1),
+        OVector::zeros_generic(u2, u1),
         vec![
-            Some(VectorN::from_element_generic(m1, U1, 223.)),
-            Some(VectorN::from_element_generic(m2, U1, 223.)),
+            Some(OVector::from_element_generic(m1, u1, 223.)),
+            Some(OVector::from_element_generic(m2, u1, 223.)),
         ],
     );
     problem.jacobians = vec![
-        Some(MatrixMN::from_element_generic(m1, n, 100.)),
-        Some(MatrixMN::from_element_generic(m2, n, 100.)),
+        Some(OMatrix::from_element_generic(m1, u2, 100.)),
+        Some(OMatrix::from_element_generic(m2, u2, 100.)),
     ];
     let (_problem, report) = LevenbergMarquardt::new().minimize(problem);
     assert_eq!(
@@ -101,10 +102,10 @@ fn wrong_dimensions() {
     );
 
     let mut problem = MockProblem::<U2, Dynamic>::new(
-        VectorN::zeros_generic(n, U1),
-        vec![Some(VectorN::from_element_generic(m1, U1, 223.))],
+        OVector::zeros_generic(u2, u1),
+        vec![Some(OVector::from_element_generic(m1, u1, 223.))],
     );
-    problem.jacobians = vec![Some(MatrixMN::from_element_generic(m2, n, 100.))];
+    problem.jacobians = vec![Some(OMatrix::from_element_generic(m2, u2, 100.))];
     let (_problem, report) = LevenbergMarquardt::new().minimize(problem);
     assert_eq!(
         report.termination,

@@ -6,7 +6,7 @@ use nalgebra::{
     allocator::{Allocator, Reallocator},
     convert,
     storage::Storage,
-    DefaultAllocator, Dim, DimMax, DimMaximum, DimMin, Matrix, RealField, Vector, VectorN, U1,
+    DefaultAllocator, Dim, DimMax, DimMaximum, DimMin, Matrix, OVector, RealField, Vector,
 };
 use num_traits::Float;
 
@@ -322,7 +322,7 @@ where
     gnorm: F,
     residuals_norm: F,
     /// The diagonal of `$\mathbf{D}$`
-    diag: VectorN<F, N>,
+    diag: OVector<F, N>,
     /// Flag to check if it is the first trust region iteration
     first_trust_region_iteration: bool,
     /// Flag to check if it is the first diagonal update
@@ -368,7 +368,7 @@ where
 
         // Initialize diagonal
         let n = x.data.shape().0;
-        let diag = VectorN::<F, N>::from_element_generic(n, U1, F::one());
+        let diag = OVector::<F, N>::from_element_generic(n, Dim::from_usize(1), F::one());
         // Check n > 0
         if diag.nrows() == 0 {
             return Err((

@@ -3,7 +3,7 @@ use levenberg_marquardt::{LeastSquaresProblem, LevenbergMarquardt};
 use nalgebra::{
     dimension::{U1, U2},
     storage::Owned,
-    Dim, Dynamic, Matrix, Matrix2, MatrixMN, VecStorage, Vector2,
+    Dim, Dynamic, Matrix, Matrix2, OMatrix, VecStorage, Vector2,
 };
 use pcg_rand::Pcg64;
 use rand::distributions::Uniform;
@@ -120,8 +120,9 @@ impl<'a> LeastSquaresProblem<F, Dynamic, U2> for LineFittingOptimizationProblem<
         ))
     }
 
-    fn jacobian(&self) -> Option<MatrixMN<F, Dynamic, U2>> {
-        let mut jacobian = MatrixMN::zeros_generic(Dynamic::from_usize(self.points.len() * 2), U2);
+    fn jacobian(&self) -> Option<OMatrix<F, Dynamic, U2>> {
+        let u2 = Dim::from_usize(2);
+        let mut jacobian = OMatrix::zeros_generic(Dynamic::from_usize(self.points.len() * 2), u2);
         for (i, point) in self.points.iter().enumerate() {
             jacobian
                 .slice_range_mut(2 * i..2 * (i + 1), ..)

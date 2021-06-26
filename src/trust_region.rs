@@ -4,8 +4,8 @@
 use crate::qr::LinearLeastSquaresDiagonalProblem;
 use crate::utils::{dwarf, enorm};
 use nalgebra::{
-    allocator::Allocator, convert, DefaultAllocator, Dim, DimMax, DimMaximum, DimMin, RealField,
-    VectorN,
+    allocator::Allocator, convert, DefaultAllocator, Dim, DimMax, DimMaximum, DimMin, OVector,
+    RealField,
 };
 use num_traits::Float;
 
@@ -13,7 +13,7 @@ pub struct LMParameter<F: RealField, N: Dim>
 where
     DefaultAllocator: Allocator<F, N>,
 {
-    pub step: VectorN<F, N>,
+    pub step: OVector<F, N>,
     pub lambda: F,
     pub dp_norm: F,
 }
@@ -51,7 +51,7 @@ where
 /// information about this algorithm but it misses a few details.
 pub fn determine_lambda_and_parameter_update<F, M, N>(
     lls: &mut LinearLeastSquaresDiagonalProblem<F, M, N>,
-    diag: &VectorN<F, N>,
+    diag: &OVector<F, N>,
     delta: F,
     initial_lambda: F,
 ) -> LMParameter<F, N>
