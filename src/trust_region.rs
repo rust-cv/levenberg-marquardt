@@ -125,7 +125,7 @@ where
         diag_p.axpy(l_sqrt, diag, F::zero());
         let (p_new, mut l) = lls.solve_with_diagonal(&diag_p, p);
         p = p_new;
-        diag_p = p.component_mul(&diag);
+        diag_p = p.component_mul(diag);
         diag_p_norm = enorm(&diag_p);
         if iteration == 10 {
             break;
