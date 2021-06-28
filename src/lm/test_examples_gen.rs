@@ -2,11 +2,11 @@
 
 #[test]
 fn test_linear_full_rank() {
-    let mut problem = LinearFullRank::new(VectorN::<f64, U5>::zeros(), 10);
-    let initial = VectorN::<f64, U5>::from_column_slice(&[1., 1., 1., 1., 1.]);
+    let mut problem = LinearFullRank::new(OVector::<f64, U5>::zeros(), 10);
+    let initial = OVector::<f64, U5>::from_column_slice(&[1., 1., 1., 1., 1.]);
 
     // check derivative implementation
-    problem.set_params(&VectorN::<f64, U5>::from_column_slice(&[
+    problem.set_params(&OVector::<f64, U5>::from_column_slice(&[
         0.5488135039273248,
         0.7151893663724195,
         0.6027633760716439,
@@ -32,7 +32,7 @@ fn test_linear_full_rank() {
     assert_fp_eq!(report.objective_function, 2.5000000000000004);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U5>::from_column_slice(&[
+        OVector::<f64, U5>::from_column_slice(&[
             -1.,
             -1.0000000000000004,
             -1.,
@@ -41,8 +41,8 @@ fn test_linear_full_rank() {
         ])
     );
 
-    let mut problem = LinearFullRank::new(VectorN::<f64, U5>::zeros(), 50);
-    let initial = VectorN::<f64, U5>::from_column_slice(&[1., 1., 1., 1., 1.]);
+    let mut problem = LinearFullRank::new(OVector::<f64, U5>::zeros(), 50);
+    let initial = OVector::<f64, U5>::from_column_slice(&[1., 1., 1., 1., 1.]);
 
     problem.set_params(&initial.clone());
     let (problem, report) = LevenbergMarquardt::new()
@@ -59,7 +59,7 @@ fn test_linear_full_rank() {
     assert_fp_eq!(report.objective_function, 22.500000000000004);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U5>::from_column_slice(&[
+        OVector::<f64, U5>::from_column_slice(&[
             -0.9999999999999953,
             -1.0000000000000049,
             -0.9999999999999976,
@@ -71,11 +71,11 @@ fn test_linear_full_rank() {
 
 #[test]
 fn test_linear_rank1() {
-    let mut problem = LinearRank1::new(VectorN::<f64, U5>::zeros(), 10);
-    let initial = VectorN::<f64, U5>::from_column_slice(&[1., 1., 1., 1., 1.]);
+    let mut problem = LinearRank1::new(OVector::<f64, U5>::zeros(), 10);
+    let initial = OVector::<f64, U5>::from_column_slice(&[1., 1., 1., 1., 1.]);
 
     // check derivative implementation
-    problem.set_params(&VectorN::<f64, U5>::from_column_slice(&[
+    problem.set_params(&OVector::<f64, U5>::from_column_slice(&[
         0.6458941130666561,
         0.4375872112626925,
         0.8917730007820798,
@@ -101,7 +101,7 @@ fn test_linear_rank1() {
     assert_fp_eq!(report.objective_function, 1.0714285714285714);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U5>::from_column_slice(&[
+        OVector::<f64, U5>::from_column_slice(&[
             -167.79681802396928,
             -83.39840901198468,
             221.11004307957813,
@@ -110,8 +110,8 @@ fn test_linear_rank1() {
         ])
     );
 
-    let mut problem = LinearRank1::new(VectorN::<f64, U5>::zeros(), 50);
-    let initial = VectorN::<f64, U5>::from_column_slice(&[1., 1., 1., 1., 1.]);
+    let mut problem = LinearRank1::new(OVector::<f64, U5>::zeros(), 50);
+    let initial = OVector::<f64, U5>::from_column_slice(&[1., 1., 1., 1., 1.]);
 
     problem.set_params(&initial.clone());
     let (problem, report) = LevenbergMarquardt::new()
@@ -128,7 +128,7 @@ fn test_linear_rank1() {
     assert_fp_eq!(report.objective_function, 6.064356435643563);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U5>::from_column_slice(&[
+        OVector::<f64, U5>::from_column_slice(&[
             -20.29999900022674,
             -9.64999950011337,
             -165.2451975264496,
@@ -140,11 +140,11 @@ fn test_linear_rank1() {
 
 #[test]
 fn test_linear_rank1_zero_columns() {
-    let mut problem = LinearRank1ZeroColumns::new(VectorN::<f64, U5>::zeros(), 10);
-    let initial = VectorN::<f64, U5>::from_column_slice(&[1., 1., 1., 1., 1.]);
+    let mut problem = LinearRank1ZeroColumns::new(OVector::<f64, U5>::zeros(), 10);
+    let initial = OVector::<f64, U5>::from_column_slice(&[1., 1., 1., 1., 1.]);
 
     // check derivative implementation
-    problem.set_params(&VectorN::<f64, U5>::from_column_slice(&[
+    problem.set_params(&OVector::<f64, U5>::from_column_slice(&[
         0.7917250380826646,
         0.5288949197529045,
         0.5680445610939323,
@@ -170,7 +170,7 @@ fn test_linear_rank1_zero_columns() {
     assert_fp_eq!(report.objective_function, 1.8235294117647063);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U5>::from_column_slice(&[
+        OVector::<f64, U5>::from_column_slice(&[
             1.,
             -210.3615324224772,
             32.120420811321296,
@@ -179,8 +179,8 @@ fn test_linear_rank1_zero_columns() {
         ])
     );
 
-    let mut problem = LinearRank1ZeroColumns::new(VectorN::<f64, U5>::zeros(), 50);
-    let initial = VectorN::<f64, U5>::from_column_slice(&[1., 1., 1., 1., 1.]);
+    let mut problem = LinearRank1ZeroColumns::new(OVector::<f64, U5>::zeros(), 50);
+    let initial = OVector::<f64, U5>::from_column_slice(&[1., 1., 1., 1., 1.]);
 
     problem.set_params(&initial.clone());
     let (problem, report) = LevenbergMarquardt::new()
@@ -197,7 +197,7 @@ fn test_linear_rank1_zero_columns() {
     assert_fp_eq!(report.objective_function, 6.814432989690721);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U5>::from_column_slice(&[
+        OVector::<f64, U5>::from_column_slice(&[
             1.,
             332.1494858957815,
             -439.6851914289522,
@@ -210,12 +210,12 @@ fn test_linear_rank1_zero_columns() {
 #[test]
 fn test_rosenbruck() {
     let mut problem = Rosenbruck {
-        params: VectorN::<f64, U2>::zeros(),
+        params: OVector::<f64, U2>::zeros(),
     };
-    let initial = VectorN::<f64, U2>::from_column_slice(&[-1.2, 1.]);
+    let initial = OVector::<f64, U2>::from_column_slice(&[-1.2, 1.]);
 
     // check derivative implementation
-    problem.set_params(&VectorN::<f64, U2>::from_column_slice(&[
+    problem.set_params(&OVector::<f64, U2>::from_column_slice(&[
         0.08712929970154071,
         0.02021839744032572,
     ]));
@@ -236,7 +236,7 @@ fn test_rosenbruck() {
     assert_fp_eq!(report.objective_function, 0.0);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U2>::from_column_slice(&[1., 1.])
+        OVector::<f64, U2>::from_column_slice(&[1., 1.])
     );
     problem.set_params(&initial.map(|x| x * 10.));
     let (mut problem, report) = LevenbergMarquardt::new()
@@ -257,7 +257,7 @@ fn test_rosenbruck() {
     assert_fp_eq!(report.objective_function, 0.0);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U2>::from_column_slice(&[1., 1.])
+        OVector::<f64, U2>::from_column_slice(&[1., 1.])
     );
     problem.set_params(&initial.map(|x| x * 100.));
     let (problem, report) = LevenbergMarquardt::new()
@@ -278,19 +278,19 @@ fn test_rosenbruck() {
     assert_fp_eq!(report.objective_function, 0.0);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U2>::from_column_slice(&[1., 1.])
+        OVector::<f64, U2>::from_column_slice(&[1., 1.])
     );
 }
 
 #[test]
 fn test_helical_valley() {
     let mut problem = HelicalValley {
-        params: VectorN::<f64, U3>::zeros(),
+        params: OVector::<f64, U3>::zeros(),
     };
-    let initial = VectorN::<f64, U3>::from_column_slice(&[-1., 0., 0.]);
+    let initial = OVector::<f64, U3>::from_column_slice(&[-1., 0., 0.]);
 
     // check derivative implementation
-    problem.set_params(&VectorN::<f64, U3>::from_column_slice(&[
+    problem.set_params(&OVector::<f64, U3>::from_column_slice(&[
         0.832619845547938,
         0.7781567509498505,
         0.8700121482468192,
@@ -314,7 +314,7 @@ fn test_helical_valley() {
     assert_fp_eq!(report.objective_function, 4.936724569245567e-33);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U3>::from_column_slice(&[1., -6.243301596789443e-18, 0.])
+        OVector::<f64, U3>::from_column_slice(&[1., -6.243301596789443e-18, 0.])
     );
     problem.set_params(&initial.map(|x| x * 10.));
     let (mut problem, report) = LevenbergMarquardt::new()
@@ -331,7 +331,7 @@ fn test_helical_valley() {
     assert_fp_eq!(report.objective_function, 5.456769505027268e-39);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U3>::from_column_slice(&[1., 6.563910805155555e-21, 0.])
+        OVector::<f64, U3>::from_column_slice(&[1., 6.563910805155555e-21, 0.])
     );
     problem.set_params(&initial.map(|x| x * 100.));
     let (problem, report) = LevenbergMarquardt::new()
@@ -348,19 +348,19 @@ fn test_helical_valley() {
     assert_fp_eq!(report.objective_function, 4.9259630763847064e-58);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U3>::from_column_slice(&[1., -1.9721522630525295e-30, 0.])
+        OVector::<f64, U3>::from_column_slice(&[1., -1.9721522630525295e-30, 0.])
     );
 }
 
 #[test]
 fn test_powell_singular() {
     let mut problem = PowellSingular {
-        params: VectorN::<f64, U4>::zeros(),
+        params: OVector::<f64, U4>::zeros(),
     };
-    let initial = VectorN::<f64, U4>::from_column_slice(&[3., -1., 0., 1.]);
+    let initial = OVector::<f64, U4>::from_column_slice(&[3., -1., 0., 1.]);
 
     // check derivative implementation
-    problem.set_params(&VectorN::<f64, U4>::from_column_slice(&[
+    problem.set_params(&OVector::<f64, U4>::from_column_slice(&[
         0.978618342232764,
         0.7991585642167236,
         0.46147936225293185,
@@ -382,7 +382,7 @@ fn test_powell_singular() {
     assert_fp_eq!(report.objective_function, 1.866194344564614e-67);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U4>::from_column_slice(&[
+        OVector::<f64, U4>::from_column_slice(&[
             1.6521175961683935e-17,
             -1.6521175961683934e-18,
             2.6433881538694683e-18,
@@ -401,7 +401,7 @@ fn test_powell_singular() {
     assert_fp_eq!(report.objective_function, 4.14378385952174e-79);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U4>::from_column_slice(&[
+        OVector::<f64, U4>::from_column_slice(&[
             2.0167451125102287e-20,
             -2.0167451125102287e-21,
             3.2267921800163004e-21,
@@ -420,7 +420,7 @@ fn test_powell_singular() {
     assert_fp_eq!(report.objective_function, 2.715670190176167e-70);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U4>::from_column_slice(&[
+        OVector::<f64, U4>::from_column_slice(&[
             3.2267921800163781e-18,
             -3.2267921800163780e-19,
             5.1628674880262125e-19,
@@ -432,12 +432,12 @@ fn test_powell_singular() {
 #[test]
 fn test_freudenstein_roth() {
     let mut problem = FreudensteinRoth {
-        params: VectorN::<f64, U2>::zeros(),
+        params: OVector::<f64, U2>::zeros(),
     };
-    let initial = VectorN::<f64, U2>::from_column_slice(&[0.5, -2.]);
+    let initial = OVector::<f64, U2>::from_column_slice(&[0.5, -2.]);
 
     // check derivative implementation
-    problem.set_params(&VectorN::<f64, U2>::from_column_slice(&[
+    problem.set_params(&OVector::<f64, U2>::from_column_slice(&[
         0.11827442586893322,
         0.6399210213275238,
     ]));
@@ -460,7 +460,7 @@ fn test_freudenstein_roth() {
     assert_fp_eq!(report.objective_function, 24.492126863534953);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U2>::from_column_slice(&[11.412484465499368, -0.8968279137315035])
+        OVector::<f64, U2>::from_column_slice(&[11.412484465499368, -0.8968279137315035])
     );
     problem.set_params(&initial.map(|x| x * 10.));
     let (mut problem, report) = LevenbergMarquardt::new()
@@ -477,7 +477,7 @@ fn test_freudenstein_roth() {
     assert_fp_eq!(report.objective_function, 24.492126854042752);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U2>::from_column_slice(&[11.413004661474561, -0.8967960386859591])
+        OVector::<f64, U2>::from_column_slice(&[11.413004661474561, -0.8967960386859591])
     );
     problem.set_params(&initial.map(|x| x * 100.));
     let (problem, report) = LevenbergMarquardt::new()
@@ -494,19 +494,19 @@ fn test_freudenstein_roth() {
     assert_fp_eq!(report.objective_function, 24.49212683962172);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U2>::from_column_slice(&[11.412781785788198, -0.8968051074920677])
+        OVector::<f64, U2>::from_column_slice(&[11.412781785788198, -0.8968051074920677])
     );
 }
 
 #[test]
 fn test_bard() {
     let mut problem = Bard {
-        params: VectorN::<f64, U3>::zeros(),
+        params: OVector::<f64, U3>::zeros(),
     };
-    let initial = VectorN::<f64, U3>::from_column_slice(&[1., 1., 1.]);
+    let initial = OVector::<f64, U3>::from_column_slice(&[1., 1., 1.]);
 
     // check derivative implementation
-    problem.set_params(&VectorN::<f64, U3>::from_column_slice(&[
+    problem.set_params(&OVector::<f64, U3>::from_column_slice(&[
         0.1433532874090464,
         0.9446689170495839,
         0.5218483217500717,
@@ -530,7 +530,7 @@ fn test_bard() {
     assert_fp_eq!(report.objective_function, 0.00410743865329062);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U3>::from_column_slice(&[
+        OVector::<f64, U3>::from_column_slice(&[
             0.0824105765758334,
             1.1330366534715044,
             2.343694638941154
@@ -551,7 +551,7 @@ fn test_bard() {
     assert_fp_eq!(report.objective_function, 8.71434685503351);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U3>::from_column_slice(&[
+        OVector::<f64, U3>::from_column_slice(&[
             8.4066667381832927e-01,
             -1.5884803325956547e+08,
             -1.6437867165353525e+08
@@ -572,7 +572,7 @@ fn test_bard() {
     assert_fp_eq!(report.objective_function, 8.714346854926243);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U3>::from_column_slice(&[
+        OVector::<f64, U3>::from_column_slice(&[
             8.4066667386764549e-01,
             -1.5894616720551842e+08,
             -1.6446490685777116e+08
@@ -583,12 +583,12 @@ fn test_bard() {
 #[test]
 fn test_kowalik_osborne() {
     let mut problem = KowalikOsborne {
-        params: VectorN::<f64, U4>::zeros(),
+        params: OVector::<f64, U4>::zeros(),
     };
-    let initial = VectorN::<f64, U4>::from_column_slice(&[0.25, 0.39, 0.415, 0.39]);
+    let initial = OVector::<f64, U4>::from_column_slice(&[0.25, 0.39, 0.415, 0.39]);
 
     // check derivative implementation
-    problem.set_params(&VectorN::<f64, U4>::from_column_slice(&[
+    problem.set_params(&OVector::<f64, U4>::from_column_slice(&[
         0.4146619399905236,
         0.26455561210462697,
         0.7742336894342167,
@@ -613,7 +613,7 @@ fn test_kowalik_osborne() {
     assert_fp_eq!(report.objective_function, 0.00015375280229088455);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U4>::from_column_slice(&[
+        OVector::<f64, U4>::from_column_slice(&[
             0.19280781047624931,
             0.1912626533540709,
             0.12305280104693087,
@@ -635,7 +635,7 @@ fn test_kowalik_osborne() {
     assert_fp_eq!(report.objective_function, 0.000513671535424324);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U4>::from_column_slice(&[
+        OVector::<f64, U4>::from_column_slice(&[
             7.2867547376865975e+05,
             -1.4075880312939264e+01,
             -3.2977797784196608e+07,
@@ -651,7 +651,7 @@ fn test_kowalik_osborne() {
     assert_fp_eq!(report.objective_function, 0.00015375283657222266);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U4>::from_column_slice(&[
+        OVector::<f64, U4>::from_column_slice(&[
             0.19279840638465487,
             0.1914736844615448,
             0.1230924753714115,
@@ -663,12 +663,12 @@ fn test_kowalik_osborne() {
 #[test]
 fn test_meyer() {
     let mut problem = Meyer {
-        params: VectorN::<f64, U3>::zeros(),
+        params: OVector::<f64, U3>::zeros(),
     };
-    let initial = VectorN::<f64, U3>::from_column_slice(&[2.0e-02, 4.0e+03, 2.5e+02]);
+    let initial = OVector::<f64, U3>::from_column_slice(&[2.0e-02, 4.0e+03, 2.5e+02]);
 
     // check derivative implementation
-    problem.set_params(&VectorN::<f64, U3>::from_column_slice(&[
+    problem.set_params(&OVector::<f64, U3>::from_column_slice(&[
         0.5684339488686485,
         0.018789800436355142,
         0.6176354970758771,
@@ -694,7 +694,7 @@ fn test_meyer() {
         assert_fp_eq!(report.objective_function, 43.972927585339875);
         assert_fp_eq!(
             problem.params,
-            VectorN::<f64, U3>::from_column_slice(&[
+            OVector::<f64, U3>::from_column_slice(&[
                 5.609636471027749e-03,
                 6.181346346286417e+03,
                 3.452236346241380e+02
@@ -709,7 +709,7 @@ fn test_meyer() {
         assert_fp_eq!(report.objective_function, 324272.8973474361);
         assert_fp_eq!(
             problem.params,
-            VectorN::<f64, U3>::from_column_slice(&[
+            OVector::<f64, U3>::from_column_slice(&[
                 6.825630280624222e-12,
                 3.514598925134810e+04,
                 9.220430560142615e+02
@@ -734,7 +734,7 @@ fn test_meyer() {
         #[cfg(feature = "minpack-compat")]
         assert_fp_eq!(
             problem.params,
-            VectorN::<f64, U3>::from_column_slice(&[
+            OVector::<f64, U3>::from_column_slice(&[
                 5.6096364710271603e-03,
                 6.1813463462865056e+03,
                 3.4522363462414097e+02
@@ -751,7 +751,7 @@ fn test_meyer() {
         #[cfg(feature = "minpack-compat")]
         assert_fp_eq!(
             problem.params,
-            VectorN::<f64, U3>::from_column_slice(&[
+            OVector::<f64, U3>::from_column_slice(&[
                 6.825607045203072e-12,
                 3.514599603833739e+04,
                 9.220431522058431e+02
@@ -762,11 +762,11 @@ fn test_meyer() {
 
 #[test]
 fn test_watson() {
-    let mut problem = Watson::new(VectorN::<f64, U6>::zeros(), 6);
-    let initial = VectorN::<f64, U6>::from_column_slice(&[0., 0., 0., 0., 0., 0.]);
+    let mut problem = Watson::new(OVector::<f64, U6>::zeros(), 6);
+    let initial = OVector::<f64, U6>::from_column_slice(&[0., 0., 0., 0., 0., 0.]);
 
     // check derivative implementation
-    problem.set_params(&VectorN::<f64, U6>::from_column_slice(&[
+    problem.set_params(&OVector::<f64, U6>::from_column_slice(&[
         0.6120957227224214,
         0.6169339968747569,
         0.9437480785146242,
@@ -793,7 +793,7 @@ fn test_watson() {
     assert_fp_eq!(report.objective_function, 0.001143835026786261);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U6>::from_column_slice(&[
+        OVector::<f64, U6>::from_column_slice(&[
             -0.01572496150837828,
             1.0124348823296545,
             -0.23299172238767143,
@@ -817,7 +817,7 @@ fn test_watson() {
     assert_fp_eq!(report.objective_function, 0.0011438350267831846);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U6>::from_column_slice(&[
+        OVector::<f64, U6>::from_column_slice(&[
             -0.015725190138667525,
             1.0124348586010505,
             -0.23299154584382673,
@@ -841,7 +841,7 @@ fn test_watson() {
     assert_fp_eq!(report.objective_function, 0.0011438350268716062);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U6>::from_column_slice(&[
+        OVector::<f64, U6>::from_column_slice(&[
             -0.01572470197125869,
             1.0124349092565827,
             -0.2329919227616415,
@@ -851,8 +851,8 @@ fn test_watson() {
         ])
     );
 
-    let mut problem = Watson::new(VectorN::<f64, U9>::zeros(), 9);
-    let initial = VectorN::<f64, U9>::from_column_slice(&[0., 0., 0., 0., 0., 0., 0., 0., 0.]);
+    let mut problem = Watson::new(OVector::<f64, U9>::zeros(), 9);
+    let initial = OVector::<f64, U9>::from_column_slice(&[0., 0., 0., 0., 0., 0., 0., 0., 0.]);
 
     problem.set_params(&initial.clone());
     let (mut problem, report) = LevenbergMarquardt::new()
@@ -869,7 +869,7 @@ fn test_watson() {
     assert_fp_eq!(report.objective_function, 6.998800690506343e-07);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U9>::from_column_slice(&[
+        OVector::<f64, U9>::from_column_slice(&[
             -1.5307064416628804e-05,
             9.9978970393459676e-01,
             1.4763963491099890e-02,
@@ -896,7 +896,7 @@ fn test_watson() {
     assert_fp_eq!(report.objective_function, 6.998800690471173e-07);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U9>::from_column_slice(&[
+        OVector::<f64, U9>::from_column_slice(&[
             -1.5307036495997912e-05,
             9.9978970393194666e-01,
             1.4763963693703627e-02,
@@ -923,7 +923,7 @@ fn test_watson() {
     assert_fp_eq!(report.objective_function, 6.998800690486009e-07);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U9>::from_column_slice(&[
+        OVector::<f64, U9>::from_column_slice(&[
             -1.5306952335212645e-05,
             9.9978970395837152e-01,
             1.4763962518529752e-02,
@@ -936,9 +936,9 @@ fn test_watson() {
         ])
     );
 
-    let mut problem = Watson::new(VectorN::<f64, U12>::zeros(), 12);
+    let mut problem = Watson::new(OVector::<f64, U12>::zeros(), 12);
     let initial =
-        VectorN::<f64, U12>::from_column_slice(&[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]);
+        OVector::<f64, U12>::from_column_slice(&[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]);
 
     problem.set_params(&initial.clone());
     let (mut problem, report) = LevenbergMarquardt::new()
@@ -955,7 +955,7 @@ fn test_watson() {
     assert_fp_eq!(report.objective_function, 2.3611905506971735e-10);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U12>::from_column_slice(&[
+        OVector::<f64, U12>::from_column_slice(&[
             -6.6380604677589803e-09,
             1.0000016441178612,
             -5.6393221015137217e-04,
@@ -985,7 +985,7 @@ fn test_watson() {
     assert_fp_eq!(report.objective_function, 2.361190552167311e-10);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U12>::from_column_slice(&[
+        OVector::<f64, U12>::from_column_slice(&[
             -6.6380604668544608e-09,
             1.0000016441178616,
             -5.6393221029791976e-04,
@@ -1015,7 +1015,7 @@ fn test_watson() {
     assert_fp_eq!(report.objective_function, 2.361190551562772e-10);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U12>::from_column_slice(&[
+        OVector::<f64, U12>::from_column_slice(&[
             -6.6380604636792693e-09,
             1.0000016441178616,
             -5.6393221027197340e-04,
@@ -1035,12 +1035,12 @@ fn test_watson() {
 #[test]
 fn test_beale() {
     let mut problem = Beale {
-        params: VectorN::<f64, U2>::zeros(),
+        params: OVector::<f64, U2>::zeros(),
     };
-    let initial = VectorN::<f64, U2>::from_column_slice(&[2.5, 1.]);
+    let initial = OVector::<f64, U2>::from_column_slice(&[2.5, 1.]);
 
     // check derivative implementation
-    problem.set_params(&VectorN::<f64, U2>::from_column_slice(&[
+    problem.set_params(&OVector::<f64, U2>::from_column_slice(&[
         0.6976311959272649,
         0.06022547162926983,
     ]));
@@ -1057,7 +1057,7 @@ fn test_beale() {
     assert_fp_eq!(report.objective_function, 6.982085570779134e-07);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U2>::from_column_slice(&[2.8252463853580405, 0.4595596246635109])
+        OVector::<f64, U2>::from_column_slice(&[2.8252463853580405, 0.4595596246635109])
     );
     problem.set_params(&initial.map(|x| x - 0.5));
     let (problem, report) = LevenbergMarquardt::new()
@@ -1068,6 +1068,6 @@ fn test_beale() {
     assert_fp_eq!(report.objective_function, 5.355422879172696e-16);
     assert_fp_eq!(
         problem.params,
-        VectorN::<f64, U2>::from_column_slice(&[2.9989956785046323, 0.4997826037201959])
+        OVector::<f64, U2>::from_column_slice(&[2.9989956785046323, 0.4997826037201959])
     );
 }

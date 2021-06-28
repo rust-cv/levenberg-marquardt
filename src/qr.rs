@@ -12,7 +12,7 @@ use nalgebra::{
     allocator::{Allocator, Reallocator},
     convert,
     storage::{ContiguousStorageMut, Storage},
-    DefaultAllocator, Dim, DimMax, DimMaximum, DimMin, Matrix, MatrixMN, Vector, VectorN, U1,
+    DefaultAllocator, Dim, DimMax, DimMaximum, DimMin, Matrix, OMatrix, OVector, Vector,
 };
 use num_traits::Float;
 
@@ -36,16 +36,16 @@ where
     DefaultAllocator: Allocator<F, N> + Allocator<usize, N>,
 {
     /// The column norms of the input matrix `$\mathbf{A}$`
-    column_norms: VectorN<F, N>,
+    column_norms: OVector<F, N>,
     /// Strictly upper part of `$\mathbf{R}$` and the Householder transformations,
     /// combined in one matrix.
     qr: Matrix<F, M, N, S>,
     /// Diagonal entries of R
-    r_diag: VectorN<F, N>,
+    r_diag: OVector<F, N>,
     /// Permution matrix. Entry `$i$` specifies which column of the identity
     /// matrix to use.
-    permutation: VectorN<usize, N>,
-    work: VectorN<F, N>,
+    permutation: OVector<usize, N>,
+    work: OVector<F, N>,
 }
 
 impl<F, M, N, S> PivotedQR<F, M, N, S>
@@ -60,11 +60,12 @@ where
     pub fn new(mut a: Matrix<F, M, N, S>) -> Self {
         // The implementation is based more or less on LAPACK's "xGEQPF"
         let (m, n) = a.data.shape();
+        let u1 = Dim::from_usize(1);
         let column_norms =
-            VectorN::<F, N>::from_iterator_generic(n, U1, a.column_iter().map(|c| enorm(&c)));
+            OVector::<F, N>::from_iterator_generic(n, u1, a.column_iter().map(|c| enorm(&c)));
         let mut r_diag = column_norms.clone();
         let mut work = column_norms.clone();
-        let mut permutation = VectorN::<usize, N>::from_iterator_generic(n, U1, 0..n.value());
+        let mut permutation = OVector::<usize, N>::from_iterator_generic(n, u1, 0..n.value());
         for j in 0..m.min(n).value() {
             // pivot
             let kmax = r_diag.slice_range(j.., ..).imax() + j;
@@ -138,9 +139,10 @@ where
     {
         // compute first n-entries of Q^T * b
         let (m, n) = self.qr.data.shape();
-        let mut qt_b = VectorN::<F, N>::from_iterator_generic(
+        let u1 = Dim::from_usize(1);
+        let mut qt_b = OVector::<F, N>::from_iterator_generic(
             n,
-            U1,
+            u1,
             b.as_slice()
                 .iter()
                 .copied()
@@ -204,16 +206,16 @@ where
     DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N> + Allocator<usize, N>,
 {
     /// The first `$n$` entries of `$\mathbf{Q}^\top \vec{b}$`.
-    qt_b: VectorN<F, N>,
+    qt_b: OVector<F, N>,
     /// Upper part of `$\mathbf{R}$`, also used to store strictly lower part of `$\mathbf{L}$`.
-    upper_r: MatrixMN<F, DimMaximum<M, N>, N>,
+    upper_r: OMatrix<F, DimMaximum<M, N>, N>,
     /// Diagonal entries of `$\mathbf{L}$`.
-    l_diag: VectorN<F, N>,
+    l_diag: OVector<F, N>,
     /// Permution matrix. Entry `$i$` specifies which column of the identity
     /// matrix to use.
-    permutation: VectorN<usize, N>,
-    pub(crate) column_norms: VectorN<F, N>,
-    work: VectorN<F, N>,
+    permutation: OVector<usize, N>,
+    pub(crate) column_norms: OVector<F, N>,
+    work: OVector<F, N>,
     m: M,
 }
 
@@ -224,12 +226,12 @@ where
     N: Dim,
     DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N> + Allocator<usize, N>,
 {
-    pub permutation: &'a VectorN<usize, N>,
-    l: &'a MatrixMN<F, DimMaximum<M, N>, N>,
-    work: &'a mut VectorN<F, N>,
-    qt_b: &'a VectorN<F, N>,
+    pub permutation: &'a OVector<usize, N>,
+    l: &'a OMatrix<F, DimMaximum<M, N>, N>,
+    work: &'a mut OVector<F, N>,
+    qt_b: &'a OVector<F, N>,
     lower: bool,
-    l_diag: &'a VectorN<F, N>,
+    l_diag: &'a OVector<F, N>,
 }
 
 impl<'a, F, M, N> CholeskyFactor<'a, F, M, N>
@@ -240,7 +242,7 @@ where
     DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N> + Allocator<usize, N>,
 {
     /// Solve the equation `$\mathbf{L}\vec{x} = \mathbf{P}^\top \vec{b}$`.
-    pub fn solve(&mut self, mut rhs: VectorN<F, N>) -> VectorN<F, N> {
+    pub fn solve(&mut self, mut rhs: OVector<F, N>) -> OVector<F, N> {
         for i in 0..self.work.nrows() {
             self.work[i] = rhs[self.permutation[i]];
         }
@@ -271,7 +273,7 @@ where
     }
 
     /// Computes `$\mathbf{L}\mathbf{Q}^\top\vec{b}$`.
-    pub fn mul_qt_b(&mut self, mut out: VectorN<F, N>) -> VectorN<F, N> {
+    pub fn mul_qt_b(&mut self, mut out: OVector<F, N>) -> OVector<F, N> {
         out.fill(F::zero());
         let (n, _) = self.work.data.shape();
         let l = self.l.rows_generic(0, n);
@@ -328,7 +330,7 @@ where
     }
 
     /// Compute `$\|\mathbf{A}\vec{x}\| = \sqrt{\vec{x}^\top\mathbf{A}^\top\mathbf{A}\vec{x}}$`.
-    pub fn a_x_norm(&mut self, x: &VectorN<F, N>) -> F {
+    pub fn a_x_norm(&mut self, x: &OVector<F, N>) -> F {
         self.work.fill(F::zero());
         for (i, (col, idx)) in self
             .upper_r
@@ -360,9 +362,9 @@ where
     /// ```
     pub fn solve_with_diagonal(
         &mut self,
-        diag: &VectorN<F, N>,
-        mut out: VectorN<F, N>,
-    ) -> (VectorN<F, N>, CholeskyFactor<F, M, N>) {
+        diag: &OVector<F, N>,
+        mut out: OVector<F, N>,
+    ) -> (OVector<F, N>, CholeskyFactor<F, M, N>) {
         out.copy_from(&self.qt_b);
         let mut rhs = self.eliminate_diag(diag, out /* will be filled and returnd */);
         core::mem::swap(&mut self.work, &mut rhs);
@@ -370,7 +372,8 @@ where
     }
 
     /// Solve the least squares problem with a zero diagonal.
-    pub fn solve_with_zero_diagonal(&mut self) -> (VectorN<F, N>, CholeskyFactor<F, M, N>) {
+    pub fn solve_with_zero_diagonal(&mut self) -> (OVector<F, N>, CholeskyFactor<F, M, N>) {
+        let u1 = Dim::from_usize(1);
         let (_m, n) = self.upper_r.data.shape();
         let l = self.upper_r.rows_generic(0, n);
         self.work.copy_from(&self.qt_b);
@@ -378,7 +381,7 @@ where
         self.work.rows_range_mut(rank..).fill(F::zero());
         l.slice_range(..rank, ..rank)
             .solve_upper_triangular_mut(&mut self.work.rows_range_mut(..rank));
-        let mut x = VectorN::<F, N>::zeros_generic(n, U1);
+        let mut x = OVector::<F, N>::zeros_generic(n, u1);
         for j in 0..n.value() {
             x[self.permutation[j]] = self.work[j];
         }
@@ -418,8 +421,8 @@ where
 
     fn solve_after_elimination(
         &mut self,
-        mut x: VectorN<F, N>,
-    ) -> (VectorN<F, N>, CholeskyFactor<F, M, N>) {
+        mut x: OVector<F, N>,
+    ) -> (OVector<F, N>, CholeskyFactor<F, M, N>) {
         let rank = self.rank();
         let rhs = &mut self.work;
         rhs.rows_range_mut(rank..).fill(F::zero());
@@ -457,8 +460,8 @@ where
     fn eliminate_diag<DS>(
         &mut self,
         diag: &Vector<F, N, DS>,
-        mut rhs: VectorN<F, N>,
-    ) -> VectorN<F, N>
+        mut rhs: OVector<F, N>,
+    ) -> OVector<F, N>
     where
         DS: Storage<F, N>,
     {
@@ -626,13 +629,13 @@ fn test_pivoted_qr_more_branches() {
 #[test]
 fn test_pivoted_qr_big_rank1() {
     // This test case was generated directly from MINPACK's QRFAC
-    use nalgebra::{MatrixMN, Vector5, U10, U5};
-    let a = MatrixMN::<f64, U10, U5>::from_fn(|i, j| ((i + 1) * (j + 1)) as f64);
+    use nalgebra::{OMatrix, Vector5, U10, U5};
+    let a = OMatrix::<f64, U10, U5>::from_fn(|i, j| ((i + 1) * (j + 1)) as f64);
     let qr = PivotedQR::new(a);
     let r_diag = Vector5::<f64>::new(-98.107084351742913, -3.9720546451956370E-015, 0., 0., 0.);
     assert_relative_eq!(qr.r_diag, r_diag);
     #[rustfmt::skip]
-    let qr_ref = MatrixMN::<f64, U10, U5>::from_column_slice(&[
+    let qr_ref = OMatrix::<f64, U10, U5>::from_column_slice(&[
         // matrix looks transposed in this form, this is a column slice!
         // column 1
           1.0509647191437625 , 0.10192943828752511, 0.15289415743128767, 0.20385887657505022,  0.25482359571881280,

@@ -3,7 +3,7 @@ use alloc::{format, string::String};
 use core::cell::RefCell;
 use nalgebra::{
     allocator::Allocator, convert, storage::Storage, Complex, ComplexField, DefaultAllocator, Dim,
-    Matrix, MatrixMN, RealField, Vector, U1,
+    Matrix, OMatrix, RealField, Vector, U1,
 };
 use num_traits::float::Float;
 
@@ -58,7 +58,7 @@ cfg_if::cfg_if! {
 /// ```rust
 /// # use levenberg_marquardt::{LeastSquaresProblem, differentiate_numerically};
 /// # use approx::assert_relative_eq;
-/// # use nalgebra::{convert, ComplexField, storage::Owned, Matrix2, Vector2, VectorN, U2};
+/// # use nalgebra::{convert, ComplexField, storage::Owned, Matrix2, Vector2, OVector, U2};
 /// #
 /// # struct ExampleProblem<F: ComplexField> {
 /// #     p: Vector2<F>,
@@ -69,11 +69,11 @@ cfg_if::cfg_if! {
 /// #     type ResidualStorage = Owned<F, U2>;
 /// #     type JacobianStorage = Owned<F, U2, U2>;
 /// #
-/// #     fn set_params(&mut self, p: &VectorN<F, U2>) {
+/// #     fn set_params(&mut self, p: &OVector<F, U2>) {
 /// #         self.p.copy_from(p);
 /// #     }
 /// #
-/// #     fn params(&self) -> VectorN<F, U2> { self.p }
+/// #     fn params(&self) -> OVector<F, U2> { self.p }
 /// #
 /// #     fn residuals(&self) -> Option<Vector2<F>> {
 /// #         Some(Vector2::new(
@@ -155,7 +155,7 @@ where
 /// ```rust
 /// # use levenberg_marquardt::{LeastSquaresProblem, differentiate_holomorphic_numerically};
 /// # use approx::assert_relative_eq;
-/// # use nalgebra::{storage::Owned, Complex, Matrix2, Vector2, VectorN, U2};
+/// # use nalgebra::{storage::Owned, Complex, Matrix2, Vector2, OVector, U2};
 /// use nalgebra::{ComplexField, convert};
 ///
 /// struct ExampleProblem<F: ComplexField> {
@@ -169,11 +169,11 @@ where
 /// #     type ResidualStorage = Owned<F, U2>;
 /// #     type JacobianStorage = Owned<F, U2, U2>;
 /// #
-/// #     fn set_params(&mut self, params: &VectorN<F, U2>) {
+/// #     fn set_params(&mut self, params: &OVector<F, U2>) {
 /// #         self.params.copy_from(params);
 /// #     }
 /// #
-/// #     fn params(&self) -> VectorN<F, U2> { self.params }
+/// #     fn params(&self) -> OVector<F, U2> { self.params }
 /// #
 /// #     fn residuals(&self) -> Option<Vector2<F>> {
 /// #         Some(Vector2::new(
@@ -211,7 +211,7 @@ where
 /// ```
 pub fn differentiate_holomorphic_numerically<F, N, M, O>(
     problem: &mut O,
-) -> Option<MatrixMN<F, M, N>>
+) -> Option<OMatrix<F, M, N>>
 where
     F: RealField,
     N: Dim,
@@ -225,7 +225,7 @@ where
     assert!(params.iter().all(|x| x.im.is_zero()), "params must be real");
     let n = params.data.shape().0;
     let m = problem.residuals()?.data.shape().0;
-    let mut jacobian = MatrixMN::<F, M, N>::zeros_generic(m, n);
+    let mut jacobian = OMatrix::<F, M, N>::zeros_generic(m, n);
     for i in 0..n.value() {
         let xi = params[i];
         let h = Complex::<F>::from_real(F::default_epsilon()) * xi.abs();
@@ -394,8 +394,8 @@ pub(crate) fn float_repr<F: Float>(f: F) -> alloc::string::String {
 fn test_linear_case() {
     use crate::lm::test_examples::LinearFullRank;
     use approx::assert_relative_eq;
-    use nalgebra::{VectorN, U5};
-    let mut x = VectorN::<f64, U5>::from_element(1.);
+    use nalgebra::{OVector, U5};
+    let mut x = OVector::<f64, U5>::from_element(1.);
     x[2] = -10.;
     let mut problem = LinearFullRank { params: x, m: 6 };
     let jac_num = differentiate_numerically(&mut problem).unwrap();
@@ -406,30 +406,30 @@ fn test_linear_case() {
 #[test]
 fn test_reset_parameters() {
     use approx::assert_relative_eq;
-    use nalgebra::{storage::Owned, Matrix2, Vector2, VectorN, U2};
+    use nalgebra::{storage::Owned, Matrix2, OVector, Vector2, U2};
     #[derive(Clone)]
     struct AllButOne {
-        params: VectorN<f64, U2>,
+        params: OVector<f64, U2>,
     }
     impl LeastSquaresProblem<f64, U2, U2> for AllButOne {
         type ParameterStorage = Owned<f64, U2>;
         type ResidualStorage = Owned<f64, U2>;
         type JacobianStorage = Owned<f64, U2, U2>;
 
-        fn set_params(&mut self, params: &VectorN<f64, U2>) {
+        fn set_params(&mut self, params: &OVector<f64, U2>) {
             self.params.copy_from(params);
         }
 
-        fn params(&self) -> VectorN<f64, U2> {
+        fn params(&self) -> OVector<f64, U2> {
             self.params
         }
 
-        fn residuals(&self) -> Option<VectorN<f64, U2>> {
+        fn residuals(&self) -> Option<OVector<f64, U2>> {
             Some(Vector2::new(0.0, -100. * self.params[1].powi(2)))
         }
 
         #[rustfmt::skip]
-        fn jacobian(&self) -> Option<MatrixMN<f64, U2, U2>> {
+        fn jacobian(&self) -> Option<OMatrix<f64, U2, U2>> {
             Some(Matrix2::new(
                 0.,0.,
                 0.,-200. * self.params[1],

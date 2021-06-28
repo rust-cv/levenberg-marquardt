@@ -31,12 +31,12 @@ const TOL: f64 = 1.49012e-08;
 
 #[derive(Clone)]
 pub struct LinearFullRank {
-    pub params: VectorN<f64, U5>,
+    pub params: OVector<f64, U5>,
     pub m: usize,
 }
 
 impl LinearFullRank {
-    fn new(params: VectorN<f64, U5>, m: usize) -> Self {
+    fn new(params: OVector<f64, U5>, m: usize) -> Self {
         Self { params, m }
     }
 }
@@ -46,19 +46,20 @@ impl LeastSquaresProblem<f64, Dynamic, U5> for LinearFullRank {
     type ResidualStorage = Owned<f64, Dynamic>;
     type JacobianStorage = Owned<f64, Dynamic, U5>;
 
-    fn set_params(&mut self, params: &VectorN<f64, U5>) {
+    fn set_params(&mut self, params: &OVector<f64, U5>) {
         self.params.copy_from(params);
     }
 
-    fn params(&self) -> VectorN<f64, U5> {
+    fn params(&self) -> OVector<f64, U5> {
         self.params
     }
 
-    fn residuals(&self) -> Option<VectorN<f64, Dynamic>> {
+    fn residuals(&self) -> Option<OVector<f64, Dynamic>> {
         let m = Dynamic::from_usize(self.m);
-        let mut residuals = VectorN::<f64, Dynamic>::from_element_generic(
+        let u1 = Dim::from_usize(1);
+        let mut residuals = OVector::<f64, Dynamic>::from_element_generic(
             m,
-            U1,
+            u1,
             -2. * self.params.sum() / self.m as f64 - 1.,
         );
         for (el, p) in residuals
@@ -71,9 +72,10 @@ impl LeastSquaresProblem<f64, Dynamic, U5> for LinearFullRank {
         Some(residuals)
     }
 
-    fn jacobian(&self) -> Option<MatrixMN<f64, Dynamic, U5>> {
+    fn jacobian(&self) -> Option<OMatrix<f64, Dynamic, U5>> {
         let m = Dynamic::from_usize(self.m);
-        let mut jacobian = MatrixMN::from_element_generic(m, U5, -2. / self.m as f64);
+        let u5 = Dim::from_usize(5);
+        let mut jacobian = OMatrix::from_element_generic(m, u5, -2. / self.m as f64);
         for i in 0..5 {
             jacobian[(i, i)] += 1.;
         }
@@ -83,12 +85,12 @@ impl LeastSquaresProblem<f64, Dynamic, U5> for LinearFullRank {
 
 #[derive(Clone)]
 struct LinearRank1 {
-    params: VectorN<f64, U5>,
+    params: OVector<f64, U5>,
     m: usize,
 }
 
 impl LinearRank1 {
-    fn new(params: VectorN<f64, U5>, m: usize) -> Self {
+    fn new(params: OVector<f64, U5>, m: usize) -> Self {
         Self { params, m }
     }
 }
@@ -98,15 +100,15 @@ impl LeastSquaresProblem<f64, Dynamic, U5> for LinearRank1 {
     type ResidualStorage = Owned<f64, Dynamic>;
     type JacobianStorage = Owned<f64, Dynamic, U5>;
 
-    fn set_params(&mut self, params: &VectorN<f64, U5>) {
+    fn set_params(&mut self, params: &OVector<f64, U5>) {
         self.params.copy_from(params);
     }
 
-    fn params(&self) -> VectorN<f64, U5> {
+    fn params(&self) -> OVector<f64, U5> {
         self.params
     }
 
-    fn residuals(&self) -> Option<VectorN<f64, Dynamic>> {
+    fn residuals(&self) -> Option<OVector<f64, Dynamic>> {
         let m = Dynamic::from_usize(self.m);
         let weighted_sum: f64 = self
             .params
@@ -114,16 +116,18 @@ impl LeastSquaresProblem<f64, Dynamic, U5> for LinearRank1 {
             .enumerate()
             .map(|(j, p)| (j + 1) as f64 * p)
             .sum();
-        Some(VectorN::<f64, Dynamic>::from_iterator_generic(
+        let u1 = Dim::from_usize(1);
+        Some(OVector::<f64, Dynamic>::from_iterator_generic(
             m,
-            U1,
+            u1,
             (0..self.m).map(|i| (i + 1) as f64 * weighted_sum - 1.),
         ))
     }
 
-    fn jacobian(&self) -> Option<MatrixMN<f64, Dynamic, U5>> {
+    fn jacobian(&self) -> Option<OMatrix<f64, Dynamic, U5>> {
         let m = Dynamic::from_usize(self.m);
-        Some(MatrixMN::from_fn_generic(m, U5, |i, j| {
+        let u5 = Dim::from_usize(5);
+        Some(OMatrix::from_fn_generic(m, u5, |i, j| {
             ((i + 1) * (j + 1)) as f64
         }))
     }
@@ -131,12 +135,12 @@ impl LeastSquaresProblem<f64, Dynamic, U5> for LinearRank1 {
 
 #[derive(Clone)]
 struct LinearRank1ZeroColumns {
-    params: VectorN<f64, U5>,
+    params: OVector<f64, U5>,
     m: usize,
 }
 
 impl LinearRank1ZeroColumns {
-    fn new(params: VectorN<f64, U5>, m: usize) -> Self {
+    fn new(params: OVector<f64, U5>, m: usize) -> Self {
         Self { params, m }
     }
 }
@@ -146,15 +150,15 @@ impl LeastSquaresProblem<f64, Dynamic, U5> for LinearRank1ZeroColumns {
     type ResidualStorage = Owned<f64, Dynamic>;
     type JacobianStorage = Owned<f64, Dynamic, U5>;
 
-    fn set_params(&mut self, params: &VectorN<f64, U5>) {
+    fn set_params(&mut self, params: &OVector<f64, U5>) {
         self.params.copy_from(params);
     }
 
-    fn params(&self) -> VectorN<f64, U5> {
+    fn params(&self) -> OVector<f64, U5> {
         self.params
     }
 
-    fn residuals(&self) -> Option<VectorN<f64, Dynamic>> {
+    fn residuals(&self) -> Option<OVector<f64, Dynamic>> {
         let m = Dynamic::from_usize(self.m);
         let weighted_sum: f64 = self
             .params
@@ -168,9 +172,10 @@ impl LeastSquaresProblem<f64, Dynamic, U5> for LinearRank1ZeroColumns {
                 }
             })
             .sum();
-        Some(VectorN::<f64, Dynamic>::from_iterator_generic(
+        let u1 = Dim::from_usize(1);
+        Some(OVector::<f64, Dynamic>::from_iterator_generic(
             m,
-            U1,
+            u1,
             (0..self.m).map(|i| {
                 if i == self.m - 1 {
                     -1.
@@ -181,9 +186,10 @@ impl LeastSquaresProblem<f64, Dynamic, U5> for LinearRank1ZeroColumns {
         ))
     }
 
-    fn jacobian(&self) -> Option<MatrixMN<f64, Dynamic, U5>> {
+    fn jacobian(&self) -> Option<OMatrix<f64, Dynamic, U5>> {
         let m = Dynamic::from_usize(self.m);
-        Some(MatrixMN::from_fn_generic(m, U5, |i, j| {
+        let u5 = Dim::from_usize(5);
+        Some(OMatrix::from_fn_generic(m, u5, |i, j| {
             if i >= 1 && j >= 1 && j < 5 - 1 && i < self.m - 1 {
                 ((j + 1) * i) as f64
             } else {
@@ -195,29 +201,29 @@ impl LeastSquaresProblem<f64, Dynamic, U5> for LinearRank1ZeroColumns {
 
 #[derive(Clone)]
 struct Rosenbruck {
-    params: VectorN<f64, U2>,
+    params: OVector<f64, U2>,
 }
 impl LeastSquaresProblem<f64, U2, U2> for Rosenbruck {
     type ParameterStorage = Owned<f64, U2>;
     type ResidualStorage = Owned<f64, U2>;
     type JacobianStorage = Owned<f64, U2, U2>;
 
-    fn set_params(&mut self, params: &VectorN<f64, U2>) {
+    fn set_params(&mut self, params: &OVector<f64, U2>) {
         self.params.copy_from(params);
     }
 
-    fn params(&self) -> VectorN<f64, U2> {
+    fn params(&self) -> OVector<f64, U2> {
         self.params
     }
 
-    fn residuals(&self) -> Option<VectorN<f64, U2>> {
+    fn residuals(&self) -> Option<OVector<f64, U2>> {
         Some(Vector2::new(
             10. * (self.params[1] - self.params[0] * self.params[0]),
             1. - self.params[0],
         ))
     }
 
-    fn jacobian(&self) -> Option<MatrixMN<f64, U2, U2>> {
+    fn jacobian(&self) -> Option<OMatrix<f64, U2, U2>> {
         Some(Matrix2::new(-20. * self.params[0], 10., -1., 0.))
     }
 }
@@ -226,22 +232,22 @@ const TPI: f64 = ::core::f64::consts::PI * 2.;
 
 #[derive(Clone)]
 struct HelicalValley {
-    params: VectorN<f64, U3>,
+    params: OVector<f64, U3>,
 }
 impl LeastSquaresProblem<f64, U3, U3> for HelicalValley {
     type ParameterStorage = Owned<f64, U3>;
     type ResidualStorage = Owned<f64, U3>;
     type JacobianStorage = Owned<f64, U3, U3>;
 
-    fn set_params(&mut self, params: &VectorN<f64, U3>) {
+    fn set_params(&mut self, params: &OVector<f64, U3>) {
         self.params.copy_from(params);
     }
 
-    fn params(&self) -> VectorN<f64, U3> {
+    fn params(&self) -> OVector<f64, U3> {
         self.params
     }
 
-    fn residuals(&self) -> Option<VectorN<f64, U3>> {
+    fn residuals(&self) -> Option<OVector<f64, U3>> {
         let p = self.params;
         let tmp1 = if p[0] == 0. {
             (0.25f64).copysign(p[1])
@@ -259,7 +265,7 @@ impl LeastSquaresProblem<f64, U3, U3> for HelicalValley {
     }
 
     #[rustfmt::skip]
-    fn jacobian(&self) -> Option<MatrixMN<f64, U3, U3>> {
+    fn jacobian(&self) -> Option<OMatrix<f64, U3, U3>> {
         let p = self.params;
         let temp = p[0] * p[0] + p[1] * p[1];
         let tmp1 = TPI * temp;
@@ -274,22 +280,22 @@ impl LeastSquaresProblem<f64, U3, U3> for HelicalValley {
 
 #[derive(Clone)]
 struct PowellSingular {
-    params: VectorN<f64, U4>,
+    params: OVector<f64, U4>,
 }
 impl LeastSquaresProblem<f64, U4, U4> for PowellSingular {
     type ParameterStorage = Owned<f64, U4>;
     type ResidualStorage = Owned<f64, U4>;
     type JacobianStorage = Owned<f64, U4, U4>;
 
-    fn set_params(&mut self, params: &VectorN<f64, U4>) {
+    fn set_params(&mut self, params: &OVector<f64, U4>) {
         self.params.copy_from(params);
     }
 
-    fn params(&self) -> VectorN<f64, U4> {
+    fn params(&self) -> OVector<f64, U4> {
         self.params
     }
 
-    fn residuals(&self) -> Option<VectorN<f64, U4>> {
+    fn residuals(&self) -> Option<OVector<f64, U4>> {
         let p = self.params;
         Some(Vector4::new(
             p[0] + 10. * p[1],
@@ -300,7 +306,7 @@ impl LeastSquaresProblem<f64, U4, U4> for PowellSingular {
     }
 
     #[rustfmt::skip]
-    fn jacobian(&self) -> Option<MatrixMN<f64, U4, U4>> {
+    fn jacobian(&self) -> Option<OMatrix<f64, U4, U4>> {
         let p = self.params;
         let f = (5.).sqrt();
         let t = (10.).sqrt();
@@ -317,23 +323,23 @@ impl LeastSquaresProblem<f64, U4, U4> for PowellSingular {
 
 #[derive(Clone)]
 struct FreudensteinRoth {
-    params: VectorN<f64, U2>,
+    params: OVector<f64, U2>,
 }
 impl LeastSquaresProblem<f64, U2, U2> for FreudensteinRoth {
     type ParameterStorage = Owned<f64, U2>;
     type ResidualStorage = Owned<f64, U2>;
     type JacobianStorage = Owned<f64, U2, U2>;
 
-    fn set_params(&mut self, params: &VectorN<f64, U2>) {
+    fn set_params(&mut self, params: &OVector<f64, U2>) {
         self.params.copy_from(params);
     }
 
-    fn params(&self) -> VectorN<f64, U2> {
+    fn params(&self) -> OVector<f64, U2> {
         self.params
     }
 
     #[rustfmt::skip]
-    fn residuals(&self) -> Option<VectorN<f64, U2>> {
+    fn residuals(&self) -> Option<OVector<f64, U2>> {
         let p = &self.params;
         Some(Vector2::new(
             -13. + p[0] + ((5. - p[1]) * p[1] - 2.) * p[1],
@@ -342,7 +348,7 @@ impl LeastSquaresProblem<f64, U2, U2> for FreudensteinRoth {
     }
 
     #[rustfmt::skip]
-    fn jacobian(&self) -> Option<MatrixMN<f64, U2, U2>> {
+    fn jacobian(&self) -> Option<OMatrix<f64, U2, U2>> {
         let p = &self.params;
         Some(Matrix2::new(
             1. , p[1] * (10. - 3. * p[1]) - 2.,
@@ -353,30 +359,30 @@ impl LeastSquaresProblem<f64, U2, U2> for FreudensteinRoth {
 
 #[derive(Clone)]
 struct Bard {
-    params: VectorN<f64, U3>,
+    params: OVector<f64, U3>,
 }
 impl LeastSquaresProblem<f64, U15, U3> for Bard {
     type ParameterStorage = Owned<f64, U3>;
     type ResidualStorage = Owned<f64, U15>;
     type JacobianStorage = Owned<f64, U15, U3>;
 
-    fn set_params(&mut self, params: &VectorN<f64, U3>) {
+    fn set_params(&mut self, params: &OVector<f64, U3>) {
         self.params.copy_from(params);
     }
 
-    fn params(&self) -> VectorN<f64, U3> {
+    fn params(&self) -> OVector<f64, U3> {
         self.params
     }
 
     #[rustfmt::skip]
-    fn residuals(&self) -> Option<VectorN<f64, U15>> {
+    fn residuals(&self) -> Option<OVector<f64, U15>> {
         const Y1: [f64; 15] = [
             0.14, 0.18, 0.22, 0.25, 0.29,
             0.32, 0.35, 0.39, 0.37, 0.58,
             0.73, 0.96, 1.34, 2.10, 4.39,
         ];
         let p = &self.params;
-        Some(VectorN::<f64, U15>::from_fn(|i, _j| {
+        Some(OVector::<f64, U15>::from_fn(|i, _j| {
             let tmp2 = (15 - i) as f64;
             let tmp3 = if i > 7 { tmp2 } else { (i + 1) as f64 };
             Y1[i] - (p[0] + (i + 1) as f64 / (p[1] * tmp2 + p[2] * tmp3))
@@ -384,9 +390,9 @@ impl LeastSquaresProblem<f64, U15, U3> for Bard {
     }
 
     #[rustfmt::skip]
-    fn jacobian(&self) -> Option<MatrixMN<f64, U15, U3>> {
+    fn jacobian(&self) -> Option<OMatrix<f64, U15, U3>> {
         let p = &self.params;
-        Some(MatrixMN::<f64, U15, U3>::from_fn(|i, j| {
+        Some(OMatrix::<f64, U15, U3>::from_fn(|i, j| {
             let tmp2 = (15 - i) as f64;
             let tmp3 = if i > 7 { tmp2 } else { (i + 1) as f64 };
             let tmp4 = (p[1] * tmp2 + p[2] * tmp3).powi(2);
@@ -402,7 +408,7 @@ impl LeastSquaresProblem<f64, U15, U3> for Bard {
 
 #[derive(Clone)]
 struct KowalikOsborne {
-    params: VectorN<f64, U4>,
+    params: OVector<f64, U4>,
 }
 const V: [f64; 11] = [
     4., 2., 1., 0.5, 0.25, 0.167, 0.125, 0.1, 0.0833, 0.0714, 0.0625,
@@ -415,18 +421,18 @@ impl LeastSquaresProblem<f64, U11, U4> for KowalikOsborne {
     type ResidualStorage = Owned<f64, U11>;
     type JacobianStorage = Owned<f64, U11, U4>;
 
-    fn set_params(&mut self, params: &VectorN<f64, U4>) {
+    fn set_params(&mut self, params: &OVector<f64, U4>) {
         self.params.copy_from(params);
     }
 
-    fn params(&self) -> VectorN<f64, U4> {
+    fn params(&self) -> OVector<f64, U4> {
         self.params
     }
 
     #[rustfmt::skip]
-    fn residuals(&self) -> Option<VectorN<f64, U11>> {
+    fn residuals(&self) -> Option<OVector<f64, U11>> {
         let p = &self.params;
-        Some(VectorN::<f64, U11>::from_fn(|i, _j| {
+        Some(OVector::<f64, U11>::from_fn(|i, _j| {
             let tmp1 = V[i] * (V[i] + p[1]);
             let tmp2 = V[i] * (V[i] + p[2]) + p[3];
             Y2[i] - p[0] * tmp1 / tmp2
@@ -434,9 +440,9 @@ impl LeastSquaresProblem<f64, U11, U4> for KowalikOsborne {
     }
 
     #[rustfmt::skip]
-    fn jacobian(&self) -> Option<MatrixMN<f64, U11, U4>> {
+    fn jacobian(&self) -> Option<OMatrix<f64, U11, U4>> {
         let p = &self.params;
-        Some(MatrixMN::<f64, U11, U4>::from_fn(|i, j| {
+        Some(OMatrix::<f64, U11, U4>::from_fn(|i, j| {
             let tmp1 = V[i] * (V[i] + p[1]);
             let tmp2 = V[i] * (V[i] + p[2]) + p[3];
             match j {
@@ -459,34 +465,34 @@ const Y3: [f64; 16] = [
 ];
 #[derive(Clone)]
 struct Meyer {
-    params: VectorN<f64, U3>,
+    params: OVector<f64, U3>,
 }
 impl LeastSquaresProblem<f64, U16, U3> for Meyer {
     type ParameterStorage = Owned<f64, U3>;
     type ResidualStorage = Owned<f64, U16>;
     type JacobianStorage = Owned<f64, U16, U3>;
 
-    fn set_params(&mut self, params: &VectorN<f64, U3>) {
+    fn set_params(&mut self, params: &OVector<f64, U3>) {
         self.params.copy_from(params);
     }
 
-    fn params(&self) -> VectorN<f64, U3> {
+    fn params(&self) -> OVector<f64, U3> {
         self.params
     }
 
     #[rustfmt::skip]
-    fn residuals(&self) -> Option<VectorN<f64, U16>> {
+    fn residuals(&self) -> Option<OVector<f64, U16>> {
         let p = &self.params;
-        Some(VectorN::<f64, U16>::from_fn(|i, _j| {
+        Some(OVector::<f64, U16>::from_fn(|i, _j| {
             let temp = 5. * (i + 1) as f64 + 45. + p[2];
             p[0] * (p[1] / temp).exp() - Y3[i]
         }))
     }
 
     #[rustfmt::skip]
-    fn jacobian(&self) -> Option<MatrixMN<f64, U16, U3>> {
+    fn jacobian(&self) -> Option<OMatrix<f64, U16, U3>> {
         let p = &self.params;
-        Some(MatrixMN::<f64, U16, U3>::from_fn(|i, j| {
+        Some(OMatrix::<f64, U16, U3>::from_fn(|i, j| {
             let temp = 5. * (i + 1) as f64 + 45. + p[2];
             let tmp1 = p[1] / temp;
             let tmp2 = tmp1.exp();
@@ -505,14 +511,14 @@ struct Watson<P: DimName>
 where
     DefaultAllocator: Allocator<f64, P>,
 {
-    params: VectorN<f64, P>,
+    params: OVector<f64, P>,
 }
 
 impl<P: DimName> Watson<P>
 where
     DefaultAllocator: Allocator<f64, P>,
 {
-    fn new(params: VectorN<f64, P>, _n: usize) -> Self {
+    fn new(params: OVector<f64, P>, _n: usize) -> Self {
         Self { params }
     }
 }
@@ -525,31 +531,31 @@ where
     type ResidualStorage = Owned<f64, U31>;
     type JacobianStorage = Owned<f64, U31, P>;
 
-    fn set_params(&mut self, params: &VectorN<f64, P>) {
+    fn set_params(&mut self, params: &OVector<f64, P>) {
         self.params.copy_from(params);
     }
 
-    fn params(&self) -> VectorN<f64, P> {
+    fn params(&self) -> OVector<f64, P> {
         self.params.clone()
     }
 
     #[rustfmt::skip]
-    fn residuals(&self) -> Option<VectorN<f64, U31>> {
+    fn residuals(&self) -> Option<OVector<f64, U31>> {
         let params = &self.params;
-        let div = VectorN::<f64, U29>::from_fn(|i,_| (i + 1) as f64 / 29.);
-        let mut s1 = VectorN::<f64, U29>::zeros();
-        let mut dx = VectorN::<f64, U29>::from_element(1.);
+        let div = OVector::<f64, U29>::from_fn(|i,_| (i + 1) as f64 / 29.);
+        let mut s1 = OVector::<f64, U29>::zeros();
+        let mut dx = OVector::<f64, U29>::from_element(1.);
         for (j, p) in params.iter().enumerate().skip(1) {
             s1 += (j as f64 * *p) * dx;
             dx.component_mul_assign(&div);
         }
-        let mut s2 = VectorN::<f64, U29>::zeros();
-        let mut dx = VectorN::<f64, U29>::from_element(1.);
+        let mut s2 = OVector::<f64, U29>::zeros();
+        let mut dx = OVector::<f64, U29>::from_element(1.);
         for p in params.iter() {
             s2 += dx * *p;
             dx.component_mul_assign(&div);
         }
-        let mut residuals = VectorN::<f64, U31>::zeros();
+        let mut residuals = OVector::<f64, U31>::zeros();
         s1.cmpy(-1., &s2, &s2, 1.);
         s1.apply(|x| x - 1.);
         residuals.rows_range_mut(..29).copy_from(&s1);
@@ -559,21 +565,21 @@ where
     }
 
     #[rustfmt::skip]
-    fn jacobian(&self) -> Option<MatrixMN<f64, U31, P>> {
+    fn jacobian(&self) -> Option<OMatrix<f64, U31, P>> {
         let params = &self.params;
-        let div = VectorN::<f64, U29>::from_fn(|i,_| (i + 1) as f64 / 29.);
-        let mut s2 = VectorN::<f64, U29>::zeros();
-        let mut dx = VectorN::<f64, U29>::from_element(1.);
+        let div = OVector::<f64, U29>::from_fn(|i,_| (i + 1) as f64 / 29.);
+        let mut s2 = OVector::<f64, U29>::zeros();
+        let mut dx = OVector::<f64, U29>::from_element(1.);
         for p in params.iter() {
             s2 += dx * *p;
             dx.component_mul_assign(&div);
         }
-        let mut temp = VectorN::<f64, U29>::zeros();
+        let mut temp = OVector::<f64, U29>::zeros();
         temp.cmpy(2., &div, &s2, 0.);
         dx.copy_from(&div);
         dx.apply(|x| x.recip());
 
-        let mut jac = MatrixMN::<f64, U31, P>::zeros();
+        let mut jac = OMatrix::<f64, U31, P>::zeros();
         for j in 0..params.len() {
             let mut col = jac.column_mut(j);
             let mut col_slice = col.rows_range_mut(..29);
@@ -590,7 +596,7 @@ where
 
 #[derive(Clone)]
 struct Beale {
-    params: VectorN<f64, U2>,
+    params: OVector<f64, U2>,
 }
 
 impl LeastSquaresProblem<f64, U1, U2> for Beale {
@@ -598,15 +604,15 @@ impl LeastSquaresProblem<f64, U1, U2> for Beale {
     type ResidualStorage = Owned<f64, U1>;
     type JacobianStorage = Owned<f64, U1, U2>;
 
-    fn set_params(&mut self, params: &VectorN<f64, U2>) {
+    fn set_params(&mut self, params: &OVector<f64, U2>) {
         self.params.copy_from(params);
     }
 
-    fn params(&self) -> VectorN<f64, U2> {
+    fn params(&self) -> OVector<f64, U2> {
         self.params
     }
 
-    fn residuals(&self) -> Option<VectorN<f64, U1>> {
+    fn residuals(&self) -> Option<OVector<f64, U1>> {
         let p = self.params;
         Some(Vector1::new(
             (1.5 - p[0] + p[0] * p[1]).powi(2) + (2.25 - p[0] + p[0] * (p[1] * p[1])).powi(2),
@@ -614,7 +620,7 @@ impl LeastSquaresProblem<f64, U1, U2> for Beale {
     }
 
     #[rustfmt::skip]
-    fn jacobian(&self) -> Option<MatrixMN<f64, U1, U2>> {
+    fn jacobian(&self) -> Option<OMatrix<f64, U1, U2>> {
         let x = self.params[0];
         let y = self.params[1];
         let y3 = y * y * y;

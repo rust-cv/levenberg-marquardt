@@ -16,17 +16,17 @@ default = []
 minpack-compat = []
 
 [dependencies]
-nalgebra = { version = "0.25.3", default-features = false }
+nalgebra = { version = "0.27.1", default-features = false }
 num-traits = { version = "0.2.14", default-features = false, features = ["libm"] }
 cfg-if = "1.0.0"
 
 [dev-dependencies]
-arrsac = "0.6.1"
-rand = { version = "0.8.3", default-features = false }
-nalgebra = "0.25.3"
+arrsac = "0.7.0"
+rand = { version = "0.8.4", default-features = false }
+nalgebra = "0.27.1"
 pcg_rand = "0.13.0"
 sample-consensus = "1.0.1"
-approx = "0.4.0"
+approx = "0.5.0"
 
 [build-dependencies]
 rustc_version = "0.3.3"
