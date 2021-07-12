@@ -1,4 +1,5 @@
 # This builds for armv7a-none-eabi to ensure we can build with no-std.
+# It will fail if there is a dependency on std, as armv7a-none-eabi has no std.
 
 on: [push, pull_request]
 
@@ -6,15 +7,21 @@ name: no-std
 
 jobs:
   build:
-    name: Build
+    name: no-std
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           target: armv7a-none-eabi
           override: true
+
+      - uses: Swatinem/rust-cache@v1
+        with:
+          cache-on-failure: true
+
       - uses: actions-rs/cargo@v1
         with:
           command: rustc
