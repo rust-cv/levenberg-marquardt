@@ -2,8 +2,8 @@ use crate::LeastSquaresProblem;
 use alloc::{format, string::String};
 use core::cell::RefCell;
 use nalgebra::{
-    allocator::Allocator, convert, storage::Storage, Complex, ComplexField, DefaultAllocator, Dim,
-    Matrix, OMatrix, RealField, Vector, U1,
+    allocator::Allocator, convert, storage::RawStorage, storage::Storage, Complex, ComplexField,
+    DefaultAllocator, Dim, Matrix, OMatrix, RealField, Vector, U1,
 };
 use num_traits::float::Float;
 
@@ -64,7 +64,7 @@ cfg_if::cfg_if! {
 /// #     p: Vector2<F>,
 /// # }
 /// #
-/// # impl<F: ComplexField> LeastSquaresProblem<F, U2, U2> for ExampleProblem<F> {
+/// # impl<F: ComplexField + Copy> LeastSquaresProblem<F, U2, U2> for ExampleProblem<F> {
 /// #     type ParameterStorage = Owned<F, U2>;
 /// #     type ResidualStorage = Owned<F, U2>;
 /// #     type JacobianStorage = Owned<F, U2, U2>;
@@ -104,7 +104,7 @@ pub fn differentiate_numerically<F, N, M, O>(
     problem: &mut O,
 ) -> Option<Matrix<F, M, N, O::JacobianStorage>>
 where
-    F: RealField + Float,
+    F: RealField + Float + Copy,
     N: Dim,
     M: Dim,
     O: LeastSquaresProblem<F, M, N>,
@@ -163,7 +163,7 @@ where
 /// }
 ///
 /// // Implement LeastSquaresProblem to be usable with complex numbers
-/// impl<F: ComplexField> LeastSquaresProblem<F, U2, U2> for ExampleProblem<F> {
+/// impl<F: ComplexField + Copy> LeastSquaresProblem<F, U2, U2> for ExampleProblem<F> {
 ///     // ... omitted ...
 /// #     type ParameterStorage = Owned<F, U2>;
 /// #     type ResidualStorage = Owned<F, U2>;
@@ -213,7 +213,7 @@ pub fn differentiate_holomorphic_numerically<F, N, M, O>(
     problem: &mut O,
 ) -> Option<OMatrix<F, M, N>>
 where
-    F: RealField,
+    F: RealField + Copy,
     N: Dim,
     M: Dim,
     O: LeastSquaresProblem<Complex<F>, M, N>,
@@ -275,7 +275,7 @@ pub(crate) fn dwarf<F: Float>() -> F {
 #[inline]
 pub(crate) fn enorm<F, N, VS>(v: &Vector<F, N, VS>) -> F
 where
-    F: nalgebra::RealField + Float,
+    F: nalgebra::RealField + Float + Copy,
     N: Dim,
     VS: Storage<F, N, U1>,
 {
@@ -339,7 +339,7 @@ where
 /// Dot product between two vectors
 pub(crate) fn dot<F, N, AS, BS>(a: &Vector<F, N, AS>, b: &Vector<F, N, BS>) -> F
 where
-    F: nalgebra::RealField,
+    F: nalgebra::RealField + Copy,
     N: Dim,
     AS: Storage<F, N, U1>,
     BS: Storage<F, N, U1>,

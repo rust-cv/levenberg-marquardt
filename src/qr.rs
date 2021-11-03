@@ -11,7 +11,7 @@ use core::iter::repeat;
 use nalgebra::{
     allocator::{Allocator, Reallocator},
     convert,
-    storage::{ContiguousStorageMut, Storage},
+    storage::{IsContiguous, RawStorage, RawStorageMut, Storage},
     DefaultAllocator, Dim, DimMax, DimMaximum, DimMin, Matrix, OMatrix, OVector, Vector,
 };
 use num_traits::Float;
@@ -29,10 +29,10 @@ use crate::utils::{dot, enorm, epsmch};
 /// ```
 pub struct PivotedQR<F, M, N, S>
 where
-    F: nalgebra::RealField + Float,
+    F: nalgebra::RealField + Float + Copy,
     M: Dim + DimMin<N>,
     N: Dim,
-    S: ContiguousStorageMut<F, M, N>,
+    S: RawStorageMut<F, M, N> + IsContiguous,
     DefaultAllocator: Allocator<F, N> + Allocator<usize, N>,
 {
     /// The column norms of the input matrix `$\mathbf{A}$`
@@ -50,10 +50,10 @@ where
 
 impl<F, M, N, S> PivotedQR<F, M, N, S>
 where
-    F: nalgebra::RealField + Float,
+    F: nalgebra::RealField + Float + Copy,
     M: Dim + DimMin<N> + DimMax<N>,
     N: Dim,
-    S: ContiguousStorageMut<F, M, N>,
+    S: RawStorageMut<F, M, N> + Storage<F, M, N> + IsContiguous,
     DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N> + Allocator<usize, N>,
 {
     /// Create a pivoted QR decomposition of a matrix `$\mathbf{A}\in\R^{m\times n}$`.
@@ -134,7 +134,7 @@ where
         mut b: Vector<F, M, QS>,
     ) -> LinearLeastSquaresDiagonalProblem<F, M, N>
     where
-        QS: ContiguousStorageMut<F, M>,
+        QS: RawStorageMut<F, M> + IsContiguous,
         DefaultAllocator: Reallocator<F, M, N, DimMaximum<M, N>, N>,
     {
         // compute first n-entries of Q^T * b
@@ -200,7 +200,7 @@ where
 /// [`into_least_squares_diagonal_problem`](struct.PivotedQR.html#into_least_squares_diagonal_problem).
 pub struct LinearLeastSquaresDiagonalProblem<F, M, N>
 where
-    F: nalgebra::RealField + Float,
+    F: nalgebra::RealField + Float + Copy,
     M: Dim + DimMax<N>,
     N: Dim,
     DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N> + Allocator<usize, N>,
@@ -221,7 +221,7 @@ where
 
 pub struct CholeskyFactor<'a, F, M, N>
 where
-    F: nalgebra::RealField,
+    F: nalgebra::RealField + Copy,
     M: Dim + DimMax<N>,
     N: Dim,
     DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N> + Allocator<usize, N>,
@@ -236,7 +236,7 @@ where
 
 impl<'a, F, M, N> CholeskyFactor<'a, F, M, N>
 where
-    F: nalgebra::RealField,
+    F: nalgebra::RealField + Copy,
     M: Dim + DimMin<N> + DimMax<N>,
     N: Dim,
     DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N> + Allocator<usize, N>,
@@ -294,7 +294,7 @@ where
 
 impl<F, M, N> LinearLeastSquaresDiagonalProblem<F, M, N>
 where
-    F: nalgebra::RealField + Float,
+    F: nalgebra::RealField + Float + Copy,
     M: Dim + DimMin<N> + DimMax<N>,
     N: Dim,
     DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N> + Allocator<usize, N>,

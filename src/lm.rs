@@ -4,9 +4,7 @@ use crate::utils::{enorm, epsmch};
 use crate::LeastSquaresProblem;
 use nalgebra::{
     allocator::{Allocator, Reallocator},
-    convert,
-    storage::Storage,
-    DefaultAllocator, Dim, DimMax, DimMaximum, DimMin, Matrix, OVector, RealField, Vector,
+    convert, DefaultAllocator, Dim, DimMax, DimMaximum, DimMin, Matrix, OVector, RealField, Vector,
 };
 use num_traits::Float;
 
@@ -300,7 +298,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
 /// Struct which holds the state of the LM algorithm and which implements its individual steps.
 struct LM<'a, F, N, M, O>
 where
-    F: RealField,
+    F: RealField + Copy,
     N: Dim,
     M: DimMin<N> + DimMax<N>,
     O: LeastSquaresProblem<F, M, N>,
@@ -333,7 +331,7 @@ where
 
 impl<'a, F, N, M, O> LM<'a, F, N, M, O>
 where
-    F: RealField + Float,
+    F: RealField + Float + Copy,
     N: Dim,
     M: DimMin<N> + DimMax<N>,
     O: LeastSquaresProblem<F, M, N>,
@@ -367,7 +365,7 @@ where
         };
 
         // Initialize diagonal
-        let n = x.data.shape().0;
+        let n = x.shape_generic().0;
         let diag = OVector::<F, N>::from_element_generic(n, Dim::from_usize(1), F::one());
         // Check n > 0
         if diag.nrows() == 0 {
