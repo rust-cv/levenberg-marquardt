@@ -691,30 +691,57 @@ fn test_meyer() {
             }
         );
         assert_eq!(report.number_of_evaluations, 126);
-        assert_fp_eq!(report.objective_function, 43.972927585339875);
-        assert_fp_eq!(
-            problem.params,
-            OVector::<f64, U3>::from_column_slice(&[
-                5.609636471027749e-03,
-                6.181346346286417e+03,
-                3.452236346241380e+02
-            ])
-        );
+        // On apple silicon the results are slightly different.
+        if cfg!(target_arch = "aarch64") {
+            assert_fp_eq!(report.objective_function, 43.97292758539293);
+            assert_fp_eq!(
+                problem.params,
+                OVector::<f64, U3>::from_column_slice(&[
+                    0.00560963647102722,
+                    6181.346346286496,
+                    345.22363462414063
+                ])
+            );
+        } else {
+            assert_fp_eq!(report.objective_function, 43.972927585339875);
+            assert_fp_eq!(
+                problem.params,
+                OVector::<f64, U3>::from_column_slice(&[
+                    5.609636471027749e-03,
+                    6.181346346286417e+03,
+                    3.452236346241380e+02
+                ])
+            );
+        }
         problem.set_params(&initial.map(|x| x * 10.));
         let (problem, report) = LevenbergMarquardt::new()
             .with_tol(TOL)
             .minimize(problem.clone());
         assert_eq!(report.termination, TerminationReason::LostPatience);
         assert_eq!(report.number_of_evaluations, 400);
-        assert_fp_eq!(report.objective_function, 324272.8973474361);
-        assert_fp_eq!(
-            problem.params,
-            OVector::<f64, U3>::from_column_slice(&[
-                6.825630280624222e-12,
-                3.514598925134810e+04,
-                9.220430560142615e+02
-            ])
-        );
+
+        // This is totally different on apple silicon.
+        if cfg!(target_arch = "aarch64") {
+            assert_fp_eq!(report.objective_function, 324272.89947296394);
+            assert_fp_eq!(
+                problem.params,
+                OVector::<f64, U3>::from_column_slice(&[
+                    6.825629173454029e-12,
+                    35145.98957474829,
+                    922.0430605977915
+                ])
+            );
+        } else {
+            assert_fp_eq!(report.objective_function, 324272.8973474361);
+            assert_fp_eq!(
+                problem.params,
+                OVector::<f64, U3>::from_column_slice(&[
+                    6.825630280624222e-12,
+                    3.514598925134810e+04,
+                    9.220430560142615e+02
+                ])
+            );
+        }
     } else {
         problem.set_params(&initial.clone());
         let (mut problem, report) = LevenbergMarquardt::new()
@@ -741,6 +768,7 @@ fn test_meyer() {
             ])
         );
         problem.set_params(&initial.map(|x| x * 10.));
+        #[allow(unused_variables)]
         let (problem, report) = LevenbergMarquardt::new()
             .with_tol(TOL)
             .minimize(problem.clone());

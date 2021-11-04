@@ -22,6 +22,9 @@ cfg_if::cfg_if! {
             ($given:expr, $expected:expr) => {
                 assert_relative_eq!($given, $expected, epsilon = 1e-12)
             };
+            ($given:expr, $expected:expr, $ep:expr) => {
+                assert_relative_eq!($given, $expected, epsilon = $ep)
+            };
         }
     }
 }
