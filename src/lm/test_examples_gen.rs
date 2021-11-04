@@ -677,12 +677,13 @@ fn test_meyer() {
     let jac_trait = problem.jacobian().unwrap();
     assert_relative_eq!(jac_num, jac_trait, epsilon = 1e-5);
 
+    problem.set_params(&initial.clone());
+    let (mut problem, report) = LevenbergMarquardt::new()
+        .with_tol(TOL)
+        .minimize(problem.clone());
+
     // Apple's exp function produces a different approximation
     if cfg!(target_os = "macos") {
-        problem.set_params(&initial.clone());
-        let (mut problem, report) = LevenbergMarquardt::new()
-            .with_tol(TOL)
-            .minimize(problem.clone());
         assert_eq!(
             report.termination,
             TerminationReason::Converged {
@@ -743,10 +744,6 @@ fn test_meyer() {
             );
         }
     } else {
-        problem.set_params(&initial.clone());
-        let (mut problem, report) = LevenbergMarquardt::new()
-            .with_tol(TOL)
-            .minimize(problem.clone());
         #[cfg(feature = "minpack-compat")]
         assert_eq!(
             report.termination,

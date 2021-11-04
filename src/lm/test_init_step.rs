@@ -29,7 +29,7 @@ fn nan_or_inf_none_residual() {
     );
     assert_eq!(err.number_of_evaluations, 1);
     assert_eq!(problem.calls(), [MockCall::Residuals].as_ref());
-    assert_eq!(err.objective_function, INFINITY);
+    assert!(err.objective_function.is_infinite());
 
     // residuals return nan
     let problem =
@@ -48,12 +48,13 @@ fn nan_or_inf_none_residual() {
 #[cfg(not(feature = "minpack-compat"))]
 fn already_zero() {
     use nalgebra::{Vector1, U1};
+    use num_traits::Zero;
     let problem = MockProblem::<U2, U3>::new(Vector2::zeros(), vec![Some(Vector3::zeros())]);
     let (mut problem, err) = LM::new(&LevenbergMarquardt::new(), problem).err().unwrap();
     assert_eq!(err.termination, TerminationReason::ResidualsZero);
     assert_eq!(err.number_of_evaluations, 1);
     assert_eq!(problem.calls(), [MockCall::Residuals].as_ref());
-    assert_eq!(err.objective_function, 0.);
+    assert!(err.objective_function.is_zero());
 
     let problem =
         MockProblem::<U1, U1>::new(Vector1::new(10.), vec![Some(Vector1::new(MIN_POSITIVE))]);
@@ -61,7 +62,7 @@ fn already_zero() {
     assert_eq!(err.termination, TerminationReason::ResidualsZero);
     assert_eq!(err.number_of_evaluations, 1);
     assert_eq!(problem.calls(), [MockCall::Residuals].as_ref());
-    assert_eq!(err.objective_function, 0.);
+    assert!(err.objective_function.is_zero());
 }
 
 #[test]
