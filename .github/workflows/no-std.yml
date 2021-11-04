@@ -1,28 +1,34 @@
-# This builds for armv7a-none-eabi to ensure we can build with no-std.
-# It will fail if there is a dependency on std, as armv7a-none-eabi has no std.
-
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
 
 name: no-std
 
 jobs:
-  build:
-    name: no-std
+  no-std-build:
+    name: Build for no_std
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout source
+        uses: actions/checkout@v2
 
-      - uses: actions-rs/toolchain@v1
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: stable
+          profile: minimal
           target: armv7a-none-eabi
           override: true
 
-      - uses: Swatinem/rust-cache@v1
+      - name: Set up cache
+        uses: Swatinem/rust-cache@v1
         with:
           cache-on-failure: true
 
-      - uses: actions-rs/cargo@v1
+      - name: Build and link test binary for armv7a-none-eabi
+        uses: actions-rs/cargo@v1
         with:
           command: rustc
           args: --target=armv7a-none-eabi --manifest-path=ensure_no_std/Cargo.toml

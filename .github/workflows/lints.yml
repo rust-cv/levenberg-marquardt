@@ -1,24 +1,29 @@
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
 
 name: lints
 
 jobs:
-  rustfmt:
-    name: rustfmt
+  combo:
+    name: Clippy + rustfmt
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout sources
+      - name: Checkout source
         uses: actions/checkout@v2
 
-      - name: Install nightly toolchain
+      - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
+          toolchain: stable
           profile: minimal
-          toolchain: nightly
           override: true
-          components: rustfmt
+          components: rustfmt, clippy
 
-      - uses: Swatinem/rust-cache@v1
+      - name: Set up cache
+        uses: Swatinem/rust-cache@v1
         with:
           cache-on-failure: true
 
@@ -27,27 +32,9 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
-  clippy:
-    name: clippy
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-
-      - name: Install nightly toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
-          components: clippy
-
-      - uses: Swatinem/rust-cache@v1
-        with:
-          cache-on-failure: true
 
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: -- -D warnings
+          args: --tests -- -D warnings

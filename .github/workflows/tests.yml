@@ -1,23 +1,28 @@
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
 
 name: tests
 
 jobs:
-  tests:
-    name: tests
+  test:
+    name: Test Suite
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout sources
+      - name: Checkout source
         uses: actions/checkout@v2
 
-      - name: Install nightly toolchain
+      - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
+          toolchain: stable
           profile: minimal
-          toolchain: nightly
           override: true
 
-      - uses: Swatinem/rust-cache@v1
+      - name: Set up cache
+        uses: Swatinem/rust-cache@v1
         with:
           cache-on-failure: true
 
@@ -25,3 +30,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
+          args: --all-features
