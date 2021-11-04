@@ -19,7 +19,7 @@ const STEP_RATIO: f64 = 2.;
 ///   with the step size. Half the step size and repeat for a fixed amount of steps.
 /// - Compute the Richardson extrapolation and perform Wynn's epsilon algorithm.
 /// - Compute an error estimate and return the approximation with minimal error.
-pub fn derivative<F: Float + RealField>(x: F, f: impl Fn(F) -> Option<F>) -> Option<F> {
+pub fn derivative<F: Float + RealField + Copy>(x: F, f: impl Fn(F) -> Option<F>) -> Option<F> {
     const STEPS: usize = 15;
     let step_ratio: F = convert(STEP_RATIO);
     let mut quotients = Vec::with_capacity(STEPS);
@@ -136,7 +136,7 @@ fn wynn_extrapolate<F: Float>(estimates: Vec<F>) -> Option<Vec<(F, F)>> {
     Some(derivatives)
 }
 
-fn richardson_extrapolate<F: RealField>(evaluations: Vec<F>) -> Option<Vec<F>> {
+fn richardson_extrapolate<F: RealField + Copy>(evaluations: Vec<F>) -> Option<Vec<F>> {
     const STEP: i32 = 2;
     const ORDER: i32 = 2;
     let step_ratio: F = convert(STEP_RATIO);

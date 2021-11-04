@@ -557,7 +557,7 @@ where
         }
         let mut residuals = OVector::<f64, U31>::zeros();
         s1.cmpy(-1., &s2, &s2, 1.);
-        s1.apply(|x| x - 1.);
+        s1.apply(|x| *x -= 1.);
         residuals.rows_range_mut(..29).copy_from(&s1);
         residuals[29] = params[0];
         residuals[30] = params[1] - params[0].powi(2) - 1.;
@@ -577,7 +577,7 @@ where
         let mut temp = OVector::<f64, U29>::zeros();
         temp.cmpy(2., &div, &s2, 0.);
         dx.copy_from(&div);
-        dx.apply(|x| x.recip());
+        dx.apply(|x| *x = x.recip());
 
         let mut jac = OMatrix::<f64, U31, P>::zeros();
         for j in 0..params.len() {

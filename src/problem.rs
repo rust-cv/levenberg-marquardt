@@ -1,4 +1,7 @@
-use nalgebra::{storage::ContiguousStorageMut, ComplexField, Dim, Matrix, Vector};
+use nalgebra::{
+    storage::{IsContiguous, RawStorageMut, Storage},
+    ComplexField, Dim, Matrix, Vector,
+};
 
 /// A least squares minimization problem.
 ///
@@ -7,15 +10,15 @@ use nalgebra::{storage::ContiguousStorageMut, ComplexField, Dim, Matrix, Vector}
 /// for a usage example.
 pub trait LeastSquaresProblem<F, M, N>
 where
-    F: ComplexField,
+    F: ComplexField + Copy,
     N: Dim,
     M: Dim,
 {
     /// Storage type used for the residuals. Use `nalgebra::storage::Owned<F, M>`
     /// if you want to use `VectorN` or `MatrixMN`.
-    type ResidualStorage: ContiguousStorageMut<F, M>;
-    type JacobianStorage: ContiguousStorageMut<F, M, N>;
-    type ParameterStorage: ContiguousStorageMut<F, N> + Clone;
+    type ResidualStorage: RawStorageMut<F, M> + Storage<F, M> + IsContiguous;
+    type JacobianStorage: RawStorageMut<F, M, N> + Storage<F, M, N> + IsContiguous;
+    type ParameterStorage: RawStorageMut<F, N> + Storage<F, N> + IsContiguous + Clone;
 
     /// Set the stored parameters `$\vec{x}$`.
     fn set_params(&mut self, x: &Vector<F, N, Self::ParameterStorage>);
