@@ -1,6 +1,6 @@
 # levenberg-marquardt
 
-[![Discord][dci]][dcl] [![Crates.io][ci]][cl] ![MIT/Apache][li] [![docs.rs][di]][dl] ![LoC][lo] ![Tests][btl] ![Lints][bll] ![no_std][bnl]
+[![Discord][dci]][dcl] [![Crates.io][ci]][cl] ![MIT/Apache][li] [![docs.rs][di]][dl] ![LoC][lo] ![ci][bci]
 
 [ci]: https://img.shields.io/crates/v/levenberg-marquardt.svg
 [cl]: https://crates.io/crates/levenberg-marquardt/
@@ -15,9 +15,7 @@
 [dci]: https://img.shields.io/discord/550706294311485440.svg?logo=discord&colorB=7289DA
 [dcl]: https://discord.gg/d32jaam
 
-[btl]: https://github.com/rust-cv/levenberg-marquardt/workflows/tests/badge.svg
-[bll]: https://github.com/rust-cv/levenberg-marquardt/workflows/lints/badge.svg
-[bnl]: https://github.com/rust-cv/levenberg-marquardt/workflows/no-std/badge.svg
+[bci]: https://github.com/rust-cv/levenberg-marquardt/workflows/ci/badge.svg
 
 Solver for nonlinear least squares problems
 

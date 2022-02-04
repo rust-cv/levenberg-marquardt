@@ -1,0 +1,89 @@
+name: ci
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  lints:
+    name: lints
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install beta toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: beta
+          override: true
+          components: rustfmt, clippy
+
+      - name: Set up cache
+        uses: Swatinem/rust-cache@v1
+        with:
+          cache-on-failure: true
+
+      - name: Run cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+      - name: Run cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --tests -- -D warnings
+
+  no_std:
+    name: no_std
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install beta toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: beta
+          target: armv7a-none-eabi
+          override: true
+
+      - name: Set up cache
+        uses: Swatinem/rust-cache@v1
+        with:
+          cache-on-failure: true
+
+      - name: Build binary for armv7a-none-eabi
+        uses: actions-rs/cargo@v1
+        with:
+          command: rustc
+          args: --target=armv7a-none-eabi --manifest-path=ensure_no_std/Cargo.toml
+
+  tests:
+    name: tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install beta toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: beta
+          override: true
+
+      - name: Set up cache
+        uses: Swatinem/rust-cache@v1
+        with:
+          cache-on-failure: true
+
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
