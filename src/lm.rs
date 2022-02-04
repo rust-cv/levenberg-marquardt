@@ -149,6 +149,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
     /// # Panics
     ///
     /// Panics if `$\mathtt{ftol} < 0$`.
+    #[must_use]
     pub fn with_ftol(self, ftol: F) -> Self {
         assert!(!ftol.is_negative(), "ftol must be >= 0");
         Self { ftol, ..self }
@@ -162,6 +163,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
     /// # Panics
     ///
     /// Panics if `$\mathtt{xtol} < 0$`.
+    #[must_use]
     pub fn with_xtol(self, xtol: F) -> Self {
         assert!(!xtol.is_negative(), "xtol must be >= 0");
         Self { xtol, ..self }
@@ -187,6 +189,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
     /// # Panics
     ///
     /// Panics if `$\mathtt{gtol} < 0$`.
+    #[must_use]
     pub fn with_gtol(self, gtol: F) -> Self {
         assert!(!gtol.is_negative(), "gtol must be >= 0");
         Self { gtol, ..self }
@@ -199,6 +202,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
     /// # Panics
     ///
     /// Panics if `$\mathtt{tol} \leq 0$`.
+    #[must_use]
     pub fn with_tol(self, tol: F) -> Self {
         assert!(tol.is_positive(), "tol must > 0");
         Self {
@@ -218,6 +222,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
     /// # Panics
     ///
     /// Panics if `$\mathtt{stepbound} \leq 0$`.
+    #[must_use]
     pub fn with_stepbound(self, stepbound: F) -> Self {
         assert!(stepbound.is_positive(), "stepbound must be > 0");
         Self { stepbound, ..self }
@@ -231,12 +236,14 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
     /// # Panics
     ///
     /// Panics if `$\mathtt{patience} \leq 0$`.
+    #[must_use]
     pub fn with_patience(self, patience: usize) -> Self {
         assert!(patience > 0, "patience must be > 0");
         Self { patience, ..self }
     }
 
     /// Enable or disable whether the variables will be rescaled internally.
+    #[must_use]
     pub fn with_scale_diag(self, scale_diag: bool) -> Self {
         Self { scale_diag, ..self }
     }
