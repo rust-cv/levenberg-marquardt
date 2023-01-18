@@ -255,11 +255,9 @@ where
                     *x /= *self.l_diag.vget_unchecked(j);
                     *x
                 };
-                self.work.view_range_mut(j + 1.., 0).axpy(
-                    -x,
-                    &l.view_range(j + 1.., j),
-                    F::one(),
-                );
+                self.work
+                    .view_range_mut(j + 1.., 0)
+                    .axpy(-x, &l.view_range(j + 1.., j), F::one());
             }
         } else {
             for (j, col) in l.column_iter().enumerate() {
