@@ -3,7 +3,7 @@ use levenberg_marquardt::{LeastSquaresProblem, LevenbergMarquardt};
 use nalgebra::{
     dimension::{U1, U2},
     storage::Owned,
-    Dim, Dynamic, Matrix, Matrix2, OMatrix, VecStorage, Vector2,
+    Dim, Dyn, Matrix, Matrix2, OMatrix, VecStorage, Vector2,
 };
 use pcg_rand::Pcg64;
 use rand::distributions::Uniform;
@@ -92,10 +92,10 @@ struct LineFittingOptimizationProblem<'a> {
     model: Line,
 }
 
-impl<'a> LeastSquaresProblem<F, Dynamic, U2> for LineFittingOptimizationProblem<'a> {
+impl<'a> LeastSquaresProblem<F, Dyn, U2> for LineFittingOptimizationProblem<'a> {
     type ParameterStorage = Owned<F, U2, U1>;
-    type JacobianStorage = Owned<F, Dynamic, U2>;
-    type ResidualStorage = VecStorage<F, Dynamic, U1>;
+    type JacobianStorage = Owned<F, Dyn, U2>;
+    type ResidualStorage = VecStorage<F, Dyn, U1>;
 
     fn set_params(&mut self, p: &Vector2<F>) {
         self.model = Line::from_vec(*p);
@@ -105,7 +105,7 @@ impl<'a> LeastSquaresProblem<F, Dynamic, U2> for LineFittingOptimizationProblem<
         self.model.clone().into_vec()
     }
 
-    fn residuals(&self) -> Option<Matrix<F, Dynamic, U1, Self::ResidualStorage>> {
+    fn residuals(&self) -> Option<Matrix<F, Dyn, U1, Self::ResidualStorage>> {
         let residual_data = self
             .points
             .iter()
@@ -115,17 +115,17 @@ impl<'a> LeastSquaresProblem<F, Dynamic, U2> for LineFittingOptimizationProblem<
                 once(vec.x).chain(once(vec.y))
             })
             .collect();
-        Some(Matrix::<F, Dynamic, U1, Self::ResidualStorage>::from_vec(
+        Some(Matrix::<F, Dyn, U1, Self::ResidualStorage>::from_vec(
             residual_data,
         ))
     }
 
-    fn jacobian(&self) -> Option<OMatrix<F, Dynamic, U2>> {
+    fn jacobian(&self) -> Option<OMatrix<F, Dyn, U2>> {
         let u2 = Dim::from_usize(2);
-        let mut jacobian = OMatrix::zeros_generic(Dynamic::from_usize(self.points.len() * 2), u2);
+        let mut jacobian = OMatrix::zeros_generic(Dyn::from_usize(self.points.len() * 2), u2);
         for (i, point) in self.points.iter().enumerate() {
             jacobian
-                .slice_range_mut(2 * i..2 * (i + 1), ..)
+                .view_range_mut(2 * i..2 * (i + 1), ..)
                 .copy_from(&self.model.jacobian(*point));
         }
         Some(jacobian)
