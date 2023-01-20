@@ -371,7 +371,7 @@ pub(crate) fn float_repr<F: Float>(f: F) -> alloc::string::String {
                 if i == 0 { "" } else { ":" }
             );
         }
-        out += &format!(" ({:+.20E})", f);
+        out += &format!(" ({f:+.20E})");
     } else if bytes == 4 {
         out = String::with_capacity((4 * 2 + 4 - 1) + 17 + 3);
         let f = unsafe { *(&f as *const F as *const f32) };
@@ -383,7 +383,7 @@ pub(crate) fn float_repr<F: Float>(f: F) -> alloc::string::String {
                 if i == 0 { "" } else { ":" }
             );
         }
-        out += &format!(" ({:.10E})", f);
+        out += &format!(" ({f:.10E})");
     } else {
         unimplemented!()
     }
