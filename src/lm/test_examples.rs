@@ -193,7 +193,7 @@ impl LeastSquaresProblem<f64, Dyn, U5> for LinearRank1ZeroColumns {
         let m = Dyn::from_usize(self.m);
         let u5 = Dim::from_usize(5);
         Some(OMatrix::from_fn_generic(m, u5, |i, j| {
-            if i >= 1 && j >= 1 && j < 5 - 1 && i < self.m - 1 {
+            if i >= 1 && (1..5 - 1).contains(&j) && i < self.m - 1 {
                 ((j + 1) * i) as f64
             } else {
                 0.
