@@ -3,7 +3,7 @@ use approx::assert_relative_eq;
 #[cfg(not(feature = "minpack-compat"))]
 use core::f64::{INFINITY, MIN_POSITIVE, NAN};
 
-use nalgebra::{Dim, Dynamic, OMatrix, OVector, Vector2, Vector3, U0, U2, U3};
+use nalgebra::{Dim, Dyn, OMatrix, OVector, Vector2, Vector3, U0, U2, U3};
 
 use super::test_helpers::{MockCall, MockProblem};
 use super::{LevenbergMarquardt, TerminationReason, LM};
@@ -81,11 +81,11 @@ fn no_params() {
 #[test]
 fn wrong_dimensions() {
     // first return m=4 residuals, then m=5
-    let m1 = Dynamic::from_usize(4);
-    let m2 = Dynamic::from_usize(5);
+    let m1 = Dyn::from_usize(4);
+    let m2 = Dyn::from_usize(5);
     let u1 = Dim::from_usize(1);
     let u2 = Dim::from_usize(2);
-    let mut problem = MockProblem::<U2, Dynamic>::new(
+    let mut problem = MockProblem::<U2, Dyn>::new(
         OVector::zeros_generic(u2, u1),
         vec![
             Some(OVector::from_element_generic(m1, u1, 223.)),
@@ -102,7 +102,7 @@ fn wrong_dimensions() {
         TerminationReason::WrongDimensions("residuals")
     );
 
-    let mut problem = MockProblem::<U2, Dynamic>::new(
+    let mut problem = MockProblem::<U2, Dyn>::new(
         OVector::zeros_generic(u2, u1),
         vec![Some(OVector::from_element_generic(m1, u1, 223.))],
     );

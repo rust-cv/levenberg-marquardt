@@ -68,7 +68,7 @@ where
         let mut permutation = OVector::<usize, N>::from_iterator_generic(n, u1, 0..n.value());
         for j in 0..m.min(n).value() {
             // pivot
-            let kmax = r_diag.slice_range(j.., ..).imax() + j;
+            let kmax = r_diag.view_range(j.., ..).imax() + j;
             if kmax != j {
                 a.swap_columns(j, kmax);
                 permutation.swap_rows(j, kmax);
@@ -110,7 +110,7 @@ where
                 };
                 let z05: F = convert(0.05f64);
                 if z05 * Float::powi(*r_diagk / work[k], 2) <= epsmch() {
-                    *r_diagk = enorm(&col.slice_range(1.., ..));
+                    *r_diagk = enorm(&col.view_range(1.., ..));
                     work[k] = *r_diagk;
                 }
             }
@@ -150,7 +150,7 @@ where
                 .take(n.value()),
         );
         for j in 0..m.min(n).value() {
-            let axis = self.qr.slice_range(j.., j);
+            let axis = self.qr.view_range(j.., j);
             if !axis[0].is_zero() {
                 let temp = -dot(&b.rows_range(j..), &axis) / axis[0];
                 b.rows_range_mut(j..).axpy(temp, &axis, F::one());
@@ -255,11 +255,9 @@ where
                     *x /= *self.l_diag.vget_unchecked(j);
                     *x
                 };
-                self.work.slice_range_mut(j + 1.., 0).axpy(
-                    -x,
-                    &l.slice_range(j + 1.., j),
-                    F::one(),
-                );
+                self.work
+                    .view_range_mut(j + 1.., 0)
+                    .axpy(-x, &l.view_range(j + 1.., j), F::one());
             }
         } else {
             for (j, col) in l.column_iter().enumerate() {
@@ -379,7 +377,7 @@ where
         self.work.copy_from(&self.qt_b);
         let rank = self.r_rank();
         self.work.rows_range_mut(rank..).fill(F::zero());
-        l.slice_range(..rank, ..rank)
+        l.view_range(..rank, ..rank)
             .solve_upper_triangular_mut(&mut self.work.rows_range_mut(..rank));
         let mut x = OVector::<F, N>::zeros_generic(n, u1);
         for j in 0..n.value() {
@@ -428,13 +426,13 @@ where
         rhs.rows_range_mut(rank..).fill(F::zero());
 
         let (_m, n) = self.upper_r.data.shape();
-        let l = self.upper_r.generic_slice((0, 0), (n, n));
+        let l = self.upper_r.generic_view((0, 0), (n, n));
 
         // solve L^T * x = rhs
         for j in (0..rank).rev() {
             let dot = dot(
-                &l.slice_range(j + 1..rank, j),
-                &rhs.slice_range(j + 1..rank, 0),
+                &l.view_range(j + 1..rank, j),
+                &rhs.view_range(j + 1..rank, 0),
             );
             unsafe {
                 let x = rhs.vget_unchecked_mut(j);
@@ -468,7 +466,7 @@ where
         let (_m, n) = self.upper_r.data.shape();
         // only lower triangular part of self.upper_r is used in this function
         // we fill it now with R^T which is then iteratively overwritten with L.
-        let mut r_and_l = self.upper_r.generic_slice_mut((0, 0), (n, n));
+        let mut r_and_l = self.upper_r.generic_view_mut((0, 0), (n, n));
         r_and_l.fill_lower_triangle_with_upper_triangle();
         let mut r_and_l = self.upper_r.rows_generic_mut(0, n);
         // save diagonal of R so we can restore it later.
@@ -713,7 +711,7 @@ fn test_elimate_diag_and_l() {
         0.824564277241393,
         -0.000000000000001,
     );
-    let r = Matrix3::from_iterator(lls.upper_r.slice_range(..3, ..3).iter().copied());
+    let r = Matrix3::from_iterator(lls.upper_r.view_range(..3, ..3).iter().copied());
     assert_relative_eq!(r, r_ref);
 }
 
@@ -738,7 +736,7 @@ fn test_lls_x_2() {
 
     let rdiag_exp = Vector3::new(-44.068129073061407, 29.147349299100057, 0.);
     let rdiag_out =
-        Vector3::from_iterator(lls.upper_r.slice_range(..3, ..3).diagonal().iter().copied());
+        Vector3::from_iterator(lls.upper_r.view_range(..3, ..3).diagonal().iter().copied());
     assert_relative_eq!(rdiag_out, rdiag_exp);
 
     let diag = Vector3::new(2.772724292099739, 0.536656314599949, 0.089442719099992);

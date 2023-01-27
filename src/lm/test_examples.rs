@@ -44,10 +44,10 @@ impl LinearFullRank {
     }
 }
 
-impl LeastSquaresProblem<f64, Dynamic, U5> for LinearFullRank {
+impl LeastSquaresProblem<f64, Dyn, U5> for LinearFullRank {
     type ParameterStorage = Owned<f64, U5>;
-    type ResidualStorage = Owned<f64, Dynamic>;
-    type JacobianStorage = Owned<f64, Dynamic, U5>;
+    type ResidualStorage = Owned<f64, Dyn>;
+    type JacobianStorage = Owned<f64, Dyn, U5>;
 
     fn set_params(&mut self, params: &OVector<f64, U5>) {
         self.params.copy_from(params);
@@ -57,10 +57,10 @@ impl LeastSquaresProblem<f64, Dynamic, U5> for LinearFullRank {
         self.params
     }
 
-    fn residuals(&self) -> Option<OVector<f64, Dynamic>> {
-        let m = Dynamic::from_usize(self.m);
+    fn residuals(&self) -> Option<OVector<f64, Dyn>> {
+        let m = Dyn::from_usize(self.m);
         let u1 = Dim::from_usize(1);
-        let mut residuals = OVector::<f64, Dynamic>::from_element_generic(
+        let mut residuals = OVector::<f64, Dyn>::from_element_generic(
             m,
             u1,
             -2. * self.params.sum() / self.m as f64 - 1.,
@@ -75,8 +75,8 @@ impl LeastSquaresProblem<f64, Dynamic, U5> for LinearFullRank {
         Some(residuals)
     }
 
-    fn jacobian(&self) -> Option<OMatrix<f64, Dynamic, U5>> {
-        let m = Dynamic::from_usize(self.m);
+    fn jacobian(&self) -> Option<OMatrix<f64, Dyn, U5>> {
+        let m = Dyn::from_usize(self.m);
         let u5 = Dim::from_usize(5);
         let mut jacobian = OMatrix::from_element_generic(m, u5, -2. / self.m as f64);
         for i in 0..5 {
@@ -98,10 +98,10 @@ impl LinearRank1 {
     }
 }
 
-impl LeastSquaresProblem<f64, Dynamic, U5> for LinearRank1 {
+impl LeastSquaresProblem<f64, Dyn, U5> for LinearRank1 {
     type ParameterStorage = Owned<f64, U5>;
-    type ResidualStorage = Owned<f64, Dynamic>;
-    type JacobianStorage = Owned<f64, Dynamic, U5>;
+    type ResidualStorage = Owned<f64, Dyn>;
+    type JacobianStorage = Owned<f64, Dyn, U5>;
 
     fn set_params(&mut self, params: &OVector<f64, U5>) {
         self.params.copy_from(params);
@@ -111,8 +111,8 @@ impl LeastSquaresProblem<f64, Dynamic, U5> for LinearRank1 {
         self.params
     }
 
-    fn residuals(&self) -> Option<OVector<f64, Dynamic>> {
-        let m = Dynamic::from_usize(self.m);
+    fn residuals(&self) -> Option<OVector<f64, Dyn>> {
+        let m = Dyn::from_usize(self.m);
         let weighted_sum: f64 = self
             .params
             .iter()
@@ -120,15 +120,15 @@ impl LeastSquaresProblem<f64, Dynamic, U5> for LinearRank1 {
             .map(|(j, p)| (j + 1) as f64 * p)
             .sum();
         let u1 = Dim::from_usize(1);
-        Some(OVector::<f64, Dynamic>::from_iterator_generic(
+        Some(OVector::<f64, Dyn>::from_iterator_generic(
             m,
             u1,
             (0..self.m).map(|i| (i + 1) as f64 * weighted_sum - 1.),
         ))
     }
 
-    fn jacobian(&self) -> Option<OMatrix<f64, Dynamic, U5>> {
-        let m = Dynamic::from_usize(self.m);
+    fn jacobian(&self) -> Option<OMatrix<f64, Dyn, U5>> {
+        let m = Dyn::from_usize(self.m);
         let u5 = Dim::from_usize(5);
         Some(OMatrix::from_fn_generic(m, u5, |i, j| {
             ((i + 1) * (j + 1)) as f64
@@ -148,10 +148,10 @@ impl LinearRank1ZeroColumns {
     }
 }
 
-impl LeastSquaresProblem<f64, Dynamic, U5> for LinearRank1ZeroColumns {
+impl LeastSquaresProblem<f64, Dyn, U5> for LinearRank1ZeroColumns {
     type ParameterStorage = Owned<f64, U5>;
-    type ResidualStorage = Owned<f64, Dynamic>;
-    type JacobianStorage = Owned<f64, Dynamic, U5>;
+    type ResidualStorage = Owned<f64, Dyn>;
+    type JacobianStorage = Owned<f64, Dyn, U5>;
 
     fn set_params(&mut self, params: &OVector<f64, U5>) {
         self.params.copy_from(params);
@@ -161,8 +161,8 @@ impl LeastSquaresProblem<f64, Dynamic, U5> for LinearRank1ZeroColumns {
         self.params
     }
 
-    fn residuals(&self) -> Option<OVector<f64, Dynamic>> {
-        let m = Dynamic::from_usize(self.m);
+    fn residuals(&self) -> Option<OVector<f64, Dyn>> {
+        let m = Dyn::from_usize(self.m);
         let weighted_sum: f64 = self
             .params
             .iter()
@@ -176,7 +176,7 @@ impl LeastSquaresProblem<f64, Dynamic, U5> for LinearRank1ZeroColumns {
             })
             .sum();
         let u1 = Dim::from_usize(1);
-        Some(OVector::<f64, Dynamic>::from_iterator_generic(
+        Some(OVector::<f64, Dyn>::from_iterator_generic(
             m,
             u1,
             (0..self.m).map(|i| {
@@ -189,11 +189,11 @@ impl LeastSquaresProblem<f64, Dynamic, U5> for LinearRank1ZeroColumns {
         ))
     }
 
-    fn jacobian(&self) -> Option<OMatrix<f64, Dynamic, U5>> {
-        let m = Dynamic::from_usize(self.m);
+    fn jacobian(&self) -> Option<OMatrix<f64, Dyn, U5>> {
+        let m = Dyn::from_usize(self.m);
         let u5 = Dim::from_usize(5);
         Some(OMatrix::from_fn_generic(m, u5, |i, j| {
-            if i >= 1 && j >= 1 && j < 5 - 1 && i < self.m - 1 {
+            if i >= 1 && (1..5 - 1).contains(&j) && i < self.m - 1 {
                 ((j + 1) * i) as f64
             } else {
                 0.
