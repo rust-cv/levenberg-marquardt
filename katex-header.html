@@ -1,7 +1,11 @@
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.15.1/dist/katex.min.css" integrity="sha384-R4558gYOUz8mP9YWpZJjofhk+zx0AS11p36HnD2ZKj/6JR5z27gSSULCNHIRReVs" crossorigin="anonymous">
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.15.1/dist/katex.min.js" integrity="sha384-z1fJDqw8ZApjGO3/unPWUPsIymfsJmyrDVWC8Tv/a1HeOtGmkwNd/7xUS0Xcnvsx" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" integrity="sha384-GvrOXuhMATgEsSwCs4smul74iXGOixntILdUW9XmUC6+HX0sLNAK3q71HotJqlAn" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js" integrity="sha384-cpW21h6RZv/phavutF+AuVYrr+dA8xD9zs6FwLpaCct6O9ctzYFfFr4dgmgccOTx" crossorigin="anonymous"></script>
 <style type="text/css">
 .katex { font-size: 1.07em; }
+/* rustdoc uses "overflow-x: auto" which adds wrong scrollbars, cf. https://github.com/KaTeX/KaTeX/discussions/2942 */
+.docblock > :not(.more-examples-toggle):not(.example-wrap) {
+  overflow-x: visible;
+}
 </style>
 <script>
   "use strict";
@@ -21,7 +25,7 @@
       }
       let span = document.createElement("span");
       katex.render(text.substr(1, text.length - 2), span, {displayMode: false, throwOnError: false});
-      el.parentNode.replaceChild(span, el);
+      el.parentNode.replaceChild(span.firstChild, el);
     });
 
     // comment in code
