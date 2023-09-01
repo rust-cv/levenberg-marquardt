@@ -47,7 +47,7 @@ assert!(report.termination.was_successful());
 
 # References
 
-Sofware:
+Software:
 
 - The [MINPACK](https://www.netlib.org/minpack/) Fortran implementation.
 - A C version/update, [lmfit][lmfit].
@@ -59,7 +59,7 @@ One original reference for the algorithm seems to be
 
 by one of the authors of MINPACK.
 
-The algorihm is also described in the form as
+The algorithm is also described in the form as
 implemented by this crate in the [book "Numerical Optimization"](https://link.springer.com/book/10.1007%2F978-0-387-40065-5) by Nocedal and Wright, chapters 4 and 10.
 
-[lmfit]: https://github.com/pkgw/pwkit/blob/master/pwkit/lmmin.py
+[lmfit]: https://jugit.fz-juelich.de/mlz/lmfit

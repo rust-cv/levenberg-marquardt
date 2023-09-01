@@ -35,10 +35,10 @@ cfg_if::cfg_if! {
 /// You can try to check your derivative implementation of an
 /// [`LeastSquaresProblem`](trait.LeastSquaresProblem.html) with this.
 ///
-/// Computing the derivatives numerically is unstable: You can construct
+/// Computing the derivatives numerically is numerically unstable: You can construct
 /// functions where the computed result is far off. If you
 /// observe large differences between the derivative computed by this function
-/// and your implementation the reason _might_ be due to instabilty.
+/// and your implementation the reason _might_ be due to instability.
 ///
 /// The achieved precision by this function
 /// is lower than the floating point precision in general. So the error is bigger
