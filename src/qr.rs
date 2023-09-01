@@ -42,7 +42,7 @@ where
     qr: Matrix<F, M, N, S>,
     /// Diagonal entries of R
     r_diag: OVector<F, N>,
-    /// Permution matrix. Entry `$i$` specifies which column of the identity
+    /// Permutation matrix. Entry `$i$` specifies which column of the identity
     /// matrix to use.
     permutation: OVector<usize, N>,
     work: OVector<F, N>,
@@ -211,7 +211,7 @@ where
     upper_r: OMatrix<F, DimMaximum<M, N>, N>,
     /// Diagonal entries of `$\mathbf{L}$`.
     l_diag: OVector<F, N>,
-    /// Permution matrix. Entry `$i$` specifies which column of the identity
+    /// Permutation matrix. Entry `$i$` specifies which column of the identity
     /// matrix to use.
     permutation: OVector<usize, N>,
     pub(crate) column_norms: OVector<F, N>,
@@ -364,7 +364,7 @@ where
         mut out: OVector<F, N>,
     ) -> (OVector<F, N>, CholeskyFactor<F, M, N>) {
         out.copy_from(&self.qt_b);
-        let mut rhs = self.eliminate_diag(diag, out /* will be filled and returnd */);
+        let mut rhs = self.eliminate_diag(diag, out /* will be filled and returned */);
         core::mem::swap(&mut self.work, &mut rhs);
         self.solve_after_elimination(rhs)
     }

@@ -182,7 +182,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
     ///   \quad\text{for all }i=1,\ldots,n.
     /// ```
     ///
-    /// This is based on the fact that those vectors are orthognal near the optimum (gradient is zero).
+    /// This is based on the fact that those vectors are orthogonal near the optimum (gradient is zero).
     /// The angle check is scale invariant, whereas checking that
     /// `$\nabla f(\vec{x})\approx \vec{0}$` is not.
     ///
@@ -250,7 +250,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
 
     /// Try to solve the given least squares problem.
     ///
-    /// The paramters of the problem which are set when this function is called
+    /// The parameters of the problem which are set when this function is called
     /// are used as the initial guess for `$\vec{x}$`.
     pub fn minimize<N, M, O>(&self, target: O) -> (O, MinimizationReport<F>)
     where
@@ -290,7 +290,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
                     determine_lambda_and_parameter_update(&mut lls, &lm.diag, lm.delta, lm.lambda);
                 let tr_iteration = lm.trust_region_iteration(&mut lls, param);
                 match tr_iteration {
-                    // successful paramter update, break and recompute Jacobian
+                    // successful parameter update, break and recompute Jacobian
                     Ok(Some(residuals)) => break residuals,
                     // terminate (either success or failure)
                     Err(reason) => return lm.into_report(reason),
