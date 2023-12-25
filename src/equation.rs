@@ -13,12 +13,12 @@ use num_traits::Float;
 /// struct Problem;
 ///
 /// impl Equation<2, f64> for Problem {
-///     fn equation(ws: &[f64; 2], x: f64) -> f64 {
+///     fn equation(&self, ws: &[f64; 2], x: f64) -> f64 {
 ///         // This is our equation; we want to find the coefficients `ws`.
 ///         ws[0] * 2.0 * x + ws[1] * 0.5 * x.powi(2)
 ///     }
 ///
-///     fn derivatives(ws: &[f64; 2], x: f64) -> [f64; 2] {
+///     fn derivatives(&self, ws: &[f64; 2], x: f64) -> [f64; 2] {
 ///         // These are the partial derivatives of our equation, one for each coefficient.
 ///         [
 ///             2.0 * x,
@@ -32,10 +32,10 @@ use num_traits::Float;
 ///
 /// // ...and generate some data...
 /// let xs = [1.0, 10.0, 100.0];
-/// let ys = xs.map(|x| Problem::equation(&ws, x));
+/// let ys = xs.map(|x| Problem.equation(&ws, x));
 ///
 /// // Now we can run the LM algorithm to calculate the coefficients from the data.
-/// let ([w0, w1], _) = Problem::least_squares_fit(&xs, &ys, [1.5, 1.0]);
+/// let ([w0, w1], _) = Problem.least_squares_fit(&xs, &ys, [1.5, 1.0]);
 ///
 /// // They're the same as what we've picked!
 /// assert_relative_eq!(w0, 1.33);
@@ -43,15 +43,16 @@ use num_traits::Float;
 /// ```
 pub trait Equation<const N_PARAMS: usize, T> {
     /// The equation for which we want to find the coefficients `ws`.
-    fn equation(ws: &[T; N_PARAMS], x: T) -> T;
+    fn equation(&self, ws: &[T; N_PARAMS], x: T) -> T;
 
     /// The partial derivatives of the equation for which we want to find the coefficients `ws`.
-    fn derivatives(ws: &[T; N_PARAMS], x: T) -> [T; N_PARAMS];
+    fn derivatives(&self, ws: &[T; N_PARAMS], x: T) -> [T; N_PARAMS];
 
     /// Transforms this equation into a [`LeastSquaresProblem`].
     ///
     /// **This will panic if `xs` and `ys` are not of the same length!**
     fn as_least_squares_problem<'a>(
+        &'a self,
         xs: &'a [T],
         ys: &'a [T],
         initial_guess: [T; N_PARAMS],
@@ -61,10 +62,10 @@ pub trait Equation<const N_PARAMS: usize, T> {
         Self: 'a,
     {
         struct State<'a, const N_PARAMS: usize, T, E: ?Sized + Equation<N_PARAMS, T>> {
+            itself: &'a E,
             xs: &'a [T],
             ys: &'a [T],
             ws: [T; N_PARAMS],
-            _phantom: core::marker::PhantomData<&'a E>,
         }
 
         impl<'a, const N_PARAMS: usize, T, E> From<State<'a, N_PARAMS, T, E>> for [T; N_PARAMS]
@@ -104,7 +105,7 @@ pub trait Equation<const N_PARAMS: usize, T> {
                     self.xs
                         .iter()
                         .zip(self.ys.iter())
-                        .map(|(&x, &y)| y - E::equation(ws, x))
+                        .map(|(&x, &y)| y - self.itself.equation(ws, x))
                         .collect(),
                 )))
             }
@@ -114,7 +115,7 @@ pub trait Equation<const N_PARAMS: usize, T> {
                 let mut jacobian =
                     Matrix::zeros_generic(Dyn::from_usize(self.xs.len()), Const::<N_PARAMS>);
                 for (i, &x) in self.xs.iter().enumerate() {
-                    let derivatives = E::derivatives(ws, x);
+                    let derivatives = self.itself.derivatives(ws, x);
                     for n in 0..derivatives.len() {
                         jacobian[(i, n)] = -T::one() * derivatives[n];
                     }
@@ -126,10 +127,10 @@ pub trait Equation<const N_PARAMS: usize, T> {
 
         assert_eq!(xs.len(), ys.len());
         State::<N_PARAMS, T, Self> {
+            itself: self,
             xs,
             ys,
             ws: initial_guess,
-            _phantom: core::marker::PhantomData,
         }
     }
 
@@ -141,19 +142,20 @@ pub trait Equation<const N_PARAMS: usize, T> {
     /// # use levenberg_marquardt::{Equation, LevenbergMarquardt};
     /// # struct Problem;
     /// # impl Equation<2, f64> for Problem {
-    /// #     fn equation(ws: &[f64; 2], x: f64) -> f64 { unimplemented!() }
-    /// #     fn derivatives(ws: &[f64; 2], x: f64) -> [f64; 2] { unimplemented!() }
+    /// #     fn equation(&self, ws: &[f64; 2], x: f64) -> f64 { unimplemented!() }
+    /// #     fn derivatives(&self, ws: &[f64; 2], x: f64) -> [f64; 2] { unimplemented!() }
     /// # }
     /// # fn dummy() {
     /// # let xs = unimplemented!();
     /// # let ys = unimplemented!();
     /// # let initial_guess = unimplemented!();
-    /// let problem = Problem::as_least_squares_problem(xs, ys, initial_guess);
+    /// let problem = Problem.as_least_squares_problem(xs, ys, initial_guess);
     /// let (result, report) = LevenbergMarquardt::new().minimize(problem);
     /// let result = result.into(); // Convert the result into an array `[T; N_PARAMS]`.
     /// # }
     /// ```
     fn least_squares_fit(
+        &self,
         xs: &[T],
         ys: &[T],
         initial_guess: [T; N_PARAMS],
@@ -161,7 +163,7 @@ pub trait Equation<const N_PARAMS: usize, T> {
     where
         T: nalgebra::RealField + nalgebra::ComplexField + Copy + Float,
     {
-        let (result, report) = LevenbergMarquardt::new().minimize(Self::as_least_squares_problem(
+        let (result, report) = LevenbergMarquardt::new().minimize(self.as_least_squares_problem(
             xs,
             ys,
             initial_guess,
