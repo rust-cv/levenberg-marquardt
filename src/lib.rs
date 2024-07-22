@@ -107,6 +107,7 @@
 //!
 //! You should try using [`differentiate_numerically`](fn.differentiate_numerically.html)
 //! in a unit test to verify that your Jacobian implementation matches the residuals.
+#![allow(unexpected_cfgs)]
 #![no_std]
 #![cfg_attr(feature = "RUSTC_IS_NIGHTLY", core_intrinsics)]
 

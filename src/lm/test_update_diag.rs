@@ -1,13 +1,9 @@
-use ::core::f64::{INFINITY, NAN};
-use alloc::vec;
-
-use approx::assert_relative_eq;
-use nalgebra::*;
-
 use super::test_helpers::{MockCall, MockProblem};
-
 use super::{LevenbergMarquardt, TerminationReason, LM};
 use crate::qr::PivotedQR;
+use alloc::vec;
+use approx::assert_relative_eq;
+use nalgebra::*;
 
 #[test]
 fn gnorm_and_gtol() {
@@ -80,11 +76,11 @@ fn nan_inf_xnorm() {
     if cfg!(not(feature = "minpack-compat")) {
         let jacobian = Matrix3x2::new(1., 2., 4., -2., 0.5, 0.1);
         assert_eq!(
-            setup(Vector2::new(INFINITY, 0.), jacobian.clone()),
+            setup(Vector2::new(f64::INFINITY, 0.), jacobian.clone()),
             TerminationReason::Numerical("subproblem x")
         );
         assert_eq!(
-            setup(Vector2::new(NAN, 0.), jacobian.clone()),
+            setup(Vector2::new(f64::NAN, 0.), jacobian.clone()),
             TerminationReason::Numerical("subproblem x")
         );
     }
@@ -96,11 +92,14 @@ fn nan_inf_xnorm() {
         TerminationReason::Numerical("jacobian")
     };
     assert_eq!(
-        setup(x.clone(), Matrix3x2::new(INFINITY, 2., 4., -2., 0.5, 0.1)),
+        setup(
+            x.clone(),
+            Matrix3x2::new(f64::INFINITY, 2., 4., -2., 0.5, 0.1)
+        ),
         termination_reason
     );
     assert_eq!(
-        setup(x.clone(), Matrix3x2::new(NAN, 2., 4., -2., 0.5, 0.1)),
+        setup(x.clone(), Matrix3x2::new(f64::NAN, 2., 4., -2., 0.5, 0.1)),
         termination_reason
     );
 }

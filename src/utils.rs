@@ -1,3 +1,4 @@
+#![allow(unexpected_cfgs)]
 use crate::LeastSquaresProblem;
 use alloc::{format, string::String};
 use core::cell::RefCell;
@@ -109,7 +110,7 @@ where
     M: Dim,
     O: LeastSquaresProblem<F, M, N>,
     O::JacobianStorage: Clone,
-    DefaultAllocator: Allocator<F, M, N, Buffer = O::JacobianStorage>,
+    DefaultAllocator: Allocator<M, N, Buffer<F> = O::JacobianStorage>,
 {
     let params = problem.params();
     let n = params.data.shape().0;
@@ -217,9 +218,8 @@ where
     N: Dim,
     M: Dim,
     O: LeastSquaresProblem<Complex<F>, M, N>,
-    DefaultAllocator: Allocator<Complex<F>, N, Buffer = O::ParameterStorage>
-        + Allocator<F, N>
-        + Allocator<F, M, N>,
+    DefaultAllocator:
+        Allocator<N, Buffer<Complex<F>> = O::ParameterStorage> + Allocator<N> + Allocator<M, N>,
 {
     let mut params = problem.params();
     assert!(params.iter().all(|x| x.im.is_zero()), "params must be real");
