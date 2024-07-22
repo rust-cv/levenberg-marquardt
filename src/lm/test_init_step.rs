@@ -1,12 +1,8 @@
-use alloc::vec;
-use approx::assert_relative_eq;
-#[cfg(not(feature = "minpack-compat"))]
-use core::f64::{INFINITY, MIN_POSITIVE, NAN};
-
-use nalgebra::{Dim, Dyn, OMatrix, OVector, Vector2, Vector3, U0, U2, U3};
-
 use super::test_helpers::{MockCall, MockProblem};
 use super::{LevenbergMarquardt, TerminationReason, LM};
+use alloc::vec;
+use approx::assert_relative_eq;
+use nalgebra::{Dim, Dyn, OMatrix, OVector, Vector2, Vector3, U0, U2, U3};
 
 #[test]
 #[cfg(not(feature = "minpack-compat"))]
@@ -20,8 +16,10 @@ fn nan_or_inf_none_residual() {
     assert!(err.objective_function.is_nan());
 
     // residuals return inf
-    let problem =
-        MockProblem::<U2, U3>::new(Vector2::zeros(), vec![Some(Vector3::new(1., 1., INFINITY))]);
+    let problem = MockProblem::<U2, U3>::new(
+        Vector2::zeros(),
+        vec![Some(Vector3::new(1., 1., f64::INFINITY))],
+    );
     let (mut problem, err) = LM::new(&LevenbergMarquardt::new(), problem).err().unwrap();
     assert_eq!(
         err.termination,
@@ -33,7 +31,7 @@ fn nan_or_inf_none_residual() {
 
     // residuals return nan
     let problem =
-        MockProblem::<U2, U3>::new(Vector2::zeros(), vec![Some(Vector3::new(1., 1., NAN))]);
+        MockProblem::<U2, U3>::new(Vector2::zeros(), vec![Some(Vector3::new(1., 1., f64::NAN))]);
     let (mut problem, err) = LM::new(&LevenbergMarquardt::new(), problem).err().unwrap();
     assert_eq!(
         err.termination,
@@ -56,8 +54,10 @@ fn already_zero() {
     assert_eq!(problem.calls(), [MockCall::Residuals].as_ref());
     assert!(err.objective_function.is_zero());
 
-    let problem =
-        MockProblem::<U1, U1>::new(Vector1::new(10.), vec![Some(Vector1::new(MIN_POSITIVE))]);
+    let problem = MockProblem::<U1, U1>::new(
+        Vector1::new(10.),
+        vec![Some(Vector1::new(f64::MIN_POSITIVE))],
+    );
     let (mut problem, err) = LM::new(&LevenbergMarquardt::new(), problem).err().unwrap();
     assert_eq!(err.termination, TerminationReason::ResidualsZero);
     assert_eq!(err.number_of_evaluations, 1);
