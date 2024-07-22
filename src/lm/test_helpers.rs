@@ -15,7 +15,7 @@ pub enum MockCall {
 #[derive(Clone)]
 pub struct MockProblem<N: Dim, M: Dim>
 where
-    DefaultAllocator: Allocator<f64, N> + Allocator<f64, M> + Allocator<f64, M, N>,
+    DefaultAllocator: Allocator<N> + Allocator<M> + Allocator<M, N>,
 {
     call_history: RefCell<Vec<MockCall>>,
     params: Vec<OVector<f64, N>>,
@@ -27,7 +27,7 @@ where
 
 impl<N: Dim, M: Dim> MockProblem<N, M>
 where
-    DefaultAllocator: Allocator<f64, N> + Allocator<f64, M> + Allocator<f64, M, N>,
+    DefaultAllocator: Allocator<N> + Allocator<M> + Allocator<M, N>,
 {
     pub fn new(initial: OVector<f64, N>, residuals: Vec<Option<OVector<f64, M>>>) -> Self {
         Self {
@@ -47,7 +47,7 @@ where
 
 impl<N: Dim, M: Dim> LeastSquaresProblem<f64, M, N> for MockProblem<N, M>
 where
-    DefaultAllocator: Allocator<f64, N> + Allocator<f64, M> + Allocator<f64, M, N>,
+    DefaultAllocator: Allocator<N> + Allocator<M> + Allocator<M, N>,
 {
     type ResidualStorage = Owned<f64, M>;
     type ParameterStorage = Owned<f64, N>;

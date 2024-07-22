@@ -512,14 +512,14 @@ impl LeastSquaresProblem<f64, U16, U3> for Meyer {
 #[derive(Clone)]
 struct Watson<P: DimName>
 where
-    DefaultAllocator: Allocator<f64, P>,
+    DefaultAllocator: Allocator<P>,
 {
     params: OVector<f64, P>,
 }
 
 impl<P: DimName> Watson<P>
 where
-    DefaultAllocator: Allocator<f64, P>,
+    DefaultAllocator: Allocator<P>,
 {
     fn new(params: OVector<f64, P>, _n: usize) -> Self {
         Self { params }
@@ -528,7 +528,7 @@ where
 
 impl<P: DimName> LeastSquaresProblem<f64, U31, P> for Watson<P>
 where
-    DefaultAllocator: Allocator<f64, P> + Allocator<f64, U31, P>,
+    DefaultAllocator: Allocator<P> + Allocator<U31, P>,
 {
     type ParameterStorage = Owned<f64, P>;
     type ResidualStorage = Owned<f64, U31>;

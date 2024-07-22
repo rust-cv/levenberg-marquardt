@@ -33,7 +33,7 @@ where
     M: Dim + DimMin<N>,
     N: Dim,
     S: RawStorageMut<F, M, N> + IsContiguous,
-    DefaultAllocator: Allocator<F, N> + Allocator<usize, N>,
+    DefaultAllocator: Allocator<N>,
 {
     /// The column norms of the input matrix `$\mathbf{A}$`
     column_norms: OVector<F, N>,
@@ -54,7 +54,7 @@ where
     M: Dim + DimMin<N> + DimMax<N>,
     N: Dim,
     S: RawStorageMut<F, M, N> + Storage<F, M, N> + IsContiguous,
-    DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N> + Allocator<usize, N>,
+    DefaultAllocator: Allocator<N> + Allocator<DimMaximum<M, N>, N>,
 {
     /// Create a pivoted QR decomposition of a matrix `$\mathbf{A}\in\R^{m\times n}$`.
     pub fn new(mut a: Matrix<F, M, N, S>) -> Self {
@@ -203,7 +203,7 @@ where
     F: nalgebra::RealField + Float + Copy,
     M: Dim + DimMax<N>,
     N: Dim,
-    DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N> + Allocator<usize, N>,
+    DefaultAllocator: Allocator<N> + Allocator<DimMaximum<M, N>, N>,
 {
     /// The first `$n$` entries of `$\mathbf{Q}^\top \vec{b}$`.
     qt_b: OVector<F, N>,
@@ -224,7 +224,7 @@ where
     F: nalgebra::RealField + Copy,
     M: Dim + DimMax<N>,
     N: Dim,
-    DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N> + Allocator<usize, N>,
+    DefaultAllocator: Allocator<N> + Allocator<DimMaximum<M, N>, N>,
 {
     pub permutation: &'a OVector<usize, N>,
     l: &'a OMatrix<F, DimMaximum<M, N>, N>,
@@ -239,7 +239,7 @@ where
     F: nalgebra::RealField + Copy,
     M: Dim + DimMin<N> + DimMax<N>,
     N: Dim,
-    DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N> + Allocator<usize, N>,
+    DefaultAllocator: Allocator<N> + Allocator<DimMaximum<M, N>, N> + Allocator<N>,
 {
     /// Solve the equation `$\mathbf{L}\vec{x} = \mathbf{P}^\top \vec{b}$`.
     pub fn solve(&mut self, mut rhs: OVector<F, N>) -> OVector<F, N> {
@@ -295,7 +295,7 @@ where
     F: nalgebra::RealField + Float + Copy,
     M: Dim + DimMin<N> + DimMax<N>,
     N: Dim,
-    DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N> + Allocator<usize, N>,
+    DefaultAllocator: Allocator<N> + Allocator<DimMaximum<M, N>, N>,
 {
     /// Compute scaled maximum of dot products between `$\vec{b}$` and the columns of `$\mathbf{A}$`.
     ///

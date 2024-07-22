@@ -257,8 +257,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
         N: Dim,
         M: DimMin<N> + DimMax<N>,
         O: LeastSquaresProblem<F, M, N>,
-        DefaultAllocator:
-            Allocator<F, N> + Reallocator<F, M, N, DimMaximum<M, N>, N> + Allocator<usize, N>,
+        DefaultAllocator: Allocator<N> + Reallocator<F, M, N, DimMaximum<M, N>, N>,
     {
         let (mut lm, mut residuals) = match LM::new(self, target) {
             Err(report) => return report,
@@ -309,7 +308,7 @@ where
     N: Dim,
     M: DimMin<N> + DimMax<N>,
     O: LeastSquaresProblem<F, M, N>,
-    DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N>,
+    DefaultAllocator: Allocator<N> + Allocator<DimMaximum<M, N>, N>,
 {
     config: &'a LevenbergMarquardt<F>,
     /// Current parameters `$\vec{x}$`
@@ -342,7 +341,7 @@ where
     N: Dim,
     M: DimMin<N> + DimMax<N>,
     O: LeastSquaresProblem<F, M, N>,
-    DefaultAllocator: Allocator<F, N> + Allocator<F, DimMaximum<M, N>, N>,
+    DefaultAllocator: Allocator<N> + Allocator<DimMaximum<M, N>, N>,
 {
     #[allow(clippy::type_complexity)]
     fn new(
@@ -455,7 +454,7 @@ where
         lls: &mut LinearLeastSquaresDiagonalProblem<F, M, N>,
     ) -> Result<(), TerminationReason>
     where
-        DefaultAllocator: Allocator<usize, N>,
+        DefaultAllocator: Allocator<N>,
     {
         // Compute norm of scaled gradient and detect degeneracy
         self.gnorm = match lls.max_a_t_b_scaled(self.residuals_norm) {
@@ -510,7 +509,7 @@ where
         param: LMParameter<F, N>,
     ) -> Result<Option<Vector<F, M, O::ResidualStorage>>, TerminationReason>
     where
-        DefaultAllocator: Allocator<usize, N>,
+        DefaultAllocator: Allocator<N>,
     {
         const P1: f64 = 0.1;
         const P0001: f64 = 1.0e-4;
