@@ -1,3 +1,4 @@
+#![allow(unexpected_cfgs)]
 use crate::LeastSquaresProblem;
 use alloc::{format, string::String};
 use core::cell::RefCell;
