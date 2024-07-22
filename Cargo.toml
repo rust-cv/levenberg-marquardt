@@ -1,6 +1,6 @@
 [package]
 name = "levenberg-marquardt"
-version = "0.13.1"
+version = "0.14.0"
 authors = [
     "Jannik Schürg <schuerg@ins.uni-bonn.de>",
     "Geordon Worley <vadixidav@gmail.com>",
