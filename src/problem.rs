@@ -1,6 +1,6 @@
 use nalgebra::{
-    storage::{IsContiguous, RawStorageMut, Storage},
     ComplexField, Dim, Matrix, Vector,
+    storage::{IsContiguous, RawStorageMut, Storage},
 };
 
 /// A least squares minimization problem.

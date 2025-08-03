@@ -1,13 +1,13 @@
 use arrsac::Arrsac;
 use levenberg_marquardt::{LeastSquaresProblem, LevenbergMarquardt};
 use nalgebra::{
+    Dim, Dyn, Matrix, Matrix2, OMatrix, VecStorage, Vector2,
     dimension::{U1, U2},
     storage::Owned,
-    Dim, Dyn, Matrix, Matrix2, OMatrix, VecStorage, Vector2,
 };
 use rand::{
-    distr::{Distribution, Uniform},
     Rng, SeedableRng,
+    distr::{Distribution, Uniform},
 };
 use rand_chacha::ChaCha20Rng;
 use sample_consensus::{Consensus, Estimator, Model};

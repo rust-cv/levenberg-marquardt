@@ -1,5 +1,5 @@
 use super::test_helpers::{MockCall, MockProblem};
-use super::{LevenbergMarquardt, TerminationReason, LM};
+use super::{LM, LevenbergMarquardt, TerminationReason};
 use crate::qr::PivotedQR;
 use alloc::vec;
 use approx::assert_relative_eq;

@@ -4,8 +4,8 @@
 use crate::qr::LinearLeastSquaresDiagonalProblem;
 use crate::utils::{dwarf, enorm};
 use nalgebra::{
-    allocator::Allocator, convert, DefaultAllocator, Dim, DimMax, DimMaximum, DimMin, OVector,
-    RealField,
+    DefaultAllocator, Dim, DimMax, DimMaximum, DimMin, OVector, RealField, allocator::Allocator,
+    convert,
 };
 use num_traits::Float;
 

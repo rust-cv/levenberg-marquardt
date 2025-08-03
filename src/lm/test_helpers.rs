@@ -1,7 +1,7 @@
 use alloc::{vec, vec::Vec};
 use core::cell::RefCell;
 
-use nalgebra::{allocator::Allocator, storage::Owned, DefaultAllocator, Dim, OMatrix, OVector};
+use nalgebra::{DefaultAllocator, Dim, OMatrix, OVector, allocator::Allocator, storage::Owned};
 
 use crate::LeastSquaresProblem;
 

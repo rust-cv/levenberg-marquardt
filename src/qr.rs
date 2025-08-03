@@ -9,10 +9,10 @@
 use approx::assert_relative_eq;
 use core::iter::repeat;
 use nalgebra::{
+    DefaultAllocator, Dim, DimMax, DimMaximum, DimMin, Matrix, OMatrix, OVector, Vector,
     allocator::{Allocator, Reallocator},
     convert,
     storage::{IsContiguous, RawStorage, RawStorageMut, Storage},
-    DefaultAllocator, Dim, DimMax, DimMaximum, DimMin, Matrix, OMatrix, OVector, Vector,
 };
 use num_traits::Float;
 
@@ -627,7 +627,7 @@ fn test_pivoted_qr_more_branches() {
 #[test]
 fn test_pivoted_qr_big_rank1() {
     // This test case was generated directly from MINPACK's QRFAC
-    use nalgebra::{OMatrix, Vector5, U10, U5};
+    use nalgebra::{OMatrix, U5, U10, Vector5};
     let a = OMatrix::<f64, U10, U5>::from_fn(|i, j| ((i + 1) * (j + 1)) as f64);
     let qr = PivotedQR::new(a);
     let r_diag = Vector5::<f64>::new(-98.107084351742913, -3.9720546451956370E-015, 0., 0., 0.);
@@ -810,7 +810,7 @@ fn test_lls_zero_diagonal() {
 
 #[test]
 fn test_cholesky_lower() {
-    use nalgebra::{Matrix3, Vector3, U3};
+    use nalgebra::{Matrix3, U3, Vector3};
     let l = Matrix3::new(-1.0e10, 100., -1., 1., 1.0e8, 0.5, 1., 0.5, 100.);
     let mut chol = CholeskyFactor::<f64, U3, _> {
         l: &l,
@@ -832,7 +832,7 @@ fn test_cholesky_lower() {
 
 #[test]
 fn test_cholesky_upper() {
-    use nalgebra::{Matrix3, Vector3, U3};
+    use nalgebra::{Matrix3, U3, Vector3};
     let l = Matrix3::new(4., 7., 1., 123., 6., 8., 34., 34455., 9.);
     let mut chol = CholeskyFactor::<f64, U3, _> {
         l: &l,

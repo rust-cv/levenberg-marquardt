@@ -1,10 +1,11 @@
-use crate::qr::{LinearLeastSquaresDiagonalProblem, PivotedQR};
-use crate::trust_region::{determine_lambda_and_parameter_update, LMParameter};
-use crate::utils::{enorm, epsmch};
 use crate::LeastSquaresProblem;
+use crate::qr::{LinearLeastSquaresDiagonalProblem, PivotedQR};
+use crate::trust_region::{LMParameter, determine_lambda_and_parameter_update};
+use crate::utils::{enorm, epsmch};
 use nalgebra::{
+    DefaultAllocator, Dim, DimMax, DimMaximum, DimMin, Matrix, OVector, RealField, Vector,
     allocator::{Allocator, Reallocator},
-    convert, DefaultAllocator, Dim, DimMax, DimMaximum, DimMin, Matrix, OVector, RealField, Vector,
+    convert,
 };
 use num_traits::Float;
 
@@ -460,7 +461,7 @@ where
         self.gnorm = match lls.max_a_t_b_scaled(self.residuals_norm) {
             Some(max_at_b) => max_at_b,
             None if !cfg!(feature = "minpack-compat") => {
-                return Err(TerminationReason::Numerical("jacobian"))
+                return Err(TerminationReason::Numerical("jacobian"));
             }
             None => F::zero(),
         };

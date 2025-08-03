@@ -3,8 +3,8 @@ use crate::LeastSquaresProblem;
 use alloc::{format, string::String};
 use core::cell::RefCell;
 use nalgebra::{
-    allocator::Allocator, convert, storage::RawStorage, storage::Storage, Complex, ComplexField,
-    DefaultAllocator, Dim, Matrix, OMatrix, RealField, Vector, U1,
+    Complex, ComplexField, DefaultAllocator, Dim, Matrix, OMatrix, RealField, U1, Vector,
+    allocator::Allocator, convert, storage::RawStorage, storage::Storage,
 };
 use num_traits::float::Float;
 
@@ -406,7 +406,7 @@ fn test_linear_case() {
 #[test]
 fn test_reset_parameters() {
     use approx::assert_relative_eq;
-    use nalgebra::{storage::Owned, Matrix2, OVector, Vector2, U2};
+    use nalgebra::{Matrix2, OVector, U2, Vector2, storage::Owned};
     #[derive(Clone)]
     struct AllButOne {
         params: OVector<f64, U2>,
