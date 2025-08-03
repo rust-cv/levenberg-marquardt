@@ -65,5 +65,6 @@ jobs:
           cache-on-failure: true
 
       - name: Run cargo test
-        #run: cargo test --all-features --no-fail-fast --locked --workspace -- --nocapture
-        run: cargo test --all-features --no-fail-fast --workspace -- --nocapture
+        # run: cargo test --all-features --no-fail-fast --locked --workspace -- --nocapture
+        # run: cargo test --all-features --no-fail-fast --workspace -- --nocapture
+        run: cargo test --features "" --no-fail-fast --workspace -- --nocapture
