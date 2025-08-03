@@ -23,6 +23,7 @@ readme = "README.md"
 [features]
 default = []
 minpack-compat = []
+std = ["nalgebra/std"]
 
 [dependencies]
 nalgebra = { version = "0.34", default-features = false }
