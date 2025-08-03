@@ -5,9 +5,11 @@ use nalgebra::{
     storage::Owned,
     Dim, Dyn, Matrix, Matrix2, OMatrix, VecStorage, Vector2,
 };
-use pcg_rand::Pcg64;
-use rand::distributions::Uniform;
-use rand::{distributions::Distribution, Rng};
+use rand::{
+    distr::{Distribution, Uniform},
+    Rng, SeedableRng,
+};
+use rand_chacha::ChaCha20Rng;
 use sample_consensus::{Consensus, Estimator, Model};
 
 type F = f64;
@@ -134,27 +136,27 @@ impl<'a> LeastSquaresProblem<F, Dyn, U2> for LineFittingOptimizationProblem<'a> 
 
 #[test]
 fn lines() {
-    let mut rng = Pcg64::new_unseeded();
+    let mut rng = ChaCha20Rng::seed_from_u64(0);
     // The max candidate hypotheses had to be increased dramatically to ensure all 1000 cases find a
     // good-fitting line.
-    let mut arrsac = Arrsac::new(5.0, Pcg64::new_unseeded());
+    let mut arrsac = Arrsac::new(5.0, ChaCha20Rng::seed_from_u64(1));
     let mut would_have_failed = false;
     for _ in 0..LINES_TO_ESTIMATE {
         // Generate <a, b> and normalize.
         let normal =
-            Vector2::new(rng.gen_range(-10.0..10.0), rng.gen_range(-10.0..10.0)).normalize();
+            Vector2::new(rng.random_range(-10.0..10.0), rng.random_range(-10.0..10.0)).normalize();
         let normal_angle = F::atan2(normal[1], normal[0]);
         // Get parallel ray.
         let ray = Vector2::new(normal.y, -normal.x);
         // Generate random c.
-        let c = rng.gen_range(-10.0..10.0);
+        let c = rng.random_range(-10.0..10.0);
 
         // Generate random number of points.
-        let num = rng.gen_range(100..1000);
+        let num = rng.random_range(100..1000);
         // The points should be no more than 5.0 away from the line and be evenly distributed away from the line.
-        let residuals = Uniform::new(-5.0, 5.0);
+        let residuals = Uniform::new(-5.0, 5.0).unwrap();
         // The points must be generated along the line, but the distance should be bounded to make it more difficult.
-        let distances = Uniform::new(-50.0, 50.0);
+        let distances = Uniform::new(-50.0, 50.0).unwrap();
         // Generate the points.
         let points: Vec<Vector2<F>> = (0..num)
             .map(|_| {

@@ -11,79 +11,60 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install beta toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@beta
         with:
-          profile: minimal
-          toolchain: beta
-          override: true
           components: rustfmt, clippy
 
       - name: Set up cache
-        uses: Swatinem/rust-cache@v1
+        uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
 
       - name: Run cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        run: cargo fmt --all -- --check
 
       - name: Run cargo clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --tests -- -D warnings
+        run: cargo clippy --all-targets --tests -- -D warnings
 
   no_std:
     name: no_std
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Install beta toolchain
-        uses: actions-rs/toolchain@v1
+      - name: Install beta toolchain for ARM
+        uses: dtolnay/rust-toolchain@beta
         with:
-          profile: minimal
-          toolchain: beta
-          target: armv7a-none-eabi
-          override: true
+          targets: armv7a-none-eabi
 
       - name: Set up cache
-        uses: Swatinem/rust-cache@v1
+        uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
 
       - name: Build binary for armv7a-none-eabi
-        uses: actions-rs/cargo@v1
-        with:
-          command: rustc
-          args: --target=armv7a-none-eabi --manifest-path=ensure_no_std/Cargo.toml
+        run: cargo rustc --target=armv7a-none-eabi --manifest-path=ensure_no_std/Cargo.toml
 
   tests:
     name: tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install beta toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: beta
-          override: true
+        uses: dtolnay/rust-toolchain@beta
 
       - name: Set up cache
-        uses: Swatinem/rust-cache@v1
+        uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
 
       - name: Run cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+        # run: cargo test --all-features --no-fail-fast --locked --workspace -- --nocapture
+        # run: cargo test --all-features --no-fail-fast --workspace -- --nocapture
+        run: cargo test --features "" --no-fail-fast --workspace -- --nocapture
