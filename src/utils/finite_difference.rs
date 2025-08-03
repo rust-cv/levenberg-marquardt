@@ -1,6 +1,6 @@
 //! Implementation of an adaptive finite difference approximation.
 use alloc::{vec, vec::Vec};
-use nalgebra::{convert, Matrix3, RealField};
+use nalgebra::{Matrix3, RealField, convert};
 
 use num_traits::float::Float;
 
@@ -81,17 +81,17 @@ fn outlier_aware_minimum<F: Float>(mut values: Vec<(F, F)>) -> Option<F> {
     let mut min_err = F::max_value();
     let mut best_der = F::one();
     for val in values.iter() {
-        let (der, mut err) = val;
+        let &(der, mut err) = val;
         let is_outlier = ((der.abs() < abs_median / trim_fact
             || der.abs() > abs_median * trim_fact)
             && abs_median > F::from(1.0e-8).unwrap())
-            || *der < p25 - iqr
-            || p75 + iqr < *der;
+            || der < p25 - iqr
+            || p75 + iqr < der;
         if is_outlier {
-            err = err + (*der - median).abs();
+            err = err + (der - median).abs();
         }
         if err < min_err {
-            best_der = *der;
+            best_der = der;
             min_err = err;
         }
     }
