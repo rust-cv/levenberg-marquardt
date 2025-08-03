@@ -265,7 +265,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
         };
         let n = lm.x.nrows();
         loop {
-            // Build linear least squaress problem used for the trust-region subproblem
+            // Build linear least squares problem used for the trust-region subproblem
             let mut lls = {
                 let jacobian = match lm.jacobian() {
                     Err(reason) => return lm.into_report(reason),

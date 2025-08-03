@@ -362,7 +362,7 @@ where
         &mut self,
         diag: &OVector<F, N>,
         mut out: OVector<F, N>,
-    ) -> (OVector<F, N>, CholeskyFactor<F, M, N>) {
+    ) -> (OVector<F, N>, CholeskyFactor<'_, F, M, N>) {
         out.copy_from(&self.qt_b);
         let mut rhs = self.eliminate_diag(diag, out /* will be filled and returned */);
         core::mem::swap(&mut self.work, &mut rhs);
@@ -370,7 +370,7 @@ where
     }
 
     /// Solve the least squares problem with a zero diagonal.
-    pub fn solve_with_zero_diagonal(&mut self) -> (OVector<F, N>, CholeskyFactor<F, M, N>) {
+    pub fn solve_with_zero_diagonal(&mut self) -> (OVector<F, N>, CholeskyFactor<'_, F, M, N>) {
         let u1 = Dim::from_usize(1);
         let (_m, n) = self.upper_r.data.shape();
         let l = self.upper_r.rows_generic(0, n);
@@ -420,7 +420,7 @@ where
     fn solve_after_elimination(
         &mut self,
         mut x: OVector<F, N>,
-    ) -> (OVector<F, N>, CholeskyFactor<F, M, N>) {
+    ) -> (OVector<F, N>, CholeskyFactor<'_, F, M, N>) {
         let rank = self.rank();
         let rhs = &mut self.work;
         rhs.rows_range_mut(rank..).fill(F::zero());

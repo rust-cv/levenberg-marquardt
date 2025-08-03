@@ -25,7 +25,7 @@ default = []
 minpack-compat = []
 
 [dependencies]
-nalgebra = { version = "0.33", default-features = false }
+nalgebra = { version = "0.34", default-features = false }
 num-traits = { version = "0.2", default-features = false, features = [
     "libm",
 ] }
@@ -34,7 +34,7 @@ cfg-if = "1.0.0"
 [dev-dependencies]
 arrsac = "0.10.0"
 rand = { version = "0.8.4", default-features = false }
-nalgebra = "0.33"
+nalgebra = "0.34"
 pcg_rand = "0.13.0"
 sample-consensus = "1.0.2"
 approx = "0.5.1"
