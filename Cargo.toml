@@ -5,7 +5,7 @@ authors = [
     "Jannik Schürg <schuerg@ins.uni-bonn.de>",
     "Geordon Worley <vadixidav@gmail.com>",
 ]
-edition = "2021"
+edition = "2024"
 description = "Levenberg-Marquardt algorithm built on top of nalgebra"
 keywords = ["optimization", "optimizer", "levenberg", "marquardt", "squares"]
 categories = [
