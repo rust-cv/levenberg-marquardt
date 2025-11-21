@@ -188,3 +188,120 @@ fn lines() {
     // test that there were initial guesses that wouldn't have been enough
     assert!(would_have_failed);
 }
+
+// ===============================
+// ftol
+// ===============================
+
+#[test]
+#[should_panic(expected = "ftol must be >= 0")]
+fn with_ftol_panics_on_negative() {
+    let _ = LevenbergMarquardt::new().with_ftol(-1.0);
+}
+
+#[test]
+fn with_ftol_panics_on_negative_zero() {
+    let _ = LevenbergMarquardt::new().with_ftol(-0.0);
+}
+
+#[test]
+fn with_ftol_allows_zero_and_positive() {
+    let _ = LevenbergMarquardt::new().with_ftol(0.0);
+    let _ = LevenbergMarquardt::new().with_ftol(1e-8);
+}
+
+// ===============================
+// xtol
+// ===============================
+
+#[test]
+#[should_panic(expected = "xtol must be >= 0")]
+fn with_xtol_panics_on_negative() {
+    let _ = LevenbergMarquardt::new().with_xtol(-1.0);
+}
+
+#[test]
+fn with_xtol_panics_on_negative_zero() {
+    let _ = LevenbergMarquardt::new().with_xtol(-0.0);
+}
+
+#[test]
+fn with_xtol_allows_zero_and_positive() {
+    let _ = LevenbergMarquardt::new().with_xtol(0.0);
+    let _ = LevenbergMarquardt::new().with_xtol(1e-8);
+}
+
+// ===============================
+// gtol
+// ===============================
+
+#[test]
+#[should_panic(expected = "gtol must be >= 0")]
+fn with_gtol_panics_on_negative() {
+    let _ = LevenbergMarquardt::new().with_gtol(-1.0);
+}
+
+#[test]
+fn with_gtol_panics_on_negative_zero() {
+    let _ = LevenbergMarquardt::new().with_gtol(-0.0);
+}
+
+#[test]
+fn with_gtol_allows_zero_and_positive() {
+    let _ = LevenbergMarquardt::new().with_gtol(0.0);
+    let _ = LevenbergMarquardt::new().with_gtol(1e-8);
+}
+
+// ===============================
+// tol (MINPACK-style, must be > 0)
+// ===============================
+
+#[test]
+#[should_panic(expected = "tol must > 0")]
+fn with_tol_panics_on_zero() {
+    let _ = LevenbergMarquardt::new().with_tol(0.0);
+}
+
+#[test]
+#[should_panic(expected = "tol must > 0")]
+fn with_tol_panics_on_negative_zero() {
+    let _ = LevenbergMarquardt::new().with_tol(-0.0);
+}
+
+#[test]
+#[should_panic(expected = "tol must > 0")]
+fn with_tol_panics_on_negative() {
+    let _ = LevenbergMarquardt::new().with_tol(-1.0);
+}
+
+#[test]
+fn with_tol_allows_strictly_positive() {
+    let _ = LevenbergMarquardt::new().with_tol(1e-8);
+}
+
+// ===============================
+// stepbound (must be > 0)
+// ===============================
+
+#[test]
+#[should_panic(expected = "stepbound must be > 0")]
+fn with_stepbound_panics_on_zero() {
+    let _ = LevenbergMarquardt::new().with_stepbound(0.0);
+}
+
+#[test]
+#[should_panic(expected = "stepbound must be > 0")]
+fn with_stepbound_panics_on_negative_zero() {
+    let _ = LevenbergMarquardt::new().with_stepbound(-0.0);
+}
+
+#[test]
+#[should_panic(expected = "stepbound must be > 0")]
+fn with_stepbound_panics_on_negative() {
+    let _ = LevenbergMarquardt::new().with_stepbound(-1.0);
+}
+
+#[test]
+fn with_stepbound_allows_positive() {
+    let _ = LevenbergMarquardt::new().with_stepbound(1e-3);
+}
