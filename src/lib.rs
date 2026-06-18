@@ -115,12 +115,16 @@ extern crate alloc;
 
 mod lm;
 mod problem;
+#[cfg(feature = "num-dual")]
+mod problem_ad;
 mod qr;
 mod trust_region;
 pub(crate) mod utils;
 
 pub use lm::TerminationReason;
 pub use problem::LeastSquaresProblem;
+#[cfg(feature = "num-dual")]
+pub use problem_ad::{ADWrapper, LeastSquaresProblemAD};
 
 pub use utils::{differentiate_holomorphic_numerically, differentiate_numerically};
 
