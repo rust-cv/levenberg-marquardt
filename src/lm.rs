@@ -152,7 +152,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
     /// Panics if `$\mathtt{ftol} < 0$`.
     #[must_use]
     pub fn with_ftol(self, ftol: F) -> Self {
-        assert!(!ftol.is_negative(), "ftol must be >= 0");
+        assert!(ftol >= F::zero(), "ftol must be >= 0");
         Self { ftol, ..self }
     }
 
@@ -166,7 +166,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
     /// Panics if `$\mathtt{xtol} < 0$`.
     #[must_use]
     pub fn with_xtol(self, xtol: F) -> Self {
-        assert!(!xtol.is_negative(), "xtol must be >= 0");
+        assert!(xtol >= F::zero(), "xtol must be >= 0");
         Self { xtol, ..self }
     }
 
@@ -192,7 +192,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
     /// Panics if `$\mathtt{gtol} < 0$`.
     #[must_use]
     pub fn with_gtol(self, gtol: F) -> Self {
-        assert!(!gtol.is_negative(), "gtol must be >= 0");
+        assert!(gtol >= F::zero(), "gtol must be >= 0");
         Self { gtol, ..self }
     }
 
@@ -205,7 +205,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
     /// Panics if `$\mathtt{tol} \leq 0$`.
     #[must_use]
     pub fn with_tol(self, tol: F) -> Self {
-        assert!(tol.is_positive(), "tol must > 0");
+        assert!(tol > F::zero(), "tol must > 0");
         Self {
             ftol: tol,
             xtol: tol,
@@ -225,7 +225,7 @@ impl<F: RealField + Float> LevenbergMarquardt<F> {
     /// Panics if `$\mathtt{stepbound} \leq 0$`.
     #[must_use]
     pub fn with_stepbound(self, stepbound: F) -> Self {
-        assert!(stepbound.is_positive(), "stepbound must be > 0");
+        assert!(stepbound > F::zero(), "stepbound must be > 0");
         Self { stepbound, ..self }
     }
 
