@@ -119,10 +119,16 @@ mod qr;
 mod trust_region;
 pub(crate) mod utils;
 
+#[cfg(feature = "std")]
+mod equation;
+
 pub use lm::TerminationReason;
 pub use problem::LeastSquaresProblem;
 
 pub use utils::{differentiate_holomorphic_numerically, differentiate_numerically};
+
+#[cfg(feature = "std")]
+pub use equation::Equation;
 
 cfg_if::cfg_if! {
     if #[cfg(feature="minpack-compat")] {
